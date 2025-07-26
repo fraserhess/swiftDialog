@@ -27,33 +27,6 @@ struct Preset2Layout: View, InspectLayoutProtocol {
                 // Main icon - larger for Setup Manager style
                 IconView(image: inspectState.uiConfiguration.iconPath ?? "", defaultImage: "briefcase.fill", defaultColour: "accent")
                     .frame(maxHeight: 120 * scale)
-                    //.cornerRadius(15)
-                /*
-                if let iconPath = inspectState.uiConfiguration.iconPath,
-                   FileManager.default.fileExists(atPath: iconPath) {
-                    Image(nsImage: NSImage(contentsOfFile: iconPath) ?? NSImage())
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(maxHeight: 100 * scale)
-                        .cornerRadius(15)
-                } else {
-                    // Default Setup Manager style icon
-                    RoundedRectangle(cornerRadius: 15)
-                        .fill(
-                            LinearGradient(
-                                gradient: Gradient(colors: [Color.blue.opacity(0.8), Color.blue]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 120 * scale, height: 120 * scale)
-                        .overlay(
-                            Image(systemName: "briefcase.fill")
-                                .font(.system(size: 40 * scale))
-                                .foregroundColor(.white)
-                        )
-                }
-                 */
 
                 // Welcome title
                 Text(inspectState.uiConfiguration.windowTitle)

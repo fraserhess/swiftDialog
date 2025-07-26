@@ -62,33 +62,9 @@ struct Preset3Layout: View, InspectLayoutProtocol {
                 
                 // Enlarged company icon section - always visible
                 VStack(spacing: 12) {
-                    if let iconPath = inspectState.uiConfiguration.iconPath,
-                       FileManager.default.fileExists(atPath: iconPath),
-                       let nsImage = NSImage(contentsOfFile: iconPath) {
-                        Image(nsImage: nsImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(maxHeight: 120 * scale)
-                            .cornerRadius(12)
-                    } else {
-                        // Use a more visible company logo placeholder
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.white.opacity(0.2))
-                                .frame(width: 140 * scale, height: 120 * scale)
-                            
-                            VStack(spacing: 8) {
-                                Image(systemName: "building.2.fill")
-                                    .font(.system(size: 36 * scale))
-                                    .foregroundColor(.white)
-                                Text("ACME")
-                                    .font(.title3)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.white)
-                            }
-                        }
-                    }
-                    
+                    IconView(image: inspectState.uiConfiguration.iconPath ?? "", sfPaddingEnabled: false, corners: false, defaultImage: "building.2.fill", defaultColour: "accent")
+                        .frame(maxHeight: 120 * scale)
+
                     // Add subtitle message if available
                     if let subtitle = inspectState.uiConfiguration.subtitleMessage {
                         Text(subtitle)
@@ -119,7 +95,7 @@ struct Preset3Layout: View, InspectLayoutProtocol {
                             ForEach(sortedItems, id: \.id) { item in
                                 HStack {
                                     // Small item icon
-                                    IconView(image: item.icon!, sfPaddingEnabled: false, corners: false, defaultImage: "app.badge.fill", defaultColour: "blue")
+                                    IconView(image: item.icon ?? "", sfPaddingEnabled: false, corners: false, defaultImage: "app.badge.fill", defaultColour: "accent")
                                         .frame(width: 24 * scale, height: 24 * scale)
 
                                     // Item name

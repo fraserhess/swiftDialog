@@ -32,18 +32,8 @@ struct Preset5Layout: View, InspectLayoutProtocol {
                 // Security Icon and Title
                 HStack(spacing: 12 * scale) {
                     // Icon from configuration
-                    if let iconPath = inspectState.uiConfiguration.iconPath,
-                       FileManager.default.fileExists(atPath: iconPath) {
-                        Image(nsImage: NSImage(contentsOfFile: iconPath) ?? NSImage())
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
+                    IconView(image: inspectState.uiConfiguration.iconPath ?? "", defaultImage: "shield.checkered", defaultColour: "accent")
                             .frame(width: 52 * scale, height: 52 * scale)
-                    } else {
-                        Image(systemName: "shield.checkered")
-                            .font(.system(size: 24 * scale, weight: .medium))
-                            .foregroundColor(.blue)
-                            .frame(width: 32 * scale, height: 32 * scale)
-                    }
                     
                     VStack(alignment: .leading, spacing: 2 * scale) {
                         Text(inspectState.uiConfiguration.windowTitle)

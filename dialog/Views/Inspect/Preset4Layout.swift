@@ -61,14 +61,9 @@ struct Preset4Layout: View, InspectLayoutProtocol {
         VStack(spacing: 8 * scaleFactor) {
             HStack(spacing: 15 * scaleFactor) {
                 // Compact logo
-                if let iconPath = inspectState.uiConfiguration.iconPath,
-                   FileManager.default.fileExists(atPath: iconPath) {
-                    Image(nsImage: NSImage(contentsOfFile: iconPath) ?? NSImage())
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 40 * scaleFactor, height: 40 * scaleFactor)
-                }
-                
+                IconView(image: inspectState.uiConfiguration.iconPath ?? "", defaultImage: "apps.iphone.badge.plus", defaultColour: "accent")
+                    .frame(width: 40 * scaleFactor, height: 40 * scaleFactor)
+
                 // Compact title only
                 Text(inspectState.uiConfiguration.windowTitle)
                     .font(.title2.weight(.semibold))
@@ -296,16 +291,7 @@ struct SimpleInspectionTile: View {
         HStack(spacing: 15 * scaleFactor) {
             // Item icon (from config)
             Group {
-                if let iconPath = icon, FileManager.default.fileExists(atPath: iconPath) {
-                    Image(nsImage: NSImage(contentsOfFile: iconPath) ?? NSImage())
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                } else {
-                    // Default system icons based on item type
-                    Image(systemName: getSystemIcon(for: title))
-                        .font(.title2)
-                        .foregroundColor(.accentColor)
-                }
+                IconView(image: icon ?? "", defaultImage: getSystemIcon(for: title), defaultColour: "accent")
             }
             .frame(width: 32 * scaleFactor, height: 32 * scaleFactor)
             

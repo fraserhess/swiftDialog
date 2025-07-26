@@ -26,26 +26,6 @@ struct Preset1Layout: View, InspectLayoutProtocol {
                 IconView(image: inspectState.uiConfiguration.iconPath ?? "", defaultImage: "apps.iphone.badge.plus", defaultColour: "accent")
                     .frame(width: 250 * scaleFactor, height: 250 * scaleFactor)
 
-                /*
-                if let iconPath = inspectState.uiConfiguration.iconPath,
-                   FileManager.default.fileExists(atPath: iconPath) {
-                    Image(nsImage: NSImage(contentsOfFile: iconPath) ?? NSImage())
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(maxWidth: 300 * scaleFactor, maxHeight: 300 * scaleFactor)
-                } else {
-                    // Default icon
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.blue)
-                        .frame(width: 250 * scaleFactor, height: 250 * scaleFactor)
-                        .overlay(
-                            Image(systemName: "apps.iphone.badge.plus")
-                                .font(.system(size: 80 * scaleFactor))
-                                .foregroundColor(.white)
-                        )
-                }
-                 */
-
                 // Progress bar
                 if !inspectState.items.isEmpty {
                     let progress = Double(inspectState.completedItems.count) / Double(inspectState.items.count)
@@ -122,7 +102,6 @@ struct Preset1Layout: View, InspectLayoutProtocol {
                             }
                             HStack {
                                 // Item icon
-                                //itemIcon(for: item, size: 32)
                                 IconView(image: item.icon ?? "", defaultImage: systemImage, defaultColour: "accent")
                                     .frame(width: 32, height: 32)
 
