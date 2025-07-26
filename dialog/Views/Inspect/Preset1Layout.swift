@@ -12,7 +12,8 @@ struct Preset1Layout: View, InspectLayoutProtocol {
     @ObservedObject var inspectState: InspectState
     let isMini: Bool
     @State private var showingAboutPopover = false
-    
+    let systemImage: String = isLaptop ? "laptopcomputer.and.arrow.down" : "desktopcomputer.and.arrow.down"
+
     init(inspectState: InspectState, isMini: Bool = false) {
         self.inspectState = inspectState
         self.isMini = isMini
@@ -22,6 +23,10 @@ struct Preset1Layout: View, InspectLayoutProtocol {
         HStack(spacing: 0) {
             // Left sidebar with icon/image
             VStack {
+                IconView(image: inspectState.uiConfiguration.iconPath ?? "", defaultImage: "apps.iphone.badge.plus", defaultColour: "accent")
+                    .frame(width: 250 * scaleFactor, height: 250 * scaleFactor)
+
+                /*
                 if let iconPath = inspectState.uiConfiguration.iconPath,
                    FileManager.default.fileExists(atPath: iconPath) {
                     Image(nsImage: NSImage(contentsOfFile: iconPath) ?? NSImage())
@@ -39,7 +44,8 @@ struct Preset1Layout: View, InspectLayoutProtocol {
                                 .foregroundColor(.white)
                         )
                 }
-                
+                 */
+
                 // Progress bar
                 if !inspectState.items.isEmpty {
                     let progress = Double(inspectState.completedItems.count) / Double(inspectState.items.count)
@@ -116,8 +122,10 @@ struct Preset1Layout: View, InspectLayoutProtocol {
                             }
                             HStack {
                                 // Item icon
-                                itemIcon(for: item, size: 32)
-                                
+                                //itemIcon(for: item, size: 32)
+                                IconView(image: item.icon ?? "", defaultImage: systemImage, defaultColour: "accent")
+                                    .frame(width: 32, height: 32)
+
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(item.displayName)
                                         .font(.system(size: 14, weight: .medium))

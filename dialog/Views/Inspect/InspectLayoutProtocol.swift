@@ -89,6 +89,9 @@ extension InspectLayoutProtocol {
     
     @ViewBuilder
     func itemIcon(for item: InspectConfig.ItemConfig, size: CGFloat) -> some View {
+        IconView(image: item.icon ?? "app.fill")
+            .frame(width: size, height: size)
+        /*
         if let iconPath = item.icon,
            FileManager.default.fileExists(atPath: iconPath) {
             Image(nsImage: NSImage(contentsOfFile: iconPath) ?? NSImage())
@@ -101,6 +104,7 @@ extension InspectLayoutProtocol {
                 .foregroundColor(.blue)
                 .frame(width: size, height: size)
         }
+         */
     }
     
     @ViewBuilder

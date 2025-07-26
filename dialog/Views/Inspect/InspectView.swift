@@ -356,12 +356,16 @@ struct ItemCardView: View {
     let isDownloading: Bool
     let highlightColor: String
     let scale: CGFloat
-    
+    let systemImage: String = isLaptop ? "laptopcomputer.and.arrow.down" : "desktopcomputer.and.arrow.down"
+
     var body: some View {
         VStack(spacing: 8 * scale) {
             // Item icon with status overlay
             ZStack {
                 // Item icon
+                IconView(image: item.icon!, defaultImage: systemImage, defaultColour: "accent")
+                    .frame(width: 64 * scale, height: 64 * scale)
+                /*
                 if let iconPath = item.icon,
                    FileManager.default.fileExists(atPath: iconPath) {
                     Image(nsImage: NSImage(contentsOfFile: iconPath) ?? NSImage())
@@ -379,7 +383,8 @@ struct ItemCardView: View {
                                 .foregroundColor(.blue)
                         )
                 }
-                
+                */
+
                 // Status indicator overlay
                 VStack {
                     HStack {

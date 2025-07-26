@@ -25,6 +25,10 @@ struct Preset2Layout: View, InspectLayoutProtocol {
             // Top section with welcome and large icon
             VStack(spacing: 20 * scale) {
                 // Main icon - larger for Setup Manager style
+                IconView(image: inspectState.uiConfiguration.iconPath ?? "", defaultImage: "briefcase.fill", defaultColour: "accent")
+                    .frame(maxHeight: 120 * scale)
+                    //.cornerRadius(15)
+                /*
                 if let iconPath = inspectState.uiConfiguration.iconPath,
                    FileManager.default.fileExists(atPath: iconPath) {
                     Image(nsImage: NSImage(contentsOfFile: iconPath) ?? NSImage())
@@ -49,7 +53,8 @@ struct Preset2Layout: View, InspectLayoutProtocol {
                                 .foregroundColor(.white)
                         )
                 }
-                
+                 */
+
                 // Welcome title
                 Text(inspectState.uiConfiguration.windowTitle)
                     .font(.largeTitle)

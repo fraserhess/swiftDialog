@@ -346,3 +346,23 @@ var dialogIsAuthorised: Bool {
     }
     return true
 }
+
+func getModelIdentifier() -> String? {
+    var size: Int = 0
+    sysctlbyname("hw.model", nil, &size, nil, 0)
+    var model = [CChar](repeating: 0, count: size)
+    let result = sysctlbyname("hw.model", &model, &size, nil, 0)
+    if result == 0 {
+        return String(cString: model)
+    }
+    return nil
+}
+
+var isLaptop: Bool {
+    guard let modelIdentifier = getModelIdentifier() else {
+        return false // default to desktop if unknown
+    }
+
+    // MacBook model identifiers typically start with "MacBook"
+    return modelIdentifier.hasPrefix("MacBook")
+}

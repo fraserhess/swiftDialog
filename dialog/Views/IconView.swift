@@ -58,7 +58,7 @@ struct IconView: View {
 
     let argRegex = String("(,? ?[a-zA-Z1-9]+=|(,\\s?editor)|(,\\s?fileselect))|(,\\s?passwordfill)|(,\\s?required)|(,\\s?secure)")
 
-    init(image: String = "", overlay: String = "", alpha: Double = 1.0, padding: Double = 0, sfPaddingEnabled: Bool = true, corners: Bool = true) {
+    init(image: String = "", overlay: String = "", alpha: Double = 1.0, padding: Double = 0, sfPaddingEnabled: Bool = true, corners: Bool = true, defaultImage: String = "bubble.left.circle.fill", defaultColour: String = "primary") {
 
         mainImageAlpha = alpha
         messageUserImagePath = image
@@ -67,6 +67,9 @@ struct IconView: View {
 
         framePadding = padding
         sfSymbolPadding = sfPaddingEnabled
+
+        builtInIconName = defaultImage
+        builtInIconColour = Color(argument: defaultColour)
 
         writeLog("Displaying icon image \(image), alpha \(alpha)")
         if !iconOverlay.isEmpty {
@@ -229,7 +232,6 @@ struct IconView: View {
             builtInIconPresent = true
         } else if messageUserImagePath == "default" || (!builtInIconPresent && !FileManager.default.fileExists(atPath: messageUserImagePath) && !imgFromURL && !imgFromBase64 && !imgFromText && !textToQR) {
             writeLog("Icon not specified - using default icon")
-            builtInIconName = "bubble.left.circle.fill"
             iconRenderingMode = Image.TemplateRenderingMode.template //force monochrome
             builtInIconPresent = true
         }

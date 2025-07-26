@@ -119,19 +119,9 @@ struct Preset3Layout: View, InspectLayoutProtocol {
                             ForEach(sortedItems, id: \.id) { item in
                                 HStack {
                                     // Small item icon
-                                    if let iconPath = item.icon,
-                                       FileManager.default.fileExists(atPath: iconPath) {
-                                        Image(nsImage: NSImage(contentsOfFile: iconPath) ?? NSImage())
-                                            .resizable()
-                                            .aspectRatio(contentMode: .fit)
-                                            .frame(width: 24 * scale, height: 24 * scale)
-                                    } else {
-                                        Image(systemName: "app.fill")
-                                            .font(.system(size: 20 * scale))
-                                            .foregroundColor(.blue)
-                                            .frame(width: 24 * scale, height: 24 * scale)
-                                    }
-                                    
+                                    IconView(image: item.icon!, sfPaddingEnabled: false, corners: false, defaultImage: "app.badge.fill", defaultColour: "blue")
+                                        .frame(width: 24 * scale, height: 24 * scale)
+
                                     // Item name
                                     Text(item.displayName)
                                         .font(.body)
