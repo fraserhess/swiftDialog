@@ -63,11 +63,11 @@
       <CommandLineArguments>
          <CommandLineArgument
             argument = "--position topright"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--displaylog /var/tmp/test.log"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--listitem &quot;test1&quot;,icon=&quot;sf=applelogo&quot;,status=wait,subtitle=&quot;Here is a sub title. Here is a sub title. Here is a sub title. Here is a sub title. Here is a sub title. Here is a sub title. &quot; --icon sf=applelogo --listitem &quot;test 2&quot;,icon=&quot;sf=applelogo&quot;,status=progress"
@@ -79,7 +79,7 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--moveable"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--bannerimage &quot;https://img.freepik.com/free-vector/abstract-orange-background-with-lines-halftone-effect_1017-32107.jpg&quot;"
@@ -91,6 +91,10 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--ontop"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--inspect-mode --windowbuttons --moveable"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
