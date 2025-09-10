@@ -369,7 +369,6 @@ var isLaptop: Bool {
 
 func activateDialog() {
     DispatchQueue.main.async {
-        NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 }

@@ -91,11 +91,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 background.close()
             }
 
+            
             placeWindow(window, size: window.frame.size,
                         vertical: appvars.windowPositionVertical,
                 horozontal: appvars.windowPositionHorozontal,
                         offset: appvars.windowPositionOffset)
-
+            
             // order to the front
             window.makeKeyAndOrderFront(self)
 
@@ -111,7 +112,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
 }
 
-@available(OSX 12.0, *)
 @main
 struct dialogApp: App {
 
