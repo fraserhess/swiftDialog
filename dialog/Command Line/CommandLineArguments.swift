@@ -91,6 +91,7 @@ struct CommandLineArguments {
     var authkey                  = CommandlineArgument(long: "key", short: "k")
     var hash                     = CommandlineArgument(long: "checksum")
     var logFileToTail            = CommandlineArgument(long: "displaylog")
+    var logFileHistory           = CommandlineArgument(long: "loghistory", defaultValue: appvars.logFileHistory)
     var preferredViewOrder       = CommandlineArgument(long: "vieworder")
     var preferredAppearance      = CommandlineArgument(long: "appearance")
     var setAppIcon               = CommandlineArgument(long: "seticon")
@@ -281,6 +282,7 @@ extension CommandLineArguments {
                     case "authkey": self.authkey = argument
                     case "hash": self.hash = argument
                     case "logFileToTail": self.logFileToTail = argument
+                    case "logFileHistory": self.logFileHistory = argument
                     case "preferredViewOrder": self.preferredViewOrder = argument
                     case "preferredAppearance": self.preferredAppearance = argument
                     case "button1Disabled": self.button1Disabled = argument

@@ -66,6 +66,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "--displaylog /var/log/jamf.log"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "--displaylog /var/tmp/test.log"
             isEnabled = "NO">
          </CommandLineArgument>

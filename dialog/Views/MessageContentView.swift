@@ -19,6 +19,7 @@ struct MessageContent: View {
     let defaultMessageHeight: CGFloat = 50
 
     var messageColour: Color
+    var logHistoryLimit: Int
 
     var iconDisplayWidth: CGFloat
 
@@ -37,6 +38,7 @@ struct MessageContent: View {
             iconDisplayWidth = observedDialogContent.iconSize
         }
         messageColour = observedDialogContent.appProperties.messageFontColour
+        self.logHistoryLimit = Int(observedDialogContent.args.logFileHistory.value) ?? appvars.logFileHistory
     }
 
     var body: some View {
@@ -145,7 +147,7 @@ struct MessageContent: View {
             Group {
                 ForEach(Array(observedData.appProperties.viewOrder.indices), id: \.self) { index in
                     if observedData.appProperties.viewOrder.firstIndex(of: ViewType.textfile.rawValue) == index {
-                        TextFileView(logFilePath: observedData.args.logFileToTail.value)
+                        TextFileView(logFilePath: observedData.args.logFileToTail.value, loadHistory: observedData.args.logFileHistory.present, historyLineLimit: logHistoryLimit)
                             .padding(.bottom, appDefaults.contentPadding)
                     }
                     if observedData.appProperties.viewOrder.firstIndex(of: ViewType.webcontent.rawValue) == index {

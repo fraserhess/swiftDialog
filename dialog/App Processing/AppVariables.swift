@@ -101,6 +101,8 @@ struct AppVariables {
 
     var windowBackgroundColour          = Color.clear
 
+    // logFileHistory
+    var logFileHistory                  = Int(100)
 
     // Screen Size
     var screenWidth                     = CGFloat(0)

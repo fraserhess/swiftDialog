@@ -12,9 +12,13 @@ struct TextFileView: View {
     @State private var textAreaContent = ""
     @State private var fileMonitor: DispatchSourceRead?
     var textContentPath: String
+    var loadHistory: Bool
+    var historyLineLimit: Int
 
-    init(logFilePath: String) {
+    init(logFilePath: String, loadHistory: Bool = true, historyLineLimit: Int = 1000) {
         self.textContentPath = logFilePath
+        self.loadHistory = loadHistory
+        self.historyLineLimit = historyLineLimit
     }
 
     var body: some View {
@@ -30,15 +34,40 @@ struct TextFileView: View {
                 .cornerRadius(5.0)
                 .onAppear {
                     DispatchQueue.main.async {
+                        if loadHistory {
+                            loadExistingContent()
+                        }
                         startStreamingLogFile()
                     }
                 }
-                .onChange(of: textAreaContent, perform: { _ in
+                .onChange(of: textAreaContent) {
                     Task {
                         proxy.scrollTo("logContent", anchor: .bottom)
                     }
-                })
+                }
             }
+        }
+    }
+    
+    private func loadExistingContent() {
+        do {
+            let fileContent = try String(contentsOfFile: textContentPath, encoding: .utf8)
+            let lines = fileContent.components(separatedBy: .newlines)
+            
+            if historyLineLimit > 0 && lines.count > historyLineLimit {
+                let lastLines = Array(lines.suffix(historyLineLimit))
+                textAreaContent = lastLines.joined(separator: "\n")
+            } else {
+                textAreaContent = fileContent
+            }
+            
+            // Ensure content ends with newline if it doesn't already
+            if !textAreaContent.isEmpty && !textAreaContent.hasSuffix("\n") {
+                textAreaContent += "\n"
+            }
+            
+        } catch {
+            print("Error loading existing log content: \(error.localizedDescription)")
         }
     }
 
@@ -71,7 +100,6 @@ struct TextFileView: View {
             print("Error opening or reading log file: \(error.localizedDescription)")
         }
     }
-
 }
 
 extension FileHandle {
@@ -98,4 +126,3 @@ extension FileHandle {
         }
     }
 }
-

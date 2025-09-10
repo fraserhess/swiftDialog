@@ -824,6 +824,15 @@ struct SDHelp {
         argument.logFileToTail.helpLong = """
         Open a file and display the contents as it is being written
 """
+        
+        argument.logFileHistory.helpShort = "Display log file history when used with --\(argument.logFileToTail.long)"
+        argument.logFileHistory.helpUsage = "<int>"
+        argument.logFileHistory.helpLong = """
+        When file contents are being observed for changes, adding this option will pre-populate the display with the previous <int> lines of history.
+        Default value is 100
+
+        * Note * - Loading a large history may cause a short visual delay as the lines are being loaded in depending on the value. 
+"""
 
 
         argument.hideTimerBar.helpShort = "Hide countdown timer if enabled"
