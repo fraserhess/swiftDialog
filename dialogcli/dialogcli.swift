@@ -76,13 +76,13 @@ struct DialogLauncher: ParsableCommand {
 
             // Run as the specified user
             let result = runAsUser(uid: userUID, user: user, binary: dialogBinary, args: reorderedArgs)
-            print(result.stdout)
+            print(result.stdout, terminator: "")
             fputs(result.stderr, stderr)
             throw ExitCode(result.status)
         } else {
             // Run directly as the current user
             let result = runCommand(binary: dialogBinary, args: reorderedArgs)
-            print(result.stdout)
+            print(result.stdout, terminator: "")
             fputs(result.stderr, stderr)
             throw ExitCode(result.status)
         }
@@ -126,8 +126,8 @@ struct DialogLauncher: ParsableCommand {
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
-        var stdout = ""
-        var stderrOutput = ""
+        var stdout: String = ""
+        var stderrOutput: String = ""
 
         // Set up a handler to stream stderr in real-time
         let stderrHandle = stderrPipe.fileHandleForReading
