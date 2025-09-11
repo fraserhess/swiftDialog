@@ -90,9 +90,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             } else {
                 background.close()
             }
-
             
-            placeWindow(window, size: window.frame.size,
+            placeWindow(window, size: CGSize(width: appvars.windowWidth, height: appvars.windowHeight),
                         vertical: appvars.windowPositionVertical,
                 horozontal: appvars.windowPositionHorozontal,
                         offset: appvars.windowPositionOffset)

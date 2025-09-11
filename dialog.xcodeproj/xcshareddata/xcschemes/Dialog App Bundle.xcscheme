@@ -62,12 +62,12 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "--position topright"
-            isEnabled = "NO">
+            argument = "--position bottomright"
+            isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--displaylog /var/log/jamf.log"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--displaylog /var/tmp/test.log"
@@ -118,8 +118,8 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-- height 700 --width 900"
-            isEnabled = "NO">
+            argument = "--height 300"
+            isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--builder"

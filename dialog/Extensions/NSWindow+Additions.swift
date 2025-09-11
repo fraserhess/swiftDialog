@@ -114,19 +114,23 @@ func calculateWindowXPos(screenWidth: CGFloat, position: NSWindow.Position.Horiz
 func placeWindow(_ window: NSWindow, size: CGSize? = nil, vertical: NSWindow.Position.Vertical, horozontal: NSWindow.Position.Horizontal, offset: CGFloat) {
     let main = NSScreen.main!
     let visibleFrame = main.visibleFrame
+    let titleBarOffset: CGFloat = (main.frame.height - visibleFrame.height) + 1
+    
+    // Set window Size
     var windowSize: CGSize
     if size == nil {
         windowSize = window.frame.size
     } else {
-        windowSize = size ?? window.frame.size
+        windowSize = CGSize(width: size?.width ?? window.frame.width, height: (size?.height ?? window.frame.height) + titleBarOffset)
     }
 
+    // Set Window x and y Position based on size and offset
     let windowX = calculateWindowXPos(screenWidth: visibleFrame.width - windowSize.width, position: horozontal, offset: offset)
     let windowY = calculateWindowYPos(screenHeight: visibleFrame.height - windowSize.height, position: vertical, offset: offset)
-
-    let desiredOrigin = CGPoint(x: visibleFrame.origin.x + windowX, y: visibleFrame.origin.y + windowY)
-    window.setContentSize(windowSize)
-    window.setFrameOrigin(desiredOrigin)
+    
+    // Set window frame
+    let newFrame = NSRect(x: visibleFrame.origin.x + windowX, y: visibleFrame.origin.y + windowY, width: windowSize.width, height: windowSize.height)
+    window.setFrame(newFrame, display: true)
 }
 
 func windowPosition(_ position: String) -> (vertical: NSWindow.Position.Vertical, horozontal: NSWindow.Position.Horizontal) {
