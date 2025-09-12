@@ -16,14 +16,14 @@ func CLOptionMultiOptions(optionName: String) -> Array<String> {
     for argument in CLArguments {
 
         if argument == "--\(optionName)" {
-            // Check to see if the options are listed as a comma seperates array
-            //let argArray = CLArguments[argIndex+1].components(separatedBy: ",")
-            //if argArray.count > 1 {
-            //    optionsArray += argArray
-            //    continue
-            //} else {
+            switch optionName {
+            case "image", "icon":
+                // Accept as comma seperate values
+                let argArray = CLArguments[argIndex+1].components(separatedBy: ",")
+                optionsArray += argArray
+            default:
                 optionsArray.append(CLArguments[argIndex+1])
-            //}
+            }
         }
         argIndex+=1
     }
