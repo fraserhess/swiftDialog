@@ -676,10 +676,12 @@ func processCLOptions(json: JSON = getJSON()) {
                 if json[appArguments.listItem.long][index]["title"].stringValue == "" {
                     userInputState.listItems.append(ListItems(title: String(json[appArguments.listItem.long][index].stringValue)))
                 } else {
+                    let iconAlpha: CGFloat = CGFloat(json[appArguments.listItem.long][index]["iconalpha"].exists() ?
+                                                     json[appArguments.listItem.long][index]["iconalpha"].floatValue : 1.0)
                     userInputState.listItems.append(ListItems(title: String(json[appArguments.listItem.long][index]["title"].stringValue),
                                                subTitle: String(json[appArguments.listItem.long][index]["subtitle"].stringValue),
                                                icon: String(json[appArguments.listItem.long][index]["icon"].stringValue),
-                                               iconAlpha: CGFloat(json[appArguments.listItem.long][index]["iconalpha"].floatValue),
+                                               iconAlpha: iconAlpha,
                                                statusText: String(json[appArguments.listItem.long][index]["statustext"].stringValue),
                                                statusIcon: String(json[appArguments.listItem.long][index]["status"].stringValue),
                                                 action: String(json[appArguments.listItem.long][index]["action"].stringValue))
