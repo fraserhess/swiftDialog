@@ -128,8 +128,12 @@ func placeWindow(_ window: NSWindow, size: CGSize? = nil, vertical: NSWindow.Pos
     let windowX = calculateWindowXPos(screenWidth: visibleFrame.width - windowSize.width, position: horozontal, offset: offset)
     let windowY = calculateWindowYPos(screenHeight: visibleFrame.height - windowSize.height, position: vertical, offset: offset)
     
+    // If x or y positions are off the screen (when using explicit coordinates) re-adjust to fit in the visible frame
+    let adjustedWindowX = max(visibleFrame.origin.x, min(windowX, visibleFrame.origin.x + visibleFrame.width - windowSize.width))
+    let adjustedWindowY = max(visibleFrame.origin.y, min(windowY, visibleFrame.origin.y + visibleFrame.height - windowSize.height))
+    
     // Set window frame
-    let newFrame = NSRect(x: visibleFrame.origin.x + windowX, y: visibleFrame.origin.y + windowY, width: windowSize.width, height: windowSize.height)
+    let newFrame = NSRect(x: adjustedWindowX, y: adjustedWindowY, width: windowSize.width, height: windowSize.height)
     window.setFrame(newFrame, display: true)
 }
 

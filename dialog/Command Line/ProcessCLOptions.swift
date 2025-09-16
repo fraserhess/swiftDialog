@@ -219,7 +219,7 @@ func processCLOptions(json: JSON = getJSON()) {
             if regex.firstMatch(in: input, options: [], range: range) != nil {
                 let posx = input.components(separatedBy: ",").first?.floatValue() ?? 0
                 let posy = input.components(separatedBy: ",").last?.floatValue() ?? 0
-                (appvars.windowPositionVertical,appvars.windowPositionHorozontal) = (.explicit(posx),.explicit(posy))
+                (appvars.windowPositionVertical,appvars.windowPositionHorozontal) = (.explicit(posy),.explicit(posx))
             } else {
                 (appvars.windowPositionVertical,appvars.windowPositionHorozontal) = windowPosition(appArguments.position.value)
             }
