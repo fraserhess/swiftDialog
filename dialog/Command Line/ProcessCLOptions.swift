@@ -992,8 +992,6 @@ func processCLOptions(json: JSON = getJSON()) {
     }
 
     if appArguments.windowResizable.present {
-        appvars.windowWidth = .infinity
-        appvars.windowHeight = .infinity
         appArguments.movableWindow.present = true
     }
 
