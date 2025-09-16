@@ -59,6 +59,7 @@ struct AppDefaults {
     let exit10                          = (code: Int32(10),  message: String("")) // quit via command + quitKey
     let exit20                          = (code: Int32(20),  message: String("Timeout Exceeded"))
     let exit30                          = (code: Int32(30),  message: String("Key authorisation required"))
+    let exit40                          = (code: Int32(40),  message: String("SIGTERM received"))
     let exit201                         = (code: Int32(201), message: String("ERROR: Image resource cannot be found :"))
     let exit202                         = (code: Int32(202), message: String("ERROR: File not found :"))
     let exit203                         = (code: Int32(203), message: String("ERROR: Invalid Colour Value Specified. Use format #000000 :"))

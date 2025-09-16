@@ -8,6 +8,7 @@
 import Foundation
 import SystemConfiguration
 import ArgumentParser
+import Darwin
 
 // Struct to hold the result of running a command (stdout, stderr, and exit status)
 struct CommandResult {
@@ -15,6 +16,9 @@ struct CommandResult {
     let stdout: String
     let stderr: String
 }
+
+// Define the process here
+let process = Process()
 
 @main
 struct DialogLauncher: ParsableCommand {
@@ -28,6 +32,14 @@ struct DialogLauncher: ParsableCommand {
 
     // Main function to run the logic
     func run() throws {
+        // Register signal handler
+        signal(SIGINT) { signal in
+            fputs(" Received SIGINT, exiting...\n", stderr)
+            // kill the running process
+            kill(process.processIdentifier, SIGTERM)
+            Darwin.exit(40)
+        }
+        
         // Define default paths and binary locations
         let defaultCommandFile = "/var/tmp/dialog.log"
         let dialogAppPath = "/Library/Application Support/Dialog/Dialog.app"
@@ -116,7 +128,7 @@ struct DialogLauncher: ParsableCommand {
 
     // Function to execute the provided command with the specified arguments
     func runCommand(binary: String, args: [String]) -> CommandResult {
-        let process = Process()
+        //let process = Process()
         process.launchPath = binary
         process.arguments = args
 
