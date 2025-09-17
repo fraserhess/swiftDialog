@@ -162,6 +162,7 @@ struct Button1: View {
     
     var button1action: String = ""
     var buttonShellAction: Bool = false
+    var stackedButtons: Bool = false
     let timer = Timer.publish(every: 3.0, on: .main, in: .common).autoconnect() //trigger after 4 seconds
     
     init(observedDialogContent: DialogUpdatableContent) {
@@ -174,6 +175,7 @@ struct Button1: View {
             writeLog("Using button 1 action \(observedDialogContent.args.button1ActionOption.value)")
             button1action = observedDialogContent.args.button1ActionOption.value
         }
+        stackedButtons = observedDialogContent.args.buttonStyle.value == "stack"
     }
     
     var body: some View {
@@ -187,6 +189,7 @@ struct Button1: View {
             }, label: {
                 Text(button1Text)
                     .frame(minWidth: 40, alignment: .center)
+                    .frame(maxWidth: stackedButtons ? .infinity: nil)
             }
             )
             .keyboardShortcut(observedData.appProperties.button1DefaultAction)
@@ -202,9 +205,11 @@ struct Button1: View {
 
 struct Button2: View {
     @ObservedObject var observedData: DialogUpdatableContent
+    var stackedButtons: Bool = false
     
     init(observedDialogContent: DialogUpdatableContent) {
         self.observedData = observedDialogContent
+        stackedButtons = observedDialogContent.args.buttonStyle.value == "stack"
     }
     
     var body: some View {
@@ -215,6 +220,7 @@ struct Button2: View {
             }, label: {
                 Text(button2Text)
                     .frame(minWidth: 40, alignment: .center)
+                    .frame(maxWidth: stackedButtons ? .infinity: nil)
             }
             )
             .keyboardShortcut(observedData.appProperties.button2DefaultAction)
