@@ -17,7 +17,7 @@ func CLOptionMultiOptions(optionName: String) -> Array<String> {
 
         if argument == "--\(optionName)" {
             switch optionName {
-            case "image", "icon":
+            case "image":
                 // Accept as comma seperate values
                 let argArray = CLArguments[argIndex+1].components(separatedBy: ",")
                 optionsArray += argArray

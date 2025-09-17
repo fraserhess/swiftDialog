@@ -271,7 +271,7 @@ struct dialogApp: App {
             }
         }
         // Hide Title Bar
-        .windowStyle(HiddenTitleBarWindowStyle())
+        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
     }
 

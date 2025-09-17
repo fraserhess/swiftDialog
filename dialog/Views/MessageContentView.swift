@@ -48,18 +48,11 @@ struct MessageContent: View {
                 HStack {
                     Spacer()
                     HStack {
-                        if userInputState.iconItems.count == 1 {
-                            IconView(image: observedData.args.iconOption.value,
-                                     overlay: observedData.args.overlayIconOption.value,
+                        ForEach(0..<userInputState.iconItems.count, id: \.self) {index in
+                            IconView(image: userInputState.iconItems[index].value,
                                      alpha: observedData.iconAlpha)
-                            .frame(width: iconDisplayWidth, alignment: .top)
-                        } else {
-                            ForEach(0..<userInputState.iconItems.count, id: \.self) {index in
-                                IconView(image: userInputState.iconItems[index].value,
-                                         alpha: observedData.iconAlpha)
-                                .frame(height: iconDisplayWidth, alignment: .top)
+                            .frame(height: iconDisplayWidth, alignment: .top)
 
-                            }
                         }
                     }
                     .border(observedData.appProperties.debugBorderColour, width: 2)
@@ -136,6 +129,7 @@ struct MessageContent: View {
                                     }
                                 }
                             }
+                            .padding(.top, appDefaults.topPadding)
                         }
                 }
                 .frame(minHeight: messageMinHeight, maxHeight: messageHeight)
