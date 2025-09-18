@@ -630,6 +630,7 @@ struct SDHelp {
             prompt     - Pre-fill the field with some prompt text
             value      - Pre-fill the field with a specific value
             regex      - Specify a regular expression that the field must satisfy for the content to be accepted.
+                         include --\(argument.textFieldLiveValidation) for live regex checking.
             confirm    - Will display a duplicate of the textfield who's content needs to match to validate
             regexerror - Specify a custom error to display if regex conditions are not met
             fileselect - Adds a "Select" button and presents a file picker
@@ -643,6 +644,15 @@ struct SDHelp {
         (secure fields cannot have the prompt modifier applied)
 """
 
+        argument.textFieldLiveValidation.helpShort = "Enable live validation of textfield regex requirements"
+        argument.textFieldLiveValidation.helpUsage = ""
+        argument.textFieldLiveValidation.helpLong = """
+        When using --\(appArguments.textField.long) with a regex property, setting this flag
+        will cause any textfields to show a green or red overlay while content is being entered
+        as an indicator that the content does or does not meet any regex requirements on that field. 
+        
+"""
+        
         argument.checkbox.helpShort = "Enable a checkbox with the specified label"
         argument.checkbox.helpLong = """
         When swiftDialog exits the status of the checkbox will be presented as <text> : [true|false]
