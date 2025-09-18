@@ -132,7 +132,7 @@ struct MessageContent: View {
                             .padding(.top, appDefaults.topPadding)
                         }
                 }
-                .frame(minHeight: messageMinHeight, maxHeight: messageHeight)
+                .frame(minHeight: messageMinHeight, maxHeight: messageHeight+10)
                 if !observedData.args.messageVerticalAlignment.present || ["centre", "center", "top"].contains(observedData.args.messageVerticalAlignment.value) {
                     Spacer()
                 }

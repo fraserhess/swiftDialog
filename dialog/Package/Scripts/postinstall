@@ -2,11 +2,12 @@
 
 base_dir="${PWD}"
 
-dialog_root="$3/Library/Application Support/Dialog"
+dialog_root="${3}Library/Application Support/Dialog"
 iconfile="${dialog_root}/Dialog.png"
 dialogbundle="${dialog_root}/Dialog.app"
 localisedbundle="${dialog_root}/Dialog.localized/Dialog.app"
 dialogbinary="${dialogbundle}/Contents/MacOS/Dialog"
+dialogcli="${dialogbundle}/Contents/MacOS/dialogcli"
 enrolmentScript="${dialog_root}/swiftDialogEnrolment.sh"
 log_file="${dialog_root}/postinstall.log"
 
@@ -42,5 +43,8 @@ if [[ -e "${iconfile}" ]] && [[ -e "${dialogbundle}" ]]; then
         write_to_log "Icon update failed"
     fi
 fi
+
+# create /usr/local/bin/dialog symlink
+"${dialogcli}" --link >> "${log_file}"
 
 write_to_log "swiftDialog postinstall complete"

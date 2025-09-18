@@ -23,6 +23,10 @@ struct DialogLauncher: ParsableCommand {
     // Command-line option for specifying the path to the command file
     @Option(name: .long, help: "Path to the command file")
     var commandfile: String?
+    
+    // Used to create the `/usr/local/bin/dialog` symlink
+    @Flag(help: .hidden)
+    var link: Bool = false
 
 
     // Collects all remaining arguments passed to the command
@@ -46,18 +50,55 @@ struct DialogLauncher: ParsableCommand {
         // Define default paths and binary locations
         let defaultCommandFile = "/var/tmp/dialog.log"
         let dialogAppPath = "/Library/Application Support/Dialog/Dialog.app"
-        let dialogBinary = "\(dialogAppPath)/Contents/MacOS/Dialog"
+        var dialogBinary = "\(dialogAppPath)/Contents/MacOS/Dialog"
+        
+        // Try to locate the actual app bundle path
+        if let appBundle = findAppBundlePath() {
+            //fputs("App bundle located at: \(appBundle.path)\n", stderr)
+            // extract the app folder name, excluding .app
+            let appName = URL(fileURLWithPath: appBundle.path).deletingPathExtension().lastPathComponent
+            dialogBinary = "\(appBundle.path)/Contents/MacOS/\(appName)"
+            //fputs("dialog binary should be at \(dialogBinary)\n", stderr)
+        } else {
+            fputs("Could not locate app bundle.\n", stderr)
+        }
 
         // Check if the dialog binary exists
         guard FileManager.default.fileExists(atPath: dialogBinary) else {
             fputs("ERROR: Cannot find swiftDialog binary at \(dialogBinary)\n", stderr)
             throw ExitCode(255)
         }
+        
+        if link {
+            // check if we are root
+            if getuid() != 0 {
+                fputs("ERROR: Must run as root to create symlink.\n", stderr)
+                throw ExitCode(1)
+            }
+            
+            // create /usr/local/bin/dialog symlink
+            let symlinkPath = URL(fileURLWithPath: "/usr/local/bin/dialog")
+            // get path to self
+            let pathToSelf = URL(fileURLWithPath: CommandLine.arguments[0])
+            
+            if FileManager.default.fileExists(atPath: symlinkPath.path()) {
+                try? FileManager.default.removeItem(atPath: symlinkPath.path())
+            }
+            do {
+                try FileManager.default.createSymbolicLink(at: symlinkPath, withDestinationURL: pathToSelf)
+                fputs("Created symlink to \(pathToSelf.path().replacingOccurrences(of: "%20", with: " ")) at \(symlinkPath.path().replacingOccurrences(of: "%20", with: " "))\n", stdout)
+            } catch {
+                fputs("Could not create symlink to \(pathToSelf.path().replacingOccurrences(of: "%20", with: " "))\n", stderr)
+                throw ExitCode(1)
+            }
+            // exit as we don't want to continue launching
+            throw ExitCode(0)
+        }
 
         // Use the specified command file path or default one
         let commandFilePath = commandfile ?? defaultCommandFile
 
-        // Check for symlink and abort if found
+        // Check if commandfile is a symlink and abort if found
         if FileManager.default.destinationOfSymbolicLinkSafe(atPath: commandFilePath) != nil {
             fputs("ERROR: \(commandFilePath) is a symbolic link - aborting\n", stderr)
             throw ExitCode(1)
@@ -211,6 +252,27 @@ struct DialogLauncher: ParsableCommand {
         task.launch()
         task.waitUntilExit()
         return task.terminationStatus == 0
+    }
+    
+    func resolvedExecutablePath() -> String {
+        var buffer = [CChar](repeating: 0, count: Int(PATH_MAX))
+        var size = UInt32(buffer.count)
+        _ = _NSGetExecutablePath(&buffer, &size)
+        let rawPath = String(cString: buffer)
+        return URL(fileURLWithPath: rawPath).resolvingSymlinksInPath().path
+    }
+    
+    func findAppBundlePath() -> URL? {
+        let exeURL = URL(fileURLWithPath: resolvedExecutablePath())
+        var current = exeURL
+
+        while current.path != "/" {
+            if current.pathExtension == "app" {
+                return current
+            }
+            current.deleteLastPathComponent()
+        }
+        return nil
     }
 }
 
