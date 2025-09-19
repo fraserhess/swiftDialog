@@ -36,7 +36,7 @@ struct DebugOverlay: View {
                 return Color.clear
             })
             .ignoresSafeArea()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: observedData.appProperties.windowWidth, maxHeight: observedData.appProperties.windowHeight)
         }
     }
 }

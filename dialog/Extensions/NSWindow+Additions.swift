@@ -14,7 +14,7 @@ extension NSWindow {
 
     struct Position {
 
-        static let defaultPadding: CGFloat = 16
+        static let defaultPadding: CGFloat = 0
 
         var vertical: Vertical
         var horizontal: Horizontal
@@ -114,13 +114,13 @@ func calculateWindowXPos(screenWidth: CGFloat, position: NSWindow.Position.Horiz
 func placeWindow(_ window: NSWindow, size: CGSize?, vertical: NSWindow.Position.Vertical, horozontal: NSWindow.Position.Horizontal, offset: CGFloat) {
     let main = NSScreen.main!
     let visibleFrame = main.visibleFrame
-    let titleBarOffset: CGFloat = (main.frame.height - visibleFrame.height) + 1
     let visibleFrameOriginX = visibleFrame.origin.x
     let visibleFrameOriginY = visibleFrame.origin.y
     let visibleFrameWidth = visibleFrame.width
     let visibleFrameHeight = visibleFrame.height
     let screenOriginWidth = main.frame.width
     let screenOriginHeight = main.frame.height
+    let titleBarOffset: CGFloat = (main.frame.height - visibleFrame.height - visibleFrameOriginY) + 1
     
     // Set window Size
     var windowSize: CGSize
@@ -131,6 +131,7 @@ func placeWindow(_ window: NSWindow, size: CGSize?, vertical: NSWindow.Position.
         windowSize = CGSize(width: size?.width ?? window.frame.width, height: (size?.height ?? window.frame.height) + titleBarOffset)
     }
     writeLog("windowsize = \(String(describing: windowSize))", logLevel: .debug)
+    writeLog("titleBarOffset = \(titleBarOffset)", logLevel: .debug)
     writeLog("main frame = \(main.frame)", logLevel: .debug)
     writeLog("screenOriginX = \(main.frame.origin.x)", logLevel: .debug)
     writeLog("screenOriginY = \(main.frame.origin.y)", logLevel: .debug)
