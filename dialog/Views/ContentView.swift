@@ -13,6 +13,8 @@ struct ContentView: View {
     var titlePadding       = CGFloat(10)
 
     @ObservedObject var observedData: DialogUpdatableContent
+    
+    var screenResChanged = NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
 
     init (observedDialogContent: DialogUpdatableContent) {
         self.observedData = observedDialogContent
@@ -91,6 +93,18 @@ struct ContentView: View {
                     window?.canBecomeVisibleWithoutLogin = true
                 })
         })
+        .onReceive(screenResChanged) {_ in
+            placeWindow(observedData.mainWindow ?? NSApp.windows[0],
+                        size: CGSize(width: appvars.windowWidth,
+                                     height: appvars.windowHeight),
+                        vertical: appvars.windowPositionVertical,
+                        horozontal: appvars.windowPositionHorozontal,
+                        offset: appvars.windowPositionOffset)
+            if appArguments.blurScreen.present && !appArguments.fullScreenWindow.present {
+                writeLog("Blurscreen enabled", logLevel: .debug)
+                blurredScreen.show()
+            }
+        }
     }
 
 
