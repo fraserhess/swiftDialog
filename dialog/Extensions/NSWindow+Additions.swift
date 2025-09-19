@@ -111,16 +111,20 @@ func calculateWindowXPos(screenWidth: CGFloat, position: NSWindow.Position.Horiz
 }
 
 
-func placeWindow(_ window: NSWindow, size: CGSize?, vertical: NSWindow.Position.Vertical, horozontal: NSWindow.Position.Horizontal, offset: CGFloat) {
+func placeWindow(_ window: NSWindow, size: CGSize?, vertical: NSWindow.Position.Vertical, horozontal: NSWindow.Position.Horizontal, offset: CGFloat, useFullScreen: Bool = false) {
+    // screen size
     let main = NSScreen.main!
-    let visibleFrame = main.visibleFrame
+    let mainFrameWidth = main.frame.width
+    let mainFrameHeight = main.frame.height
+    
+    // visible screen (minus dock and menubar
+    let visibleFrame = useFullScreen ? main.frame : main.visibleFrame
     let visibleFrameOriginX = visibleFrame.origin.x
     let visibleFrameOriginY = visibleFrame.origin.y
     let visibleFrameWidth = visibleFrame.width
     let visibleFrameHeight = visibleFrame.height
-    let screenOriginWidth = main.frame.width
-    let screenOriginHeight = main.frame.height
-    let titleBarOffset: CGFloat = (main.frame.height - visibleFrame.height - visibleFrameOriginY) + 1
+    let titleBarOffset: CGFloat = (main.frame.height - main.visibleFrame.height) -
+                                  (main.visibleFrame.origin.y - main.frame.origin.y)
     
     // Set window Size
     var windowSize: CGSize
@@ -133,10 +137,10 @@ func placeWindow(_ window: NSWindow, size: CGSize?, vertical: NSWindow.Position.
     writeLog("windowsize = \(String(describing: windowSize))", logLevel: .debug)
     writeLog("titleBarOffset = \(titleBarOffset)", logLevel: .debug)
     writeLog("main frame = \(main.frame)", logLevel: .debug)
-    writeLog("screenOriginX = \(main.frame.origin.x)", logLevel: .debug)
-    writeLog("screenOriginY = \(main.frame.origin.y)", logLevel: .debug)
-    writeLog("screenOriginWidth = \(screenOriginWidth)", logLevel: .debug)
-    writeLog("screenOriginHeight = \(screenOriginHeight)", logLevel: .debug)
+    writeLog("screen Origin X = \(main.frame.origin.x)", logLevel: .debug)
+    writeLog("screen Origin Y = \(main.frame.origin.y)", logLevel: .debug)
+    writeLog("screen Frame Width = \(mainFrameWidth)", logLevel: .debug)
+    writeLog("screen Frame Height = \(mainFrameHeight)", logLevel: .debug)
     writeLog("visible frame width = \(visibleFrameWidth)", logLevel: .debug)
     writeLog("visible frame height = \(visibleFrameHeight)", logLevel: .debug)
     writeLog("visible frame origin x = \(visibleFrameOriginX)", logLevel: .debug)
@@ -177,6 +181,10 @@ func windowPosition(_ position: String) -> (vertical: NSWindow.Position.Vertical
         return (vertical: .center, horozontal: .left)
     case "right":
         return (vertical: .center, horozontal: .right)
+    case "deadleft":
+        return (vertical: .deadcenter, horozontal: .left)
+    case "deadright":
+        return (vertical: .deadcenter, horozontal: .right)
     case "top":
         return (vertical: .top, horozontal: .center)
     case "bottom":

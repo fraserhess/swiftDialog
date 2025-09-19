@@ -98,7 +98,8 @@ class FileReader {
         placeWindow(observedData.mainWindow ?? NSApp.windows[0], size: CGSize(width: observedData.appProperties.windowWidth, height: observedData.appProperties.windowHeight+28),
             vertical: observedData.appProperties.windowPositionVertical,
             horozontal: observedData.appProperties.windowPositionHorozontal,
-            offset: observedData.args.positionOffset.value.floatValue())
+            offset: observedData.args.positionOffset.value.floatValue(),
+            useFullScreen: observedData.args.blurScreen.present || observedData.args.forceOnTop.present)
     }
 
     private func writeToLog(_ message: String, logLevel: OSLogType = .info) {

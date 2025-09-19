@@ -99,7 +99,8 @@ struct ContentView: View {
                                      height: appvars.windowHeight),
                         vertical: appvars.windowPositionVertical,
                         horozontal: appvars.windowPositionHorozontal,
-                        offset: appvars.windowPositionOffset)
+                        offset: appvars.windowPositionOffset,
+                        useFullScreen: appArguments.blurScreen.present || appArguments.forceOnTop.present)
             if appArguments.blurScreen.present && !appArguments.fullScreenWindow.present {
                 writeLog("Blurscreen enabled", logLevel: .debug)
                 blurredScreen.show()

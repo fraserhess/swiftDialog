@@ -100,10 +100,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 background.close()
             }
             
-            placeWindow(window, size: CGSize(width: appvars.windowWidth, height: appvars.windowHeight),
+            placeWindow(window, size: CGSize(width: appvars.windowWidth,
+                                             height: appvars.windowHeight),
                         vertical: appvars.windowPositionVertical,
-                horozontal: appvars.windowPositionHorozontal,
-                        offset: appvars.windowPositionOffset)
+                        horozontal: appvars.windowPositionHorozontal,
+                        offset: appvars.windowPositionOffset,
+                        useFullScreen: appArguments.blurScreen.present || appArguments.forceOnTop.present)
             
             // order to the front
             window.makeKeyAndOrderFront(self)
