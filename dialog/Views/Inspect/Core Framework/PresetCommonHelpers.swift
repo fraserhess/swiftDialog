@@ -21,11 +21,18 @@ class PresetIconCache: ObservableObject {
         guard mainIcon == nil,
               let iconPath = state.uiConfiguration.iconPath else { return }
 
-        mainIcon = resolver.resolveImagePath(
-            iconPath,
-            basePath: state.uiConfiguration.iconBasePath,
-            fallbackIcon: nil
-        )
+        // Don't resolve SF Symbols or special keywords - pass them through directly
+        if iconPath.lowercased().hasPrefix("sf=") ||
+           iconPath.lowercased() == "default" ||
+           iconPath.lowercased() == "computer" {
+            mainIcon = iconPath
+        } else {
+            mainIcon = resolver.resolveImagePath(
+                iconPath,
+                basePath: state.uiConfiguration.iconBasePath,
+                fallbackIcon: nil
+            )
+        }
     }
 
     func cacheItemIcons(for state: InspectState, limit: Int = 20) {
@@ -37,11 +44,16 @@ class PresetIconCache: ObservableObject {
         for item in itemsToCache {
             if itemIcons[item.id] == nil,
                let icon = item.icon {
-                itemIcons[item.id] = resolver.resolveImagePath(
-                    icon,
-                    basePath: basePath,
-                    fallbackIcon: nil
-                )
+                // Don't resolve SF Symbols - pass them through directly
+                if icon.lowercased().hasPrefix("sf=") {
+                    itemIcons[item.id] = icon
+                } else {
+                    itemIcons[item.id] = resolver.resolveImagePath(
+                        icon,
+                        basePath: basePath,
+                        fallbackIcon: nil
+                    )
+                }
             }
         }
     }
@@ -58,11 +70,16 @@ class PresetIconCache: ObservableObject {
         for item in items {
             if itemIcons[item.id] == nil,
                let icon = item.icon {
-                itemIcons[item.id] = resolver.resolveImagePath(
-                    icon,
-                    basePath: basePath,
-                    fallbackIcon: nil
-                )
+                // Don't resolve SF Symbols - pass them through directly
+                if icon.lowercased().hasPrefix("sf=") {
+                    itemIcons[item.id] = icon
+                } else {
+                    itemIcons[item.id] = resolver.resolveImagePath(
+                        icon,
+                        basePath: basePath,
+                        fallbackIcon: nil
+                    )
+                }
             }
         }
     }
@@ -86,6 +103,18 @@ class PresetIconCache: ObservableObject {
 
     func getMainIconPath(for state: InspectState) -> String {
         if let cached = mainIcon { return cached }
+
+        // Check if we have an icon path to cache
+        if let iconPath = state.uiConfiguration.iconPath {
+            // Don't resolve SF Symbols or special keywords - pass them through directly
+            if iconPath.lowercased().hasPrefix("sf=") ||
+               iconPath.lowercased() == "default" ||
+               iconPath.lowercased() == "computer" {
+                mainIcon = iconPath
+                return iconPath
+            }
+        }
+
         cacheMainIcon(for: state)
         return mainIcon ?? ""
     }
@@ -93,9 +122,16 @@ class PresetIconCache: ObservableObject {
     func getItemIconPath(for item: InspectConfig.ItemConfig, state: InspectState) -> String {
         if let cached = itemIcons[item.id] { return cached }
 
+        guard let icon = item.icon else { return "" }
+
+        // Don't resolve SF Symbols - pass them through directly
+        if icon.lowercased().hasPrefix("sf=") {
+            itemIcons[item.id] = icon
+            return icon
+        }
+
         let basePath = state.uiConfiguration.iconBasePath
-        if let icon = item.icon,
-           let resolved = resolver.resolveImagePath(icon, basePath: basePath, fallbackIcon: nil) {
+        if let resolved = resolver.resolveImagePath(icon, basePath: basePath, fallbackIcon: nil) {
             itemIcons[item.id] = resolved
             return resolved
         }
@@ -168,13 +204,19 @@ struct PresetCommonViews {
         controlSize: ControlSize = .large
     ) -> some View {
         HStack(spacing: spacing) {
-            // Button 2 (Secondary) - only when all complete
-            if state.completedItems.count == state.items.count &&
+            // Button 2 (Secondary) - show in demo mode or when all complete
+            if (state.configurationSource == .testData || state.completedItems.count == state.items.count) &&
                state.buttonConfiguration.button2Visible &&
                !state.buttonConfiguration.button2Text.isEmpty {
                 Button(state.buttonConfiguration.button2Text) {
-                    writeLog("Preset: User clicked button2 - exiting with code 2", logLevel: .info)
-                    exit(2)
+                    // Check if we're in demo mode and button is for creating configuration
+                    if state.configurationSource == .testData && (state.buttonConfiguration.button2Text.contains("Create") || state.buttonConfiguration.button2Text.contains("Config")) {
+                        writeLog("Preset: Creating sample configuration", logLevel: .info)
+                        state.createSampleConfiguration()
+                    } else {
+                        writeLog("Preset: User clicked button2 - exiting with code 2", logLevel: .info)
+                        exit(2)
+                    }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(controlSize)
