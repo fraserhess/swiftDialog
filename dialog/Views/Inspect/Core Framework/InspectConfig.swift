@@ -41,8 +41,8 @@ enum SimpleItemStatus {
 // MARK: - Configuration
 
 /// Configuration structure, this is matching the JSON format 
-/// Usage note: Due to the dynamic nature of the config, JSON must be used pre-loaded `export DIALOG_INSPECT_CONFIG=/path/to/config.json`
-"$DIALOG_PATH" --inspect-mode
+/// Usage note: Due to the dynamic nature of the config, JSON must be used pre-loaded `export
+/// DIALOG_INSPECT_CONFIG=/path/to/config.json`"$DIALOG_PATH" --inspect-mode
 struct InspectConfig: Codable {
     let title: String?
     let message: String?

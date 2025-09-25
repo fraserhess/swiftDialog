@@ -11,8 +11,7 @@ import SwiftUI
 
 struct Preset3View: View, InspectLayoutProtocol {
     @ObservedObject var inspectState: InspectState
-    @State private var cachedMainIcon: String? = nil
-    @State private var cachedItemIcons: [String: String] = [:]
+    @StateObject private var iconCache = PresetIconCache()
 
     init(inspectState: InspectState) {
         self.inspectState = inspectState
@@ -93,32 +92,32 @@ struct Preset3View: View, InspectLayoutProtocol {
                 }
 
                 // Company icon section - more compact
-                HStack(spacing: 12) {
-                    IconView(image: getMainIconPath(), sfPaddingEnabled: false, corners: false, defaultImage: "building.2.fill", defaultColour: "accent")
-                        .frame(width: 80 * scaleFactor, height: 80 * scaleFactor)
+                HStack(spacing: 16) {
+                    IconView(image: iconCache.getMainIconPath(for: inspectState), sfPaddingEnabled: false, corners: false, defaultImage: "building.2.fill", defaultColour: "accent")
+                        .frame(width: 100 * scaleFactor, height: 100 * scaleFactor)
                         // Border removed
-                        .onAppear { cacheMainIcon() }
+                        .onAppear { iconCache.cacheMainIcon(for: inspectState) }
 
                     VStack(alignment: .leading, spacing: 4) {
                         // Add subtitle message if available
                         if let subtitle = inspectState.uiConfiguration.subtitleMessage {
                             Text(subtitle)
-                                .font(.title2)
-                                .fontWeight(.semibold)
+                                .font(.headline)
+                                .fontWeight(.medium)
                                 .foregroundColor(textColor)
                         }
 
                         if let currentMessage = inspectState.getCurrentSideMessage() {
                             Text(currentMessage)
-                                .font(.body)
+                                .font(.subheadline)
                                 .foregroundColor(textColor.opacity(0.9))
                                 .lineLimit(2)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 16)
                 
                 // Removed - message is now inline with logo
                 
@@ -135,7 +134,7 @@ struct Preset3View: View, InspectLayoutProtocol {
                             ForEach(sortedItems, id: \.id) { item in
                                 HStack {
                                     // Small item icon - use resolved path from cache
-                                    IconView(image: getItemIconPath(for: item), sfPaddingEnabled: false, corners: false, defaultImage: "app.badge.fill", defaultColour: "accent")
+                                    IconView(image: iconCache.getItemIconPath(for: item, state: inspectState), sfPaddingEnabled: false, corners: false, defaultImage: "app.badge.fill", defaultColour: "accent")
                                         .frame(width: 24 * scaleFactor, height: 24 * scaleFactor)
                                         .id("icon-\(item.id)") // Stable ID to prevent recreation
 
@@ -241,72 +240,16 @@ struct Preset3View: View, InspectLayoutProtocol {
                 }
             }
         }
+        .frame(width: windowSize.width, height: windowSize.height)
         .onAppear {
-            cacheMainIcon()
-            cacheItemIcons()
+            // Main icon caching is already handled in the icon's .onAppear
+            // LazyVGrid handles item icon loading as items become visible
         }
     }
 
     // MARK: - Icon Resolution Methods
 
-    private func cacheMainIcon() {
-        let basePath = inspectState.uiConfiguration.iconBasePath
-        let resolver = ImageResolver.shared
-
-        if let iconPath = inspectState.uiConfiguration.iconPath {
-            cachedMainIcon = resolver.resolveImagePath(iconPath, basePath: basePath, fallbackIcon: nil)
-        }
-    }
-
-    private func cacheItemIcons() {
-        let basePath = inspectState.uiConfiguration.iconBasePath
-        let resolver = ImageResolver.shared
-
-        for item in inspectState.items {
-            if let icon = item.icon {
-                if let resolvedPath = resolver.resolveImagePath(icon, basePath: basePath, fallbackIcon: nil) {
-                    cachedItemIcons[item.id] = resolvedPath
-                }
-            }
-        }
-    }
-
-    private func getMainIconPath() -> String {
-        if let cached = cachedMainIcon {
-            return cached
-        }
-
-        let basePath = inspectState.uiConfiguration.iconBasePath
-        let resolver = ImageResolver.shared
-
-        if let iconPath = inspectState.uiConfiguration.iconPath {
-            let resolved = resolver.resolveImagePath(iconPath, basePath: basePath, fallbackIcon: nil) ?? ""
-            cachedMainIcon = resolved
-            return resolved
-        }
-
-        return ""
-    }
-
-    private func getItemIconPath(for item: InspectConfig.ItemConfig) -> String {
-        // Return cached path if available
-        if let cached = cachedItemIcons[item.id] {
-            return cached
-        }
-
-        // Resolve and cache
-        let basePath = inspectState.uiConfiguration.iconBasePath
-        let resolver = ImageResolver.shared
-
-        if let icon = item.icon {
-            if let resolved = resolver.resolveImagePath(icon, basePath: basePath, fallbackIcon: nil) {
-                cachedItemIcons[item.id] = resolved
-                return resolved
-            }
-        }
-
-        return ""
-    }
+    // Icon caching is now handled by PresetIconCache
 
     // MARK: - Private Helper Methods
     

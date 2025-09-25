@@ -29,6 +29,7 @@ class PresetIconCache: ObservableObject {
     }
 
     func cacheItemIcons(for state: InspectState) {
+        // Stick to smple synchronous caching !!! - remember to build on lazy loading - the swiftUI way to prevent blocking
         let basePath = state.uiConfiguration.iconBasePath
 
         for item in state.items {

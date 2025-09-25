@@ -12,8 +12,7 @@ import SwiftUI
 struct Preset2View: View, InspectLayoutProtocol {
     @ObservedObject var inspectState: InspectState
     @State private var showingAboutPopover = false
-    @State private var cachedMainIcon: String? = nil
-    @State private var cachedItemIcons: [String: String] = [:]
+    @StateObject private var iconCache = PresetIconCache()
     @State private var scrollOffset: Int = 0
     @State private var lastDownloadingItem: String? = nil
 
@@ -60,7 +59,7 @@ struct Preset2View: View, InspectLayoutProtocol {
                     // Main icon - larger for Setup Manager style
                     IconView(image: getMainIconPath(), defaultImage: "briefcase.fill", defaultColour: "accent")
                         .frame(maxHeight: 120 * scale)
-                        .onAppear { cacheMainIcon() }
+                        .onAppear { iconCache.cacheMainIcon(for: inspectState) }
 
                     // Welcome title
                     Text(inspectState.uiConfiguration.windowTitle)
@@ -208,8 +207,6 @@ struct Preset2View: View, InspectLayoutProtocol {
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             writeLog("Preset2LayoutServiceBased: Using InspectState", logLevel: .info)
-            cacheMainIcon()
-            cacheItemIcons()
         }
     }
 
@@ -259,18 +256,7 @@ struct Preset2View: View, InspectLayoutProtocol {
     // MARK: - Icon Management
 
     private func getMainIconPath() -> String {
-        if let cached = cachedMainIcon { return cached }
-
-        let basePath = inspectState.uiConfiguration.iconBasePath
-        let resolver = ImageResolver.shared
-
-        if let iconPath = inspectState.uiConfiguration.iconPath {
-            let resolved = resolver.resolveImagePath(iconPath, basePath: basePath, fallbackIcon: nil) ?? ""
-            cachedMainIcon = resolved
-            return resolved
-        }
-
-        return ""
+        return iconCache.getMainIconPath(for: inspectState)
     }
 
     private func resolveImagePath(_ path: String) -> String {
@@ -279,36 +265,10 @@ struct Preset2View: View, InspectLayoutProtocol {
         return resolver.resolveImagePath(path, basePath: basePath, fallbackIcon: nil) ?? path
     }
 
-    private func cacheMainIcon() {
-        _ = getMainIconPath()
-    }
 
-    private func cacheItemIcons() {
-        let basePath = inspectState.uiConfiguration.iconBasePath
-        let resolver = ImageResolver.shared
-
-        for item in inspectState.items {
-            if let icon = item.icon {
-                if let resolvedPath = resolver.resolveImagePath(icon, basePath: basePath, fallbackIcon: nil) {
-                    cachedItemIcons[item.id] = resolvedPath
-                }
-            }
-        }
-    }
 
     private func getIconPathForItem(_ item: InspectConfig.ItemConfig) -> String {
-        if let cached = cachedItemIcons[item.id] { return cached }
-
-        let basePath = inspectState.uiConfiguration.iconBasePath
-        let resolver = ImageResolver.shared
-
-        if let icon = item.icon {
-            let resolved = resolver.resolveImagePath(icon, basePath: basePath, fallbackIcon: nil) ?? ""
-            cachedItemIcons[item.id] = resolved
-            return resolved
-        }
-
-        return ""
+        return iconCache.getItemIconPath(for: item, state: inspectState)
     }
 
     // MARK: - Auto-centering for downloading items

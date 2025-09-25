@@ -86,7 +86,7 @@ struct Preset1View: View, InspectLayoutProtocol {
 
                 // Item list
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
+                    LazyVStack(alignment: .leading, spacing: 0) {
                         let sortedItems = PresetCommonViews.getSortedItemsByStatus(inspectState)
                         ForEach(sortedItems, id: \.id) { item in
                             // Add group separator if needed
@@ -104,9 +104,6 @@ struct Preset1View: View, InspectLayoutProtocol {
                             }
 
                             itemRow(for: item)
-                                .onAppear {
-                                    iconCache.cacheItemIcons(for: inspectState)
-                                }
                         }
                     }
                     .padding(.vertical, 10 * scaleFactor)
