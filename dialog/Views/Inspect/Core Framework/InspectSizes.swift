@@ -31,7 +31,7 @@ public enum InspectSizes {
             switch mode {
             case "compact": return (800, 580)
             case "large": return (1200, 700)
-            default: return (1000, 600)  // standard
+            default: return (1000, 550)  // standard
             }
 
         case "preset3":
