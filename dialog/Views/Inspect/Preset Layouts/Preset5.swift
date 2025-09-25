@@ -182,10 +182,10 @@ struct Preset5View: View, InspectLayoutProtocol {
         .onChange(of: inspectState.items.count) {
             loadComplianceData()
         }
-        .onChange(of: inspectState.completedItems) { _ in
+        .onChange(of: inspectState.completedItems) {
             loadComplianceData()
         }
-        .onChange(of: inspectState.downloadingItems) { _ in
+        .onChange(of: inspectState.downloadingItems) {
             loadComplianceData()
         }
     }

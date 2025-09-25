@@ -50,11 +50,11 @@ struct Preset4View: View, InspectLayoutProtocol {
             // Icons are cached on-demand via lazy loading
             iconCache.cacheMainIcon(for: inspectState)
         }
-        .onChange(of: inspectState.completedItems) { _ in
+        .onChange(of: inspectState.completedItems) {
             // Re-validate when items complete
             inspectState.validateAllItems()
         }
-        .onChange(of: inspectState.downloadingItems) { _ in
+        .onChange(of: inspectState.downloadingItems) {
             // Re-validate when download states change
             inspectState.validateAllItems()
         }

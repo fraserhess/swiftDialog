@@ -1004,7 +1004,7 @@ struct Preset6View: View, InspectLayoutProtocol {
         let basePath = inspectState.uiConfiguration.iconBasePath
 
         return inspectState.uiConfiguration.rotatingImages.compactMap { imagePath in
-            iconCache.resolveImagePath(imagePath, basePath: basePath)
+            return iconCache.resolveImagePath(imagePath, basePath: basePath)
         }
     }
 
