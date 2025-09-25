@@ -102,6 +102,11 @@ class PresetIconCache: ObservableObject {
 
         return ""
     }
+
+    // Helper for resolving paths (e.g., for rotating images in Preset6)
+    func resolveImagePath(_ path: String, basePath: String?) -> String? {
+        return resolver.resolveImagePath(path, basePath: basePath, fallbackIcon: nil)
+    }
 }
 
 // MARK: - Common View Components

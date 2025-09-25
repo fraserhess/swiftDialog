@@ -610,30 +610,16 @@ struct Preset6View: View, InspectLayoutProtocol {
         }
 
         print("Preset6: Attempting to load banner from: \(bannerPath)")
-        let resolver = ImageResolver.shared
-        let resolvedPath = resolver.resolveImagePath(
-            bannerPath,
-            basePath: inspectState.uiConfiguration.iconBasePath,
-            fallbackIcon: nil
-        )
 
-        print("Preset6: Resolved banner path: \(resolvedPath ?? "nil")")
+        // Cache banner using PresetIconCache
+        iconCache.cacheBannerImage(for: inspectState)
 
-        if let resolvedPath = resolvedPath {
-            let exists = FileManager.default.fileExists(atPath: resolvedPath)
-            print("Preset6: File exists at resolved path: \(exists)")
-
-            if exists {
-                if let nsImage = NSImage(contentsOfFile: resolvedPath) {
-                    cachedBannerImage = nsImage
-                    bannerImageLoaded = true
-                    print("Preset6: Banner image loaded successfully, size: \(nsImage.size)")
-                } else {
-                    print("Preset6: Failed to create NSImage from file at: \(resolvedPath)")
-                }
-            }
+        if let nsImage = iconCache.bannerImage {
+            cachedBannerImage = nsImage
+            bannerImageLoaded = true
+            print("Preset6: Banner image loaded successfully, size: \(nsImage.size)")
         } else {
-            print("Preset6: ImageResolver returned nil for path: \(bannerPath)")
+            print("Preset6: Failed to load banner image")
         }
     }
 
@@ -980,7 +966,6 @@ struct Preset6View: View, InspectLayoutProtocol {
 
     private func cacheImagePaths() {
         let basePath = inspectState.uiConfiguration.iconBasePath
-        let resolver = ImageResolver.shared
 
         // Debug logging
         writeLog("Preset6: cacheImagePaths - basePath: \(basePath ?? "nil")", logLevel: .debug)
@@ -988,7 +973,7 @@ struct Preset6View: View, InspectLayoutProtocol {
 
         var resolvedPaths: [String] = []
         for imagePath in inspectState.uiConfiguration.rotatingImages {
-            if let resolved = resolver.resolveImagePath(imagePath, basePath: basePath, fallbackIcon: nil) {
+            if let resolved = iconCache.resolveImagePath(imagePath, basePath: basePath) {
                 writeLog("Preset6: Resolving '\(imagePath)' -> '\(resolved)'", logLevel: .debug)
                 resolvedPaths.append(resolved)
             } else {
@@ -1001,25 +986,16 @@ struct Preset6View: View, InspectLayoutProtocol {
     }
 
     private func cacheItemIcons() {
-        let basePath = inspectState.uiConfiguration.iconBasePath
-        let resolver = ImageResolver.shared
-
-        for item in inspectState.items {
-            if let icon = item.icon {
-                if let resolvedPath = resolver.resolveImagePath(icon, basePath: basePath) {
-                    // Icon caching handled by PresetIconCache
-                }
-            }
-        }
+        // Use PresetIconCache to cache item icons
+        iconCache.cacheItemIcons(for: inspectState, limit: 30)
     }
 
     private func getImagePaths() -> [String] {
         // Directly compute paths instead of relying on cached values
         let basePath = inspectState.uiConfiguration.iconBasePath
-        let resolver = ImageResolver.shared
 
         return inspectState.uiConfiguration.rotatingImages.compactMap { imagePath in
-            resolver.resolveImagePath(imagePath, basePath: basePath, fallbackIcon: nil)
+            iconCache.resolveImagePath(imagePath, basePath: basePath)
         }
     }
 
