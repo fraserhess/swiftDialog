@@ -176,16 +176,22 @@ struct Preset2View: View, InspectLayoutProtocol {
                     // About button or Button2 if configured
                     if inspectState.buttonConfiguration.button2Visible {
                         Button(action: {
-                            // Button2 action - typically quits with code 2
-                            writeLog("Preset2LayoutServiceBased: User clicked button2", logLevel: .info)
-                            exit(2)
+                            // Check if we're in demo mode and button says "Create Config"
+                            if inspectState.configurationSource == .testData && inspectState.buttonConfiguration.button2Text == "Create Config" {
+                                writeLog("Preset2LayoutServiceBased: Creating sample configuration", logLevel: .info)
+                                inspectState.createSampleConfiguration()
+                            } else {
+                                // Normal button2 action - typically quits with code 2
+                                writeLog("Preset2LayoutServiceBased: User clicked button2", logLevel: .info)
+                                exit(2)
+                            }
                         }) {
                             Text(inspectState.buttonConfiguration.button2Text)
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.large)
-                        // Note: button2 is always enabled when visible
-                        .opacity(inspectState.completedItems.count == inspectState.items.count ? 1.0 : 0.0)
+                        // Show immediately in demo mode, otherwise show when complete
+                        .opacity((inspectState.configurationSource == .testData || inspectState.completedItems.count == inspectState.items.count) ? 1.0 : 0.0)
                     }
 
                     // Main action button
