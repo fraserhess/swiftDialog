@@ -25,8 +25,11 @@ struct Preset1View: View, InspectLayoutProtocol {
         HStack(spacing: 0) {
             // Left sidebar with icon/image
             VStack {
+                Spacer()
+                    .frame(height: 80)  // Push icon down to center it better
+
                 IconView(image: iconCache.getMainIconPath(for: inspectState), defaultImage: "apps.iphone.badge.plus", defaultColour: "accent")
-                    .frame(width: 250 * scaleFactor, height: 250 * scaleFactor)
+                    .frame(width: 220 * scaleFactor, height: 220 * scaleFactor)
                     .onAppear { iconCache.cacheMainIcon(for: inspectState) }
 
                 // Progress bar
@@ -87,6 +90,8 @@ struct Preset1View: View, InspectLayoutProtocol {
                 // Item list
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
+                        // Add top padding for better visual balance
+                        Color.clear.frame(height: 60)
                         let sortedItems = PresetCommonViews.getSortedItemsByStatus(inspectState)
                         ForEach(sortedItems, id: \.id) { item in
                             // Add group separator if needed
