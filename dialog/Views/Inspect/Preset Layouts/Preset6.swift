@@ -598,18 +598,10 @@ struct Preset6View: View, InspectLayoutProtocol {
 
     // MARK: - Banner Image Caching
     private func cacheBannerImage() {
-        print("Preset6: cacheBannerImage called")
-        print("Preset6: Current cachedBannerImage: \(cachedBannerImage == nil ? "nil" : "exists")")
-        print("Preset6: Banner path from config: \(inspectState.uiConfiguration.bannerImage ?? "nil")")
-        print("Preset6: IconBasePath: \(inspectState.uiConfiguration.iconBasePath ?? "nil")")
-
         guard cachedBannerImage == nil,
               let bannerPath = inspectState.uiConfiguration.bannerImage else {
-            print("Preset6: No banner path configured or already cached")
             return
         }
-
-        print("Preset6: Attempting to load banner from: \(bannerPath)")
 
         // Cache banner using PresetIconCache
         iconCache.cacheBannerImage(for: inspectState)
@@ -617,9 +609,6 @@ struct Preset6View: View, InspectLayoutProtocol {
         if let nsImage = iconCache.bannerImage {
             cachedBannerImage = nsImage
             bannerImageLoaded = true
-            print("Preset6: Banner image loaded successfully, size: \(nsImage.size)")
-        } else {
-            print("Preset6: Failed to load banner image")
         }
     }
 
@@ -671,7 +660,6 @@ struct Preset6View: View, InspectLayoutProtocol {
     private func checklistItem(item: InspectConfig.ItemConfig, index: Int, scale: CGFloat) -> some View {
         let stepStyle = inspectState.uiConfiguration.stepStyle
 
-        print("Preset6: stepStyle = '\(stepStyle)'")
         switch stepStyle {
         case "cards":
             // Card style with rounded rectangles (alpha-inspired)
@@ -969,7 +957,6 @@ struct Preset6View: View, InspectLayoutProtocol {
         let listStyle = inspectState.uiConfiguration.listIndicatorStyle ?? "numbers"
 
         // Debug logging to verify config is loaded
-        print("Preset6: listIndicatorStyle = '\(listStyle)' (from config: '\(inspectState.uiConfiguration.listIndicatorStyle)')")
 
         switch listStyle {
         case "numbers":
