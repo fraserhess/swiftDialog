@@ -61,17 +61,10 @@ struct Preset3View: View, InspectLayoutProtocol {
                 .background(Color.primary.opacity(0.05))
                 
                 // Banner image at top if available
-                if let bannerImagePath = inspectState.uiConfiguration.bannerImage {
-                    let resolver = ImageResolver.shared
-                    let resolvedPath = resolver.resolveImagePath(bannerImagePath,
-                                                                 basePath: inspectState.uiConfiguration.iconBasePath,
-                                                                 fallbackIcon: nil)
-
-                    if let resolvedPath = resolvedPath,
-                       FileManager.default.fileExists(atPath: resolvedPath),
-                       let nsImage = NSImage(contentsOfFile: resolvedPath) {
+                if inspectState.uiConfiguration.bannerImage != nil {
+                    if let bannerNSImage = iconCache.bannerImage {
                         ZStack(alignment: .bottomLeading) {
-                            Image(nsImage: nsImage)
+                            Image(nsImage: bannerNSImage)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                                 .frame(maxHeight: CGFloat(inspectState.uiConfiguration.bannerHeight))
@@ -96,7 +89,10 @@ struct Preset3View: View, InspectLayoutProtocol {
                     IconView(image: iconCache.getMainIconPath(for: inspectState), sfPaddingEnabled: false, corners: false, defaultImage: "building.2.fill", defaultColour: "accent")
                         .frame(width: 100 * scaleFactor, height: 100 * scaleFactor)
                         // Border removed
-                        .onAppear { iconCache.cacheMainIcon(for: inspectState) }
+                        .onAppear {
+                            iconCache.cacheMainIcon(for: inspectState)
+                            iconCache.cacheBannerImage(for: inspectState)
+                        }
 
                     VStack(alignment: .leading, spacing: 4) {
                         // Add subtitle message if available
