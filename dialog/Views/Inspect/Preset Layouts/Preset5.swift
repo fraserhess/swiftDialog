@@ -31,12 +31,12 @@ struct Preset5View: View, InspectLayoutProtocol {
             // Header Section - Corporate Style
             VStack(spacing: 16 * scale) {
                 // Security Icon and Title
-                HStack(spacing: 12 * scale) {
+                HStack(spacing: 16 * scale) {
                     // Icon from configuration
                     IconView(image: iconCache.getMainIconPath(for: inspectState), defaultImage: "shield.checkered", defaultColour: "accent")
-                            .frame(width: 52 * scale, height: 52 * scale)
+                            .frame(width: 72 * scale, height: 72 * scale)
                             .onAppear { iconCache.cacheMainIcon(for: inspectState) }
-                    
+
                     VStack(alignment: .leading, spacing: 2 * scale) {
                         Text(inspectState.uiConfiguration.windowTitle)
                             .font(.system(size: 20 * scale, weight: .semibold))
