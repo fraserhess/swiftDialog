@@ -164,9 +164,13 @@ class InspectState: ObservableObject, FileMonitorDelegate {
                 // Use configuration service to extract grouped configurations
                 print("InspectState: About to extract configurations")
                 print("InspectState: loadedConfig.banner = \(loadedConfig.banner ?? "nil")")
+                print("InspectState: loadedConfig.listIndicatorStyle = \(loadedConfig.listIndicatorStyle ?? "nil")")
+                print("InspectState: loadedConfig.stepStyle = \(loadedConfig.stepStyle ?? "nil")")
                 self.uiConfiguration = self.configurationService.extractUIConfiguration(from: loadedConfig)
                 print("InspectState: After extraction - uiConfiguration.bannerImage = \(self.uiConfiguration.bannerImage ?? "nil")")
                 print("InspectState: After extraction - uiConfiguration.iconBasePath = \(self.uiConfiguration.iconBasePath ?? "nil")")
+                print("InspectState: After extraction - uiConfiguration.listIndicatorStyle = \(self.uiConfiguration.listIndicatorStyle)")
+                print("InspectState: After extraction - uiConfiguration.stepStyle = \(self.uiConfiguration.stepStyle)")
                 self.backgroundConfiguration = self.configurationService.extractBackgroundConfiguration(from: loadedConfig)
                 self.buttonConfiguration = self.configurationService.extractButtonConfiguration(from: loadedConfig)
                 

@@ -699,9 +699,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                         } else if inspectState.downloadingItems.contains(item.id) {
                             ProgressView()
                                 .scaleEffect(0.5)
-                                .frame(width: 14 * scale, height: 14 * scale)
                                 .tint(.white)
-                                .frame(width: 14 * scale, height: 14 * scale)
                         } else {
                             Text(getListIndicator(for: index))
                                 .font(.system(size: 12 * scale, weight: .bold))
@@ -759,7 +757,6 @@ struct Preset6View: View, InspectLayoutProtocol {
                         } else if inspectState.downloadingItems.contains(item.id) {
                             ProgressView()
                                 .scaleEffect(0.5)
-                                .frame(width: 14 * scale, height: 14 * scale)
                         } else {
                             Text(getListIndicator(for: index))
                                 .font(.system(size: 11 * scale, weight: .medium))
@@ -870,7 +867,6 @@ struct Preset6View: View, InspectLayoutProtocol {
             ProgressView()
                 .scaleEffect(0.6)
                 .tint(.white)
-                .frame(width: 16 * scale, height: 16 * scale)
         } else {
             Text(getListIndicator(for: index))
                 .font(.system(size: 14 * scale, weight: .bold))
