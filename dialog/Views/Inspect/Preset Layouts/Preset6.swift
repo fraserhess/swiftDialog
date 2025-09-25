@@ -970,8 +970,8 @@ struct Preset6View: View, InspectLayoutProtocol {
 
     private func getListIndicator(for index: Int) -> String {
         // Check for listStyle configuration option
-        // Default to letters (A, B, C) but allow numbers (1, 2, 3)
-        let listStyle = inspectState.uiConfiguration.listIndicatorStyle ?? "letters"
+        // Default to numbers (1, 2, 3) for clearer ordering
+        let listStyle = inspectState.uiConfiguration.listIndicatorStyle ?? "numbers"
 
         switch listStyle {
         case "numbers":

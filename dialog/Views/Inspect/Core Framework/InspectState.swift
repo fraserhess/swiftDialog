@@ -51,7 +51,7 @@ struct UIConfiguration {
     var imageFormat: String = "square"     // "square" | "rectangle" | "round"
     var imageSyncMode: String = "manual"   // "manual" | "sync" | "auto"
     var stepStyle: String = "plain"        // "plain" | "colored" | "cards"
-    var listIndicatorStyle: String?        // "letters" | "numbers" | "roman" - defaults to "letters"
+    var listIndicatorStyle: String = "numbers"  // "letters" | "numbers" | "roman" - defaults to "numbers"
 }
 
 struct BackgroundConfiguration {
