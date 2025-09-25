@@ -107,28 +107,44 @@ class Config {
     func createTestConfiguration() -> Result<ConfigurationResult, ConfigurationError> {
         let testConfigJSON = """
         {
-            "title": "Test Configuration",
-            "message": "Testing inspect mode",
+            "title": "Software Installation Progress",
+            "message": "Your IT department is installing essential applications. This process may take several minutes.",
             "preset": "preset1",
+            "icon": "default",
+            "button1text": "Continue",
+            "button2text": "Create Sample Config",
+            "button2visible": true,
+            "popupButton": "Installation Details",
+            "highlightColor": "#007AFF",
             "cachePaths": ["/tmp"],
             "items": [
                 {
-                    "id": "test1",
-                    "displayName": "Test Item 1", 
+                    "id": "word",
+                    "displayName": "Microsoft Word",
                     "guiIndex": 0,
-                    "paths": ["/Applications/Test1.app"]
+                    "icon": "sf=doc.fill",
+                    "paths": ["/Applications/Microsoft Word.app"]
                 },
                 {
-                    "id": "test2",
-                    "displayName": "Test Item 2",
-                    "guiIndex": 1, 
-                    "paths": ["/Applications/Test2.app"]
+                    "id": "excel",
+                    "displayName": "Microsoft Excel",
+                    "guiIndex": 1,
+                    "icon": "sf=tablecells.fill",
+                    "paths": ["/Applications/Microsoft Excel.app"]
                 },
                 {
-                    "id": "test3",
-                    "displayName": "Test Item 3",
+                    "id": "teams",
+                    "displayName": "Microsoft Teams",
                     "guiIndex": 2,
-                    "paths": ["/Applications/Test3.app"]
+                    "icon": "sf=person.2.fill",
+                    "paths": ["/Applications/Microsoft Teams.app"]
+                },
+                {
+                    "id": "outlook",
+                    "displayName": "Microsoft Outlook",
+                    "guiIndex": 4,
+                    "icon": "sf=envelope.fill",
+                    "paths": ["/Applications/Microsoft Outlook.app"]
                 }
             ]
         }
