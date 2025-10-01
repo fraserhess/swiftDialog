@@ -22,9 +22,7 @@ class PresetIconCache: ObservableObject {
               let iconPath = state.uiConfiguration.iconPath else { return }
 
         // Don't resolve SF Symbols or special keywords - pass them through directly
-        if iconPath.lowercased().hasPrefix("sf=") ||
-           iconPath.lowercased() == "default" ||
-           iconPath.lowercased() == "computer" {
+        if iconPathHasIgnoredPrefixKeywords(for: iconPath) {
             mainIcon = iconPath
         } else {
             mainIcon = resolver.resolveImagePath(
@@ -45,7 +43,7 @@ class PresetIconCache: ObservableObject {
             if itemIcons[item.id] == nil,
                let icon = item.icon {
                 // Don't resolve SF Symbols - pass them through directly
-                if icon.lowercased().hasPrefix("sf=") {
+                if iconPathHasIgnoredPrefixKeywords(for: icon) {
                     itemIcons[item.id] = icon
                 } else {
                     itemIcons[item.id] = resolver.resolveImagePath(
@@ -71,7 +69,7 @@ class PresetIconCache: ObservableObject {
             if itemIcons[item.id] == nil,
                let icon = item.icon {
                 // Don't resolve SF Symbols - pass them through directly
-                if icon.lowercased().hasPrefix("sf=") {
+                if iconPathHasIgnoredPrefixKeywords(for: icon) {
                     itemIcons[item.id] = icon
                 } else {
                     itemIcons[item.id] = resolver.resolveImagePath(
@@ -100,6 +98,13 @@ class PresetIconCache: ObservableObject {
             bannerImage = nsImage
         }
     }
+    
+    func iconPathHasIgnoredPrefixKeywords(for iconPath: String) -> Bool {
+        return iconPath.lowercased().hasPrefix("sf=") ||
+           iconPath.lowercased() == "default" ||
+           iconPath.lowercased() == "computer" ||
+            iconPath.lowercased().hasPrefix("http")
+    }
 
     func getMainIconPath(for state: InspectState) -> String {
         if let cached = mainIcon { return cached }
@@ -107,9 +112,7 @@ class PresetIconCache: ObservableObject {
         // Check if we have an icon path to cache
         if let iconPath = state.uiConfiguration.iconPath {
             // Don't resolve SF Symbols or special keywords - pass them through directly
-            if iconPath.lowercased().hasPrefix("sf=") ||
-               iconPath.lowercased() == "default" ||
-               iconPath.lowercased() == "computer" {
+            if iconPathHasIgnoredPrefixKeywords(for: iconPath) {
                 mainIcon = iconPath
                 return iconPath
             }
@@ -125,7 +128,7 @@ class PresetIconCache: ObservableObject {
         guard let icon = item.icon else { return "" }
 
         // Don't resolve SF Symbols - pass them through directly
-        if icon.lowercased().hasPrefix("sf=") {
+        if iconPathHasIgnoredPrefixKeywords(for: icon) {
             itemIcons[item.id] = icon
             return icon
         }
