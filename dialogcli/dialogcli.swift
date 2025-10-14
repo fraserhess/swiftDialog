@@ -137,7 +137,7 @@ struct DialogLauncher: ParsableCommand {
             throw ExitCode(1)
         }
 
-        let reorderedArgs = ["--pid", "\(myPid)"]+reorderArguments(passthroughArgs)
+        let reorderedArgs = ["--pid", "\(myPid)", "--commandfile", "\(commandFilePath)"]+reorderArguments(passthroughArgs)
 
         // If at loginwindow (root user with --loginwindow flag), run Dialog directly as root
         if hasLoginwindowFlag && userUID == 0 {
