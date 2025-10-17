@@ -31,18 +31,33 @@ struct CKImageView: View {
                 TextField("ck-autoplayseconds".localized, text: $observedData.args.autoPlay.value)
                 Spacer()
             }
-
+            
             //ForEach(observedData.listItemsArray, id: \.self)
-
-            ForEach(0..<observedData.imageArray.count, id: \.self) { item in
-                HStack {
-                    Button(action: {
-                        //observedData.listItemsArray.remove(at: i)
-                    }, label: {
-                        Image(systemName: "trash")
-                    })
-                    .disabled(true) // MARK: disabled until I can work out how to delete from the array without causing a crash
-                    Button("ck-select".localized) {
+            List {
+                ForEach(0..<observedData.imageArray.count, id: \.self) { item in
+                    HStack {
+                        Image(systemName: "line.3.horizontal")
+                            .foregroundColor(.secondary)
+                        
+                        IconView(image: observedData.imageArray[item].path)
+                            .frame(width: 48, height: 48)
+                            .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                                guard let provider = providers.first else { return false }
+                                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                                    if let url = url {
+                                        DispatchQueue.main.async {
+                                            observedData.imageArray[item].path = url.path
+                                        }
+                                    }
+                                }
+                                return true
+                            }
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 2)
+                                    .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [5]))
+                                    .foregroundColor(.gray.opacity(0.5))
+                            )
+                        Button("ck-select".localized) {
                             let panel = NSOpenPanel()
                             panel.allowsMultipleSelection = false
                             panel.canChooseDirectories = false
@@ -50,11 +65,54 @@ struct CKImageView: View {
                             if panel.runModal() == .OK {
                                 observedData.imageArray[item].path = panel.url?.path ?? "<none>"
                             }
-                          }
-                    TextField("ck-path".localized, text: $observedData.imageArray[item].path)
-                    TextField("ck-caption".localized, text: $observedData.imageArray[item].caption)
+                        }
+                        TextField("ck-path".localized, text: $observedData.imageArray[item].path)
+                        TextField("ck-caption".localized, text: $observedData.imageArray[item].caption)
+                        Button(action: {
+                            guard item >= 0 && item < observedData.imageArray.count else {
+                                writeLog("Could not delete item at position \(item)", logLevel: .info)
+                                return
+                            }
+                            writeLog("Delete item at position \(item)", logLevel: .info)
+                            observedData.imageArray.remove(at: item)
+                        }, label: {
+                            Image(systemName: "trash")
+                        })
+                    }
+                }
+                .onMove { from, to in
+                    withAnimation(.smooth) {
+                        observedData.imageArray.move(fromOffsets: from, toOffset: to)
+                    }
                 }
             }
+            HStack {
+                Text("Drop New Image Here")
+                    .font(.title3.bold())
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 64)
+                    .background(
+                        RoundedRectangle(cornerRadius: 2)
+                            .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [5]))
+                            .foregroundColor(.gray.opacity(0.5))
+                    )
+                    .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                        for provider in providers {
+                            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                                if let url = url {
+                                    DispatchQueue.main.async {
+                                        observedData.imageArray.append(MainImage(path: url.path))
+                                        observedData.args.mainImage.present = true
+                                    }
+                                }
+                            }
+                        }
+                        return true
+                    }
+            }
+            .padding(.top, 20)
+                
             Spacer()
         }
         .padding(20)

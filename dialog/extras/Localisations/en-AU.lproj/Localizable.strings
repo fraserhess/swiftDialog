@@ -26,6 +26,7 @@
 "help-hover" = "Click for additional information";
 
 "Confirm" = "Confirm";
+"Downloading" = "Downloading";
 
 "confirmation-failed" = "confirmation failed  <br>values do not match";
 
@@ -73,7 +74,7 @@
 "ck-select"             = "Select";
 "ck-watermark"          = "Watermark";
 "ck-fill"               = "Fill";
-"ck-alpha"              = "Alpha";
+"ck-alpha"              = "Opacity";
 "ck-scale"              = "Scale";
 "ck-position"           = "Position";
 "ck-icon"               = "Icon";

@@ -74,7 +74,7 @@ struct AudioControl: View {
                         .multilineTextAlignment(.center)
                 } else if case .downloading = audioManager.loadingState {
                     // Show downloading message
-                    Text("Downloading...")
+                    Text("Downloading".localized+"...")
                         .font(.system(size: 11))
                         .foregroundColor(.white.opacity(0.8))
                 } else {

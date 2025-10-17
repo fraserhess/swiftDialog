@@ -21,11 +21,12 @@
 "button-select" = "Sélectionner";
 
 //default text
-"default-title" = "Un message important";
-"default-message" = "Ceci contient un contenu de message important\n\nLisez s'il vous plaît";
+"default-title" = "";
+"default-message" = "";
 "help-hover" = "Cliquez pour plus d'informations";
 
 "Confirm" = "Confirmer";
+"Downloading" = "Téléchargement";
 
 "confirmation-failed" = "échec de la confirmation <br>les valeurs ne correspondent pas";
 

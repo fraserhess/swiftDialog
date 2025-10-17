@@ -28,7 +28,7 @@ struct CKWindowProperties: View {
         VStack {
             LabelView(label: "ck-windowheight".localized)
             HStack {
-                TextField("ck-heightvalue", value: $observedData.appProperties.windowHeight, formatter: displayAsInt )
+                TextField("ck-heightvalue".localized, value: $observedData.appProperties.windowHeight, formatter: displayAsInt )
                     .frame(width: 50)
                 Slider(value: $observedData.appProperties.windowHeight, in: 200...2000)
                     .frame(width: 200)
@@ -39,7 +39,7 @@ struct CKWindowProperties: View {
             }
             LabelView(label: "ck-windowwidth".localized)
             HStack {
-                TextField("ck-widthvalue", value: $observedData.appProperties.windowWidth, formatter: displayAsInt)
+                TextField("ck-widthvalue".localized, value: $observedData.appProperties.windowWidth, formatter: displayAsInt)
                     .frame(width: 50)
                 Slider(value: $observedData.appProperties.windowWidth, in: 200...2000)
                     .frame(width: 200)
@@ -60,7 +60,7 @@ struct CKWindowProperties: View {
                 HStack {
                     Text("ck-presetsizes".localized)
                         .frame(width: 100, alignment: .leading)
-                    Toggle("ck-small", isOn: $observedData.args.smallWindow.present)
+                    Toggle("ck-small".localized, isOn: $observedData.args.smallWindow.present)
                         .toggleStyle(.switch)
                         .onChange(of: observedData.args.smallWindow.present) {
                             observedData.appProperties.scaleFactor = 0.75
@@ -128,70 +128,35 @@ struct CKWindowProperties: View {
                     Spacer()
                 }
             }
-            Group {
-                LabelView(label: "ck-bannerimage".localized)
-                HStack {
-                    Toggle("Enabled", isOn: $observedData.args.bannerImage.present)
-                        .toggleStyle(.switch)
-                        .disabled(observedData.args.bannerImage.value == "")
-                        .onChange(of: observedData.args.bannerImage.present) { _, isEnabled in
-                            observedData.args.iconOption.present.toggle()
-                            observedData.args.bannerTitle.present = isEnabled
-                        }
-                    Toggle("Banner Title", isOn: $observedData.args.bannerTitle.present)
-                        .toggleStyle(.switch)
-                        //.disabled(observedData.args.bannerImage.value == "")
-                        .onChange(of: observedData.args.bannerTitle.present) { _, isEnabled in
-                            if isEnabled {
-                                observedData.appProperties.titleFontColour = Color.white
-                            } else {
-                                observedData.appProperties.titleFontColour = Color.black
-                            }
-                        }
-                    Toggle("Text Shadow", isOn: $observedData.appProperties.titleFontShadow)
-                        .toggleStyle(.switch)
-                        //.disabled(observedData.args.bannerImage.value == "")
-                        //.onChange(of: observedData.args.bannerImage.present, perform: { _ in
-                        //    observedData.args.iconOption.present.toggle()
-                        //})
-                    Spacer()
-                }
-                HStack {
-                    ColorPicker("ck-colour".localized,selection: $bannerColour)
-                        .onChange(of: bannerColour) {
-                            observedData.args.bannerImage.value = "color=\(bannerColour.hexValue)"
-                            observedData.args.bannerImage.present = true
-                        }
-                    Button("ck-select".localized) {
-                        let panel = NSOpenPanel()
-                        panel.allowsMultipleSelection = false
-                        panel.canChooseDirectories = false
-                        panel.allowedContentTypes = [.image]
-                        if panel.runModal() == .OK {
-                            observedData.args.bannerImage.value = panel.url?.path ?? ""
-                        }
-                    }
-                    Spacer()
-                }
-                HStack {
-                    Text("Banner Height")
-                        .frame(alignment: .leading)
-                    TextField("", value: $bannerHeight, formatter: displayAsInt)
-                        .frame(width: 50)
-                    Slider(value: $bannerHeight, in: 28...250)
-                        .onChange(of: bannerHeight) { _, height in
-                            observedData.args.bannerHeight.present = true
-                            observedData.args.bannerHeight.value = "\(height.rounded())"
-                        }
-                }
-                TextField("", text: $observedData.args.bannerImage.value)
-            }
+            
             /*
             VStack {
                 Toggle("banner title", isOn: $observedData.args.bannerTitle.present)
                     .toggleStyle(.switch)
             }
              */
+            LabelView(label: "Background Image".localized)
+            IconView(image: observedData.args.watermarkImage.value)
+                .frame(width: 48, height: 48)
+                .opacity(observedData.args.watermarkImage.present ? 1 : 0.5)
+                .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                    guard let provider = providers.first else { return false }
+                    
+                    _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                        if let url = url {
+                            DispatchQueue.main.async {
+                                observedData.args.watermarkImage.value = url.path
+                                observedData.args.watermarkImage.present = true
+                            }
+                        }
+                    }
+                    return true
+                }
+                .overlay(
+                        RoundedRectangle(cornerRadius: 2)
+                            .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [5]))
+                            .foregroundColor(.gray.opacity(0.5))
+                    )
             HStack {
                 Text("ck-watermark".localized)
                     .frame(width: 100, alignment: .leading)
@@ -229,7 +194,7 @@ struct CKWindowProperties: View {
                         Text($0)
                     }
                 }
-                Picker("ck-positoin".localized, selection: $observedData.args.watermarkPosition.value) {
+                Picker("ck-position".localized, selection: $observedData.args.watermarkPosition.value) {
                     Text("").tag("")
                     ForEach(positionArray, id: \.self) {
                         Text($0)

@@ -21,11 +21,12 @@
 "button-select" = "Valitse";
 
 //default text
-"default-title" = "Tärkeä viesti";
-"default-message" = "Tämä sisältää tärkeän viestin sisältöä\n\nLue";
+"default-title" = "";
+"default-message" = "";
 "help-hover" = "Napsauta saadaksesi lisätietoja";
 
 "Confirm" = "Vahvistaa";
+"Downloading" = "Ladataan";
 
 "confirmation-failed" = "vahvistus epäonnistui <br>arvot eivät täsmää";
 

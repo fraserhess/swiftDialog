@@ -31,10 +31,10 @@ struct WelcomeView: View {
                 .resizable()
                 .frame(width: 150, height: 150)
 
-            Text("ck-welcome")
+            Text("ck-welcome".localized)
                 .font(.largeTitle)
             Divider()
-            Text("ck-welcomeinfo")
+            Text("ck-welcomeinfo".localized)
                 .foregroundColor(.secondary)
         }
     }
@@ -57,6 +57,7 @@ struct JSONView: View {
         let mirroredAppArguments = Mirror(reflecting: observedDialogContent.args)
         for (_, attr) in mirroredAppArguments.children.enumerated() {
             if let propertyValue = attr.value as? CommandlineArgument {
+                if ["builder", "debug"].contains(propertyValue.long) { continue } 
                 if propertyValue.present { //}&& propertyValue.value != "" {
                     if propertyValue.value != "" {
                         json[propertyValue.long].string = propertyValue.value
@@ -171,7 +172,8 @@ struct ConstructionKitView: View {
         window.isReleasedWhenClosed = false
         window.center()
         window.contentView = NSHostingView(rootView: ConstructionKitView(observedDialogContent: observedData))
-
+        placeWindow(window, size: CGSize(width: appvars.windowWidth,
+                                         height: appvars.windowHeight), vertical: .center, horozontal: .right, offset: 10)
     }
 
     var body: some View {
@@ -180,7 +182,7 @@ struct ConstructionKitView: View {
             List {
                 Section(header: Text("ck-basic".localized)) {
                     NavigationLink(destination: CKBasicsView(observedDialogContent: observedData)) {
-                        Text("ck-content".localized)
+                        Text("Title Bar".localized)
                     }
                     NavigationLink(destination: CKWindowProperties(observedDialogContent: observedData)) {
                         Text("ck-window".localized)

@@ -20,6 +20,27 @@ struct CKSidebarView: View {
             VStack {
                 LabelView(label: "ck-icon".localized)
                 HStack {
+                    IconView(image: observedData.args.iconOption.value)
+                        .frame(width: 48, height: 48)
+                        .opacity(observedData.args.iconOption.present ? 1 : 0.5)
+                        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                            guard let provider = providers.first else { return false }
+                            
+                            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                                if let url = url {
+                                    DispatchQueue.main.async {
+                                        observedData.args.iconOption.value = url.path
+                                    }
+                                }
+                            }
+                            return true
+                        }
+                        .overlay(
+                                RoundedRectangle(cornerRadius: 2)
+                                    .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [5]))
+                                    .foregroundColor(.gray.opacity(0.5))
+                            )
+                    
                     Toggle("ck-visible".localized, isOn: $observedData.args.iconOption.present)
                         .toggleStyle(.switch)
                     Toggle("ck-centred".localized, isOn: $observedData.args.centreIcon.present)

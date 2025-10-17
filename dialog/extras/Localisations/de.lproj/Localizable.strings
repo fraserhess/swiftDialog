@@ -22,11 +22,12 @@
 "button-select" = "Auswählen";
 
 //default text
-"default-title" = "Eine wichtige Nachricht";
-"default-message" = "Dies ist eine wichtige Nachricht\n\n Bitte lesen Sie diese";
+"default-title" = "";
+"default-message" = "";
 "help-hover" = "Klicken Sie für weitere Informationen";
 
 "Confirm" = "Bestätigen";
+"Downloading" = "Herunterladen";
 
 "confirmation-failed" = "Bestätigung fehlgeschlagen <br>Werte stimmen nicht überein";
 

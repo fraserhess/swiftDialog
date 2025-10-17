@@ -22,11 +22,12 @@
 "button-select" = "Vælg";
 
 //default text
-"default-title" = "En vigtig besked";
-"default-message" = "Dette er en vigtigt besked\n\nLæs venligst";
+"default-title" = "";
+"default-message" = "";
 "help-hover" = "Klik for yderligere information";
 
 "Confirm" = "Bekræfte";
+"Downloading" = "Downloader";
 
 "confirmation-failed" = "bekræftelse mislykkedes <br>værdier stemmer ikke overens";
 

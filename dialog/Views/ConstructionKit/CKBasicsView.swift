@@ -10,7 +10,9 @@ import SwiftUI
 struct CKBasicsView: View {
 
     @ObservedObject var observedData: DialogUpdatableContent
-
+    @State var bannerColour: Color = .white
+    @State var bannerHeight: CGFloat = 150
+    
     let alignmentArray = ["left", "centre", "right"]
 
     init(observedDialogContent: DialogUpdatableContent) {
@@ -31,13 +33,93 @@ struct CKBasicsView: View {
             HStack {
                 Text("ck-fontsize".localized)
                 Slider(value: $observedData.appProperties.titleFontSize, in: 10...80)
-                TextField("ck-value", value: $observedData.appProperties.titleFontSize, formatter: NumberFormatter())
+                TextField("ck-value".localized, value: $observedData.appProperties.titleFontSize, formatter: NumberFormatter())
                     .frame(width: 50)
+            }
+            
+            Group {
+                LabelView(label: "ck-bannerimage".localized)
+                IconView(image: observedData.args.bannerImage.value)
+                    .frame(width: 200, height: 48)
+                    .opacity(observedData.args.bannerImage.present ? 1 : 0.5)
+                    .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                        guard let provider = providers.first else { return false }
+                        
+                        _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                            if let url = url {
+                                DispatchQueue.main.async {
+                                    observedData.args.bannerImage.value = url.path
+                                    observedData.args.bannerImage.present = true
+                                }
+                            }
+                        }
+                        return true
+                    }
+                    .overlay(
+                            RoundedRectangle(cornerRadius: 2)
+                                .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [5]))
+                                .foregroundColor(.gray.opacity(0.5))
+                        )
+                HStack {
+                    Toggle("Enabled", isOn: $observedData.args.bannerImage.present)
+                        .toggleStyle(.switch)
+                        .disabled(observedData.args.bannerImage.value == "")
+                        .onChange(of: observedData.args.bannerImage.present) { _, isEnabled in
+                            observedData.args.iconOption.present.toggle()
+                            observedData.args.bannerTitle.present = isEnabled
+                        }
+                    Toggle("Banner Title", isOn: $observedData.args.bannerTitle.present)
+                        .toggleStyle(.switch)
+                        //.disabled(observedData.args.bannerImage.value == "")
+                        .onChange(of: observedData.args.bannerTitle.present) { _, isEnabled in
+                            if isEnabled {
+                                observedData.appProperties.titleFontColour = Color.white
+                            } else {
+                                observedData.appProperties.titleFontColour = Color.black
+                            }
+                        }
+                    Toggle("Text Shadow", isOn: $observedData.appProperties.titleFontShadow)
+                        .toggleStyle(.switch)
+                        //.disabled(observedData.args.bannerImage.value == "")
+                        //.onChange(of: observedData.args.bannerImage.present, perform: { _ in
+                        //    observedData.args.iconOption.present.toggle()
+                        //})
+                    Spacer()
+                }
+                HStack {
+                    ColorPicker("ck-colour".localized,selection: $bannerColour)
+                        .onChange(of: bannerColour) {
+                            observedData.args.bannerImage.value = "color=\(bannerColour.hexValue)"
+                            observedData.args.bannerImage.present = true
+                        }
+                    Button("ck-select".localized) {
+                        let panel = NSOpenPanel()
+                        panel.allowsMultipleSelection = false
+                        panel.canChooseDirectories = false
+                        panel.allowedContentTypes = [.image]
+                        if panel.runModal() == .OK {
+                            observedData.args.bannerImage.value = panel.url?.path ?? ""
+                        }
+                    }
+                    Spacer()
+                }
+                HStack {
+                    Text("Banner Height")
+                        .frame(alignment: .leading)
+                    TextField("", value: $bannerHeight, formatter: displayAsInt)
+                        .frame(width: 50)
+                    Slider(value: $bannerHeight, in: 28...250)
+                        .onChange(of: bannerHeight) { _, height in
+                            observedData.args.bannerHeight.present = true
+                            observedData.args.bannerHeight.value = "\(height.rounded())"
+                        }
+                }
+                TextField("", text: $observedData.args.bannerImage.value)
             }
 
             LabelView(label: "ck-message".localized)
             HStack {
-                Picker("ck-textalignment".localized, selection: $observedData.args.messageAlignment.value) {
+                Picker("ck-textalignmnet".localized, selection: $observedData.args.messageAlignment.value) {
                     Text("").tag("")
                     ForEach(appDefaults.allignmentStates.keys.sorted(), id: \.self) {
                         Text($0)
