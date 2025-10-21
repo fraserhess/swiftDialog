@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct CKBasicsView: View {
+struct CKTitleView: View {
 
     @ObservedObject var observedData: DialogUpdatableContent
     @State var bannerColour: Color = .white
@@ -21,7 +21,7 @@ struct CKBasicsView: View {
 
     var body: some View {
 
-        VStack {
+        ScrollView {
             LabelView(label: "ck-title".localized)
             HStack {
                 TextField("", text: $observedData.args.titleOption.value)

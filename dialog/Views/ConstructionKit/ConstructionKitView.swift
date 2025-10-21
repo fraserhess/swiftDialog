@@ -27,10 +27,15 @@ struct LabelView: View {
 struct WelcomeView: View {
     var body: some View {
         VStack {
-            Image(systemName: "bubble.left.circle.fill")
-                .resizable()
-                .frame(width: 150, height: 150)
+            ZStack {
+                IconView(image: "default")
+                //Image(systemName: "bubble.left.circle.fill")
+                //    .resizable()
 
+                IconView(image: "sf=wrench.and.screwdriver.fill", alpha: 0.5, defaultColour: "white")
+            }
+            .frame(width: 150, height: 150)
+            
             Text("ck-welcome".localized)
                 .font(.largeTitle)
             Divider()
@@ -44,6 +49,8 @@ struct JSONView: View {
     @ObservedObject var observedDialogContent: DialogUpdatableContent
 
     @State private var jsonText: String = ""
+    @State private var showAlert = false
+    @State private var alertMessage = ""
 
     private func exportJSON(debug: Bool = false) -> String {
         var json = JSON()
@@ -80,6 +87,13 @@ struct JSONView: View {
                 json[appArguments.listItem.long][index].dictionaryObject = observedDialogContent.listItemsArray[index].dictionary
             }
         }
+        
+        if observedDialogContent.textFieldArray.count > 0 {
+            json[appArguments.textField.long].arrayObject = Array(repeating: 0, count: observedDialogContent.textFieldArray.count)
+            for index in 0..<observedDialogContent.textFieldArray.count {
+                json[appArguments.textField.long][index].dictionaryObject = observedDialogContent.textFieldArray[index].dictionary
+            }
+        }
 
         if observedDialogContent.imageArray.count > 0 {
             json[appArguments.mainImage.long].arrayObject = Array(repeating: 0, count: observedDialogContent.imageArray.count)
@@ -114,15 +128,39 @@ struct JSONView: View {
         self.observedDialogContent = observedDialogContent
     }
 
+    func saveToFile(_ content: String) {
+            let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.json]
+            savePanel.canCreateDirectories = true
+            savePanel.nameFieldStringValue = "file.json"
+            savePanel.message = "Choose a location to save the file"
+            
+            savePanel.begin { response in
+                if response == .OK, let url = savePanel.url {
+                    do {
+                        try content.write(to: url, atomically: true, encoding: .utf8)
+                        alertMessage = "File saved successfully!"
+                        showAlert = true
+                    } catch {
+                        alertMessage = "Failed to save file: \(error.localizedDescription)"
+                        showAlert = true
+                    }
+                }
+            }
+        }
+    
     var body: some View {
-        VStack {
+        ScrollView {
             HStack {
-                Button("Generate") {
+                Button("Regenerate") {
                     jsonText = exportJSON()
                 }
                 Button("Copy to clipboard") {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.writeObjects([NSString(string: exportJSON())])
+                }
+                Button("Save File") {
+                    saveToFile(exportJSON())
                 }
                 Spacer()
             }
@@ -135,7 +173,14 @@ struct JSONView: View {
             }
             .padding(.top, 10)
             .padding(.leading, 10)
+            .alert("Save Status", isPresented: $showAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(alertMessage)
+            }
+            
             Spacer()
+            
         }
         .onAppear {
             jsonText = exportJSON()
@@ -160,6 +205,7 @@ struct ConstructionKitView: View {
         observedDialogContent.args.button1TextOption.present = true
         observedDialogContent.args.windowWidth.present = true
         observedDialogContent.args.windowHeight.present = true
+        observedDialogContent.args.movableWindow.present = true
 
     }
 
@@ -170,13 +216,13 @@ struct ConstructionKitView: View {
             contentRect: NSRect(x: 0, y: 0, width: 0, height: 0),
                styleMask: [.titled, .closable, .miniaturizable, .resizable],
                backing: .buffered, defer: false)
-        window.title = "swiftDialog Construction Kit (ALPHA)"
+        window.title = "swiftDialog Construction Kit"
         window.makeKeyAndOrderFront(self)
         window.isReleasedWhenClosed = false
         window.center()
         window.contentView = NSHostingView(rootView: ConstructionKitView(observedDialogContent: observedData))
-        placeWindow(window, size: CGSize(width: appvars.windowWidth,
-                                         height: appvars.windowHeight), vertical: .center, horozontal: .right, offset: 10)
+        placeWindow(window, size: CGSize(width: 700,
+                                         height: 900), vertical: .center, horozontal: .right, offset: 10)
     }
 
     var body: some View {
@@ -184,7 +230,7 @@ struct ConstructionKitView: View {
         NavigationView {
             List {
                 Section(header: Text("ck-basic".localized)) {
-                    NavigationLink(destination: CKBasicsView(observedDialogContent: observedData)) {
+                    NavigationLink(destination: CKTitleView(observedDialogContent: observedData)) {
                         Text("Title Bar".localized)
                     }
                     NavigationLink(destination: CKWindowProperties(observedDialogContent: observedData)) {
@@ -196,11 +242,19 @@ struct ConstructionKitView: View {
                     NavigationLink(destination: CKSidebarView(observedDialogContent: observedData)) {
                         Text("ck-sidebar".localized)
                     }
-                    NavigationLink(destination: CKDataEntryView(observedDialogContent: observedData)) {
-                        Text("ck-dataentry".localized)
-                    }
                     NavigationLink(destination: CKButtonView(observedDialogContent: observedData)) {
                         Text("ck-buttons".localized)
+                    }
+                }
+                Section(header: Text("Data Entry")) {
+                    NavigationLink(destination: CKTextEntryView(observedDialogContent: observedData)) {
+                        Text("Text Fields".localized)
+                    }
+                    NavigationLink(destination: CKTextEntryView(observedDialogContent: observedData)) {
+                        Text("Select Lists".localized)
+                    }
+                    NavigationLink(destination: CKTextEntryView(observedDialogContent: observedData)) {
+                        Text("Checkboxes".localized)
                     }
                 }
                 Section(header: Text("ck-advanced".localized)) {
@@ -226,7 +280,7 @@ struct ConstructionKitView: View {
             WelcomeView()
         }
         .listStyle(SidebarListStyle())
-        .frame(idealWidth: 800, idealHeight: 600)
+        //.frame(minWidth: 800, height: 800)
         Divider()
         ZStack {
             Spacer()

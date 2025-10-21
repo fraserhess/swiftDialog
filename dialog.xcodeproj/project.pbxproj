@@ -10,13 +10,13 @@
 		41005AA927CEF81A0065F323 /* SwiftyJSON in Frameworks */ = {isa = PBXBuildFile; productRef = 41005AA827CEF81A0065F323 /* SwiftyJSON */; };
 		41005AAA27CEF8250065F323 /* AVKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4114E1E827153FEE00388274 /* AVKit.framework */; };
 		41110A2825F9E79E008171D2 /* License.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41110A2725F9E79E008171D2 /* License.swift */; };
-		4116922C28939B4500A88700 /* CKBasicsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4116922B28939B4500A88700 /* CKBasicsView.swift */; };
+		4116922C28939B4500A88700 /* CKTitleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4116922B28939B4500A88700 /* CKTitleView.swift */; };
 		4116922F28939C2A00A88700 /* CKWindowProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4116922E28939C2A00A88700 /* CKWindowProperties.swift */; };
 		4116923228939DEB00A88700 /* CKSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4116923128939DEB00A88700 /* CKSidebarView.swift */; };
 		4116923528939E4D00A88700 /* CKButtonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4116923428939E4D00A88700 /* CKButtonView.swift */; };
 		411692382893A21500A88700 /* CKImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 411692372893A21500A88700 /* CKImageView.swift */; };
 		4116923B2893A22300A88700 /* CKListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4116923A2893A22300A88700 /* CKListView.swift */; };
-		4116923E2893A24300A88700 /* CKDataEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4116923D2893A24300A88700 /* CKDataEntryView.swift */; };
+		4116923E2893A24300A88700 /* CKTextEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4116923D2893A24300A88700 /* CKTextEntryView.swift */; };
 		411FC34628E2DDFD003EA2C2 /* Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 411FC34528E2DDFD003EA2C2 /* Notifications.swift */; };
 		4124EFD229455861003B00F4 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4124EFD129455861003B00F4 /* HelpView.swift */; };
 		412B26AF289CE02100493EFF /* MiniView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 412B26AE289CE02100493EFF /* MiniView.swift */; };
@@ -177,13 +177,13 @@
 		41110A2725F9E79E008171D2 /* License.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = License.swift; sourceTree = "<group>"; };
 		4114E1E827153FEE00388274 /* AVKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVKit.framework; path = System/Library/Frameworks/AVKit.framework; sourceTree = SDKROOT; };
 		4114E1EA27154B2200388274 /* VideoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoView.swift; sourceTree = "<group>"; };
-		4116922B28939B4500A88700 /* CKBasicsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CKBasicsView.swift; sourceTree = "<group>"; };
+		4116922B28939B4500A88700 /* CKTitleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CKTitleView.swift; sourceTree = "<group>"; };
 		4116922E28939C2A00A88700 /* CKWindowProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CKWindowProperties.swift; sourceTree = "<group>"; };
 		4116923128939DEB00A88700 /* CKSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CKSidebarView.swift; sourceTree = "<group>"; };
 		4116923428939E4D00A88700 /* CKButtonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CKButtonView.swift; sourceTree = "<group>"; };
 		411692372893A21500A88700 /* CKImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CKImageView.swift; sourceTree = "<group>"; };
 		4116923A2893A22300A88700 /* CKListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CKListView.swift; sourceTree = "<group>"; };
-		4116923D2893A24300A88700 /* CKDataEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CKDataEntryView.swift; sourceTree = "<group>"; };
+		4116923D2893A24300A88700 /* CKTextEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CKTextEntryView.swift; sourceTree = "<group>"; };
 		411FC34528E2DDFD003EA2C2 /* Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Notifications.swift; path = dialog/Functions/Notifications.swift; sourceTree = SOURCE_ROOT; };
 		4124EFD129455861003B00F4 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		412B26AE289CE02100493EFF /* MiniView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniView.swift; sourceTree = "<group>"; };
@@ -356,13 +356,13 @@
 			children = (
 				41BD41C62EA5771600DA7124 /* CKIconView.swift */,
 				41512CC1286C77F200F22B86 /* ConstructionKitView.swift */,
-				4116922B28939B4500A88700 /* CKBasicsView.swift */,
+				4116922B28939B4500A88700 /* CKTitleView.swift */,
 				4116922E28939C2A00A88700 /* CKWindowProperties.swift */,
 				4116923128939DEB00A88700 /* CKSidebarView.swift */,
 				4116923428939E4D00A88700 /* CKButtonView.swift */,
 				411692372893A21500A88700 /* CKImageView.swift */,
 				4116923A2893A22300A88700 /* CKListView.swift */,
-				4116923D2893A24300A88700 /* CKDataEntryView.swift */,
+				4116923D2893A24300A88700 /* CKTextEntryView.swift */,
 				41A5A6A828E66D0C00BD3D5E /* CKMediaView.swift */,
 			);
 			path = ConstructionKit;
@@ -896,7 +896,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				41512CC2286C77F200F22B86 /* ConstructionKitView.swift in Sources */,
-				4116922C28939B4500A88700 /* CKBasicsView.swift in Sources */,
+				4116922C28939B4500A88700 /* CKTitleView.swift in Sources */,
 				415E1FCB27A2B0A000DE971B /* ListView.swift in Sources */,
 				4116922F28939C2A00A88700 /* CKWindowProperties.swift in Sources */,
 				CCB35CB42BCFF4460041A701 /* SystemInfo.swift in Sources */,
@@ -950,7 +950,7 @@
 				4116923528939E4D00A88700 /* CKButtonView.swift in Sources */,
 				417BD471279CB658009AE34A /* CheckboxView.swift in Sources */,
 				4116923228939DEB00A88700 /* CKSidebarView.swift in Sources */,
-				4116923E2893A24300A88700 /* CKDataEntryView.swift in Sources */,
+				4116923E2893A24300A88700 /* CKTextEntryView.swift in Sources */,
 				41A679D32962494B000BFFCE /* InfoBoxView.swift in Sources */,
 				CC21904E2A7BC3E000269525 /* Strings.swift in Sources */,
 				4153784E2604B71800AA0E76 /* TitleView.swift in Sources */,

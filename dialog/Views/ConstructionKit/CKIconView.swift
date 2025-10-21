@@ -16,11 +16,11 @@ struct CKIconView: View {
     }
 
     var body: some View {
-        VStack { // icon and icon overlay
+        ScrollView { // icon and icon overlay
             VStack {
                 LabelView(label: "ck-icon".localized)
                 HStack {
-                    IconView(image: observedData.args.iconOption.value)
+                    IconView(image: observedData.args.iconOption.value, defaultImage: "sf=questionmark.square.dashed")
                         .frame(width: 48, height: 48)
                         .opacity(observedData.args.iconOption.present ? 1 : 0.5)
                         .onDrop(of: [.fileURL], isTargeted: nil) { providers in

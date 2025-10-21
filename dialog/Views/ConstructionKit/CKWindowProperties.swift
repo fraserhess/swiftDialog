@@ -25,7 +25,7 @@ struct CKWindowProperties: View {
 
     var body: some View {
 
-        VStack {
+        ScrollView {
             LabelView(label: "ck-windowheight".localized)
             HStack {
                 TextField("ck-heightvalue".localized, value: $observedData.appProperties.windowHeight, formatter: displayAsInt )

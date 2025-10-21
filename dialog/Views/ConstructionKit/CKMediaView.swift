@@ -17,11 +17,11 @@ struct CKMediaView: View {
     }
 
     var body: some View {
-        VStack { //buttons
+        ScrollView { //buttons
             VStack {
                 LabelView(label: "Video")
                 HStack {
-                    Toggle("ck-enable".localized, isOn: $observedData.args.video.present)
+                    Toggle("Enable".localized, isOn: $observedData.args.video.present)
                         .toggleStyle(.switch)
                     Toggle("ck-autoplay".localized, isOn: $observedData.args.autoPlay.present)
                         .toggleStyle(.switch)
@@ -50,6 +50,7 @@ struct CKMediaView: View {
                 TextField("ck-url".localized, text: $observedData.args.webcontent.value)
             }
         }
+        .padding(20)
     }
 }
 

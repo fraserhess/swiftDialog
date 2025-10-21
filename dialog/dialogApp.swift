@@ -283,6 +283,11 @@ struct dialogApp: App {
         // Hide Title Bar
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
+        
+        WindowGroup("Constriction Kt", id: "ConstructionKit") {
+            ConstructionKitView(observedDialogContent: observedData)
+        }
+        .windowResizability(.contentSize)
     }
 
 

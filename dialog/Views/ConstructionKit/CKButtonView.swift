@@ -16,7 +16,7 @@ struct CKButtonView: View {
     }
 
     var body: some View {
-        VStack { //buttons
+        ScrollView { //buttons
             VStack {
                      LabelView(label: "ck-buttonsize".localized)
                      HStack {

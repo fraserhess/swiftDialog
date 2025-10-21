@@ -16,7 +16,7 @@ struct CKSidebarView: View {
     }
 
     var body: some View {
-        VStack { // infoBox
+        ScrollView { // infoBox
             VStack {
                 LabelView(label: "ck-infobox".localized)
                 HStack {

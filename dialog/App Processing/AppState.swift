@@ -118,6 +118,9 @@ struct ListItems: Codable {
     var title: String
     var subTitle: String = ""
     var icon: String = ""
+    var sfSymbol: String = ""
+    var sfColour: String = ""
+    var sfPicker: Bool = false
     var iconAlpha: CGFloat = 1
     var statusText: String = ""
     var statusIcon: String = ""

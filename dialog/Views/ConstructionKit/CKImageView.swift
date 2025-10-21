@@ -87,7 +87,7 @@ struct CKImageView: View {
                 }
             }
             HStack {
-                Text("Drop New Image Here")
+                Text("Drop New Image(s) Here")
                     .font(.title3.bold())
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity)
@@ -97,23 +97,24 @@ struct CKImageView: View {
                             .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [5]))
                             .foregroundColor(.gray.opacity(0.5))
                     )
-                    .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                        for provider in providers {
-                            _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                                if let url = url {
-                                    DispatchQueue.main.async {
-                                        observedData.imageArray.append(MainImage(path: url.path))
-                                        observedData.args.mainImage.present = true
-                                    }
-                                }
-                            }
-                        }
-                        return true
-                    }
+                    
             }
             .padding(.top, 20)
                 
             Spacer()
+        }
+        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+            for provider in providers {
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    if let url = url {
+                        DispatchQueue.main.async {
+                            observedData.imageArray.append(MainImage(path: url.path))
+                            observedData.args.mainImage.present = true
+                        }
+                    }
+                }
+            }
+            return true
         }
         .padding(20)
     }
