@@ -622,6 +622,9 @@ final class DialogUpdatableContent: ObservableObject {
 
     @Published var imageArray: [MainImage]
     @Published var textFieldArray: [TextFieldState]
+    @Published var dropdownArray: [DropDownItems]
+    @Published var observedUserInputState: UserInputState
+    
 
     @Published var listItemsArray: [ListItems]
     @Published var listItemUpdateRow: Int
@@ -666,8 +669,10 @@ final class DialogUpdatableContent: ObservableObject {
 
         imageArray = appvars.imageArray
         textFieldArray = userInputState.textFields
-
+        dropdownArray = userInputState.dropdownItems
         listItemsArray = userInputState.listItems
+        
+        observedUserInputState = userInputState
 
         requiredFieldsPresent = false
 

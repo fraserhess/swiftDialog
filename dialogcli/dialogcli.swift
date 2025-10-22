@@ -21,8 +21,8 @@ struct DialogLauncher: ParsableCommand {
     static let process = Process()
     
     // Command-line option for specifying the path to the command file
-    @Option(name: .long, help: "Path to the command file")
-    var commandfile: String?
+    //@Option(name: .long, help: "Path to the command file")
+    //var commandfile: String?
     
     // Used to create the `/usr/local/bin/dialog` symlink
     @Flag(help: .hidden)
@@ -109,8 +109,19 @@ struct DialogLauncher: ParsableCommand {
             throw ExitCode(0)
         }
 
-        // Use the specified command file path or default one
-        let commandFilePath = commandfile ?? defaultCommandFile
+        // loop through looking for the command file path
+        var commandFilePath = defaultCommandFile
+        var index = 0
+        while index < passthroughArgs.count {
+            if passthroughArgs[index] == "--commandfile" {
+                // Next argument should be the path
+                if index + 1 < passthroughArgs.count && !passthroughArgs[index + 1].hasPrefix("--") {
+                    commandFilePath = passthroughArgs[index + 1]
+                    break
+                }
+            }
+            index+=1
+        }
 
         // Check if commandfile is a symlink and abort if found
         if FileManager.default.destinationOfSymbolicLinkSafe(atPath: commandFilePath) != nil {

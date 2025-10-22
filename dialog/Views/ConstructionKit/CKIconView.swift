@@ -2,7 +2,7 @@
 //  CKIconView.swift
 //  dialog
 //
-//  Created by Reardon, Bart (IM&T, Black Mountain) on 20/10/2025.
+//  Created by Bart Reardon on 20/10/2025.
 //
 
 import SwiftUI

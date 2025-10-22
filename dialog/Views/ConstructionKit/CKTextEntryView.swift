@@ -160,13 +160,3 @@ struct CKTextEntryView: View {
     }
 }
 
-struct CKHelpView: View {
-    
-    var text: String?
-    
-    var body: some View {
-        Text(text ?? "No help available")
-            .multilineTextAlignment(.leading)
-            .padding(20)
-    }
-}
