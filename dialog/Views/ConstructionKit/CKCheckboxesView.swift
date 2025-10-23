@@ -20,8 +20,13 @@ struct CKCheckBoxesView: View {
     }
 
     var body: some View {
-        
+        VStack {
         LabelView(label: "Checkboxes".localized)
+        HStack {
+            Toggle("Format output as JSON", isOn: $observedData.args.jsonOutPut.present)
+            .toggleStyle(.switch)
+            Spacer()
+        }
         HStack {
             Button(action: {
                 showHelp.toggle()
@@ -57,96 +62,97 @@ struct CKCheckBoxesView: View {
             
             Spacer()
         }
-        .padding(20)
+        .padding(.bottom, 20)
         
         
-        ScrollView {
-            //List {
-            ForEach(0..<userInputState.checkBoxes.count, id: \.self) { item in
-                HStack {
-                    
-                    IconView(image: observedData.observedUserInputState.checkBoxes[item].icon, defaultImage: "sf=questionmark.square.dashed")
-                        .frame(width: 32, height: 32)
-                        .opacity(observedData.observedUserInputState.checkBoxes[item].icon.isEmpty || observedData.appProperties.checkboxControlStyle == "switch" ? 0.5 : 1)
-                        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                            guard let provider = providers.first else { return false }
-                            _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                                if let url = url {
-                                    DispatchQueue.main.async {
-                                        observedData.observedUserInputState.checkBoxes[item].icon = url.path
+            ScrollView {
+                //List {
+                ForEach(0..<userInputState.checkBoxes.count, id: \.self) { item in
+                    HStack {
+                        
+                        IconView(image: observedData.observedUserInputState.checkBoxes[item].icon, defaultImage: "sf=questionmark.square.dashed")
+                            .frame(width: 32, height: 32)
+                            .opacity(observedData.observedUserInputState.checkBoxes[item].icon.isEmpty || observedData.appProperties.checkboxControlStyle == "switch" ? 1 : 0.5)
+                            .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                                guard let provider = providers.first else { return false }
+                                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                                    if let url = url {
+                                        DispatchQueue.main.async {
+                                            observedData.observedUserInputState.checkBoxes[item].icon = url.path
+                                        }
                                     }
                                 }
+                                return true
                             }
-                            return true
-                        }
-                    
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 2)
-                                .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [5]))
-                                .foregroundColor(.gray.opacity(0.5))
-                        )
-                        .onChange(of: observedData.observedUserInputState.checkBoxes[item].icon) { _, textRequired in
-                            observedData.observedUserInputState.checkBoxes[item].icon = textRequired
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            observedData.observedUserInputState.checkBoxes[item].sfPicker.toggle()
-                        }
-                    
-                        .popover(isPresented: $observedData.observedUserInputState.checkBoxes[item].sfPicker) {
-                            VStack {
-                                HStack {
-                                    Text("sf=")
-                                    TextField("SF Symbol Name", text: $observedData.observedUserInputState.checkBoxes[item].sfSymbol)
-                                        .onChange(of: observedData.observedUserInputState.checkBoxes[item].sfSymbol) { _, sfName in
-                                            observedData.observedUserInputState.checkBoxes[item].icon = "sf=\(sfName)"
+                        
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 2)
+                                    .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [5]))
+                                    .foregroundColor(.gray.opacity(0.5))
+                            )
+                            .onChange(of: observedData.observedUserInputState.checkBoxes[item].icon) { _, textRequired in
+                                observedData.observedUserInputState.checkBoxes[item].icon = textRequired
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                observedData.observedUserInputState.checkBoxes[item].sfPicker.toggle()
+                            }
+                        
+                            .popover(isPresented: $observedData.observedUserInputState.checkBoxes[item].sfPicker) {
+                                VStack {
+                                    HStack {
+                                        Text("sf=")
+                                        TextField("SF Symbol Name", text: $observedData.observedUserInputState.checkBoxes[item].sfSymbol)
+                                            .onChange(of: observedData.observedUserInputState.checkBoxes[item].sfSymbol) { _, sfName in
+                                                observedData.observedUserInputState.checkBoxes[item].icon = "sf=\(sfName)"
+                                            }
+                                    }
+                                    ColorPicker("ck-colour".localized,selection: $tmpColour)
+                                        .onChange(of: tmpColour) { _, colour in
+                                            observedData.observedUserInputState.checkBoxes[item].sfColour = colour.hexValue
+                                            observedData.observedUserInputState.checkBoxes[item].icon = "sf=\(observedData.observedUserInputState.checkBoxes[item].sfSymbol),color=\(colour.hexValue)"
                                         }
                                 }
-                                ColorPicker("ck-colour".localized,selection: $tmpColour)
-                                    .onChange(of: tmpColour) { _, colour in
-                                        observedData.observedUserInputState.checkBoxes[item].sfColour = colour.hexValue
-                                        observedData.observedUserInputState.checkBoxes[item].icon = "sf=\(observedData.listItemsArray[item].sfSymbol),color=\(colour.hexValue)"
-                                    }
+                                .padding(20)
                             }
-                            .padding(20)
-                        }
-                    
-                    TextField("Label".localized, text: $observedData.observedUserInputState.checkBoxes[item].label)
-                        .onChange(of: observedData.observedUserInputState.checkBoxes[item].label) { _, label in
-                            userInputState.checkBoxes[item].label = label
+                        
+                        TextField("Label".localized, text: $observedData.observedUserInputState.checkBoxes[item].label)
+                            .onChange(of: observedData.observedUserInputState.checkBoxes[item].label) { _, label in
+                                userInputState.checkBoxes[item].label = label
+                                observedData.updateView.toggle()
+                            }
+                        TextField("Name".localized+": \(observedData.observedUserInputState.checkBoxes[item].name)", text: $observedData.observedUserInputState.checkBoxes[item].name)
+                            .onChange(of: observedData.observedUserInputState.checkBoxes[item].name) { _, name in
+                                userInputState.checkBoxes[item].name = name
+                                observedData.updateView.toggle()
+                            }
+                        Toggle("Checked".localized, isOn: $observedData.observedUserInputState.checkBoxes[item].checked)
+                            .onChange(of: observedData.observedUserInputState.checkBoxes[item].checked) { _, checked in
+                                userInputState.checkBoxes[item].checked = checked
+                                observedData.updateView.toggle()
+                            }
+                            .toggleStyle(.switch)
+                        Toggle("Disabled".localized, isOn: $observedData.observedUserInputState.checkBoxes[item].disabled)
+                            .onChange(of: observedData.observedUserInputState.checkBoxes[item].disabled) { _, disabled in
+                                userInputState.checkBoxes[item].disabled = disabled
+                                observedData.updateView.toggle()
+                            }
+                            .toggleStyle(.switch)
+                        Button(action: {
+                            guard item >= 0 && item < observedData.observedUserInputState.checkBoxes.count else {
+                                writeLog("Could not delete checkbox at position \(item)", logLevel: .info)
+                                return
+                            }
+                            writeLog("Delete checkbox at position \(item)", logLevel: .info)
+                            userInputState.checkBoxes.remove(at: item)
+                            observedData.observedUserInputState.checkBoxes.remove(at: item)
                             observedData.updateView.toggle()
-                        }
-                    TextField("Name".localized+": \(observedData.observedUserInputState.checkBoxes[item].name)", text: $observedData.observedUserInputState.checkBoxes[item].name)
-                        .onChange(of: observedData.observedUserInputState.checkBoxes[item].name) { _, name in
-                            userInputState.checkBoxes[item].name = name
-                            observedData.updateView.toggle()
-                        }
-                    Toggle("Checked".localized, isOn: $observedData.observedUserInputState.checkBoxes[item].checked)
-                        .onChange(of: observedData.observedUserInputState.checkBoxes[item].checked) { _, checked in
-                            userInputState.checkBoxes[item].checked = checked
-                            observedData.updateView.toggle()
-                        }
-                        .toggleStyle(.switch)
-                    Toggle("Disabled".localized, isOn: $observedData.observedUserInputState.checkBoxes[item].disabled)
-                        .onChange(of: observedData.observedUserInputState.checkBoxes[item].disabled) { _, disabled in
-                            userInputState.checkBoxes[item].disabled = disabled
-                            observedData.updateView.toggle()
-                        }
-                        .toggleStyle(.switch)
-                    Button(action: {
-                        guard item >= 0 && item < observedData.observedUserInputState.checkBoxes.count else {
-                            writeLog("Could not delete checkbox at position \(item)", logLevel: .info)
-                            return
-                        }
-                        writeLog("Delete checkbox at position \(item)", logLevel: .info)
-                        userInputState.checkBoxes.remove(at: item)
-                        observedData.observedUserInputState.checkBoxes.remove(at: item)
-                        observedData.updateView.toggle()
-                    }, label: {
-                        Image(systemName: "trash")
-                    })
+                        }, label: {
+                            Image(systemName: "trash")
+                        })
+                    }
+                    Divider()
                 }
-                Divider()
             }
         }
         .padding(20)

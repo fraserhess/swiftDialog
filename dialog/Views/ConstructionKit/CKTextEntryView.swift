@@ -20,12 +20,13 @@ struct CKTextEntryView: View {
 
     var body: some View {
         
+        VStack {
+            LabelView(label: "ck-textfields".localized)
             HStack {
                 Toggle("Format output as JSON", isOn: $observedData.args.jsonOutPut.present)
-                .toggleStyle(.switch)
+                    .toggleStyle(.switch)
                 Spacer()
             }
-            LabelView(label: "ck-textfields".localized)
             HStack {
                 Button(action: {
                     showHelp.toggle()
@@ -48,17 +49,17 @@ struct CKTextEntryView: View {
                 })
                 Toggle("ck-show".localized, isOn: $observedData.args.textField.present)
                     .toggleStyle(.switch)
-
+                
                 //Button("Clear All") {
                 //    observedData.listItemPresent = false
                 //    observedData.listItemsArray = [ListItems]()
                 //}
-
+                
                 Spacer()
             }
-            .padding(20)
-        ScrollView {
-            //List {
+            .padding(.bottom, 20)
+            ScrollView {
+                //List {
                 ForEach(0..<userInputState.textFields.count, id: \.self) { item in
                     HStack {
                         //Image(systemName: "line.3.horizontal")
@@ -148,13 +149,9 @@ struct CKTextEntryView: View {
                     withAnimation(.smooth) {
                         observedData.textFieldArray.move(fromOffsets: from, toOffset: to)
                     }
-                }
-            //}
-            
-            LabelView(label: "ck-select".localized)
-
-            LabelView(label: "ck-checkbox".localized)
-            Spacer()
+                }                
+                Spacer()
+            }
         }
         .padding(20)
     }
