@@ -18,7 +18,7 @@ struct CKIconView: View {
     var body: some View {
         ScrollView { // icon and icon overlay
             VStack {
-                LabelView(label: "ck-icon".localized)
+                LabelView(label: "Icon".localized)
                 HStack {
                     IconView(image: observedData.args.iconOption.value, defaultImage: "sf=questionmark.square.dashed")
                         .frame(width: 48, height: 48)
@@ -41,11 +41,11 @@ struct CKIconView: View {
                                     .foregroundColor(.gray.opacity(0.5))
                             )
                     
-                    Toggle("ck-visible".localized, isOn: $observedData.args.iconOption.present)
+                    Toggle("Visible".localized, isOn: $observedData.args.iconOption.present)
                         .toggleStyle(.switch)
-                    Toggle("ck-centred".localized, isOn: $observedData.args.centreIcon.present)
+                    Toggle("Centred".localized, isOn: $observedData.args.centreIcon.present)
                         .toggleStyle(.switch)
-                    Button("ck-select".localized) {
+                    Button("Select".localized) {
                             let panel = NSOpenPanel()
                             panel.allowsMultipleSelection = false
                             panel.canChooseDirectories = false
@@ -64,7 +64,7 @@ struct CKIconView: View {
                     })
                     Spacer()
                 }
-                LabelView(label: "ck-iconsize".localized)
+                LabelView(label: "Icon Size".localized)
                 HStack {
                     Slider(value: $observedData.iconSize, in: 0...400)
                     //Text("Current value: \(observedDialogContent.iconSize, specifier: "%.0f")")
@@ -80,11 +80,11 @@ struct CKIconView: View {
                 }
             }
             VStack {
-                LabelView(label: "ck-overlay".localized)
+                LabelView(label: "Overlay".localized)
                 HStack {
-                    Toggle("ck-visible".localized, isOn: $observedData.args.overlayIconOption.present)
+                    Toggle("Visible".localized, isOn: $observedData.args.overlayIconOption.present)
                         .toggleStyle(.switch)
-                    Button("ck-select".localized) {
+                    Button("Select".localized) {
                             let panel = NSOpenPanel()
                             panel.allowsMultipleSelection = false
                             panel.canChooseDirectories = false

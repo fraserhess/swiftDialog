@@ -33,7 +33,7 @@ struct CommandLineArguments {
     var messageVerticalAlignment = CommandlineArgument(long: "messageposition")
     var helpMessage              = CommandlineArgument(long: "helpmessage")
     var helpImage                = CommandlineArgument(long: "helpimage")
-    var helpSheetButton          = CommandlineArgument(long: "helpsheetbuttontext", defaultValue: "button-ok".localized)
+    var helpSheetButton          = CommandlineArgument(long: "helpsheetbuttontext", defaultValue: "OK".localized)
     var iconOption               = CommandlineArgument(long: "icon", short: "i", defaultValue: "default", overrideDefaultIfNill: true)
     var iconSize                 = CommandlineArgument(long: "iconsize", defaultValue: appvars.iconWidth)
     var iconAlpha                = CommandlineArgument(long: "iconalpha", defaultValue: "1.0")

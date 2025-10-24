@@ -24,11 +24,11 @@ struct CKImageView: View {
                 }, label: {
                     Image(systemName: "plus")
                 })
-                Toggle("ck-show".localized, isOn: $observedData.args.mainImage.present)
+                Toggle("Show".localized, isOn: $observedData.args.mainImage.present)
                     .toggleStyle(.switch)
-                Toggle("ck-autoplay".localized, isOn: $observedData.args.autoPlay.present)
+                Toggle("AutoPlay".localized, isOn: $observedData.args.autoPlay.present)
                     .toggleStyle(.switch)
-                TextField("ck-autoplayseconds".localized, text: $observedData.args.autoPlay.value)
+                TextField("Autoplay Seconds".localized, text: $observedData.args.autoPlay.value)
                 Spacer()
             }
             
@@ -57,7 +57,7 @@ struct CKImageView: View {
                                     .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [5]))
                                     .foregroundColor(.gray.opacity(0.5))
                             )
-                        Button("ck-select".localized) {
+                        Button("Select".localized) {
                             let panel = NSOpenPanel()
                             panel.allowsMultipleSelection = false
                             panel.canChooseDirectories = false
@@ -66,8 +66,8 @@ struct CKImageView: View {
                                 observedData.imageArray[item].path = panel.url?.path ?? "<none>"
                             }
                         }
-                        TextField("ck-path".localized, text: $observedData.imageArray[item].path)
-                        TextField("ck-caption".localized, text: $observedData.imageArray[item].caption)
+                        TextField("Path".localized, text: $observedData.imageArray[item].path)
+                        TextField("Caption".localized, text: $observedData.imageArray[item].caption)
                         Button(action: {
                             guard item >= 0 && item < observedData.imageArray.count else {
                                 writeLog("Could not delete item at position \(item)", logLevel: .info)

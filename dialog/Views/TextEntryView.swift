@@ -129,7 +129,7 @@ struct TextEntryView: View {
                             Spacer()
 
                             if observedData.textFieldArray[index].fileSelect {
-                                Button("button-select".localized) {
+                                Button("Select".localized) {
                                     openFilePanel(fileType: observedData.textFieldArray[index].fileType, initialPath: observedData.textFieldArray[index].initialPath) { selectedPath in
                                          observedData.textFieldArray[index].value = selectedPath
                                     }

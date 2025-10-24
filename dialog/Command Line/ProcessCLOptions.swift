@@ -488,7 +488,7 @@ func processCLOptions(json: JSON = getJSON()) {
                 if items.count > 0 {
                     fieldTitle = items[0]
                     if items.count > 1 {
-                        fieldRegexError = "\"\(fieldTitle)\" "+"no-pattern".localized
+                        fieldRegexError = "\"\(fieldTitle)\" "+"doesn't match the required format".localized
                         for index in 1...items.count-1 {
                             switch items[index].lowercased()
                                 .replacingOccurrences(of: ",", with: "")

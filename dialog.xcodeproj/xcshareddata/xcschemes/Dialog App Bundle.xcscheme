@@ -66,6 +66,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "--debug"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "--displaylog /var/log/jamf.log"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -111,11 +115,11 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--icon &quot;sf=applelogo,colour=blue&quot;"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--style centered"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--bannerimage /Users/rea094/Documents/csiro\ resources/22-00140_RecruitmentProjectDorothy_MyCSIROBanner.png"
@@ -127,14 +131,14 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--infobox &quot;This is some text for the info box&quot;"
-            isEnabled = "YES">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "--builder"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--title &quot;xcode test window&quot;"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--builder"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>

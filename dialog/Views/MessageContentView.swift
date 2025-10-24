@@ -194,7 +194,7 @@ struct MessageContent: View {
             if observedData.appProperties.userInputRequired {
                 HStack {
                     Spacer()
-                    Text("required-note")
+                    Text("* Required Fields")
                         .font(.system(size: 10)
                                 .weight(.light))
                 }

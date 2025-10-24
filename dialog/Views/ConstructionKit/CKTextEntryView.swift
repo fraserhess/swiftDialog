@@ -21,7 +21,7 @@ struct CKTextEntryView: View {
     var body: some View {
         
         VStack {
-            LabelView(label: "ck-textfields".localized)
+            LabelView(label: "Textfields".localized)
             HStack {
                 Toggle("Format output as JSON", isOn: $observedData.args.jsonOutPut.present)
                     .toggleStyle(.switch)
@@ -47,7 +47,7 @@ struct CKTextEntryView: View {
                 }, label: {
                     Image(systemName: "plus")
                 })
-                Toggle("ck-show".localized, isOn: $observedData.args.textField.present)
+                Toggle("Show".localized, isOn: $observedData.args.textField.present)
                     .toggleStyle(.switch)
                 
                 //Button("Clear All") {
@@ -66,7 +66,7 @@ struct CKTextEntryView: View {
                         //    .foregroundColor(.secondary)
                         
                         
-                        Toggle("ck-required".localized, isOn: $observedData.textFieldArray[item].required)
+                        Toggle("Required".localized, isOn: $observedData.textFieldArray[item].required)
                             .onChange(of: observedData.textFieldArray[item].required) { _, textRequired in
                                 observedData.requiredFieldsPresent.toggle()
                                 userInputState.textFields[item].required = textRequired
@@ -132,11 +132,11 @@ struct CKTextEntryView: View {
                     }
                     .padding(.leading, 20)
                     HStack {
-                        TextField("ck-regex".localized, text: $observedData.textFieldArray[item].regex)
+                        TextField("Regex".localized, text: $observedData.textFieldArray[item].regex)
                             .onChange(of: observedData.textFieldArray[item].regex) { _, textRegex in
                                 userInputState.textFields[item].regex = textRegex
                             }
-                        TextField("ck-regexerror".localized, text: $observedData.textFieldArray[item].regexError)
+                        TextField("Regex Error".localized, text: $observedData.textFieldArray[item].regexError)
                             .onChange(of: observedData.textFieldArray[item].regexError) { _, textRegexError in
                                 userInputState.textFields[item].regexError = textRegexError
                             }

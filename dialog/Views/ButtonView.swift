@@ -144,7 +144,7 @@ struct HelpButton: View {
 struct HelpButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .help(String("help-hover".localized))
+            .help(String("Click for additional information".localized))
             .onHover { inside in
                 if inside {
                     NSCursor.pointingHand.push()

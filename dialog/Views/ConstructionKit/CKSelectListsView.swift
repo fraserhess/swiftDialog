@@ -40,7 +40,7 @@ struct CKSelectListsView: View {
             }, label: {
                 Image(systemName: "plus")
             })
-            Toggle("ck-show".localized, isOn: $observedData.args.dropdownTitle.present)
+            Toggle("Show".localized, isOn: $observedData.args.dropdownTitle.present)
                 .toggleStyle(.switch)
 
             //Button("Clear All") {

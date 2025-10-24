@@ -33,7 +33,7 @@ struct CKListView: View {
                 }, label: {
                     Image(systemName: "plus")
                 })
-                Toggle("ck-show".localized, isOn: $observedData.args.listItem.present)
+                Toggle("Show".localized, isOn: $observedData.args.listItem.present)
                     .toggleStyle(.switch)
 
                 //Button("Clear All") {
@@ -84,7 +84,7 @@ struct CKListView: View {
                                                 observedData.listItemsArray[item].icon = "sf=\(sfName)"
                                             }
                                     }
-                                    ColorPicker("ck-colour".localized,selection: $tmpColour)
+                                    ColorPicker("Colour".localized,selection: $tmpColour)
                                         .onChange(of: tmpColour) { _, colour in
                                             observedData.listItemsArray[item].sfColour = colour.hexValue
                                             observedData.listItemsArray[item].icon = "sf=\(observedData.listItemsArray[item].sfSymbol),color=\(colour.hexValue)"
@@ -102,7 +102,7 @@ struct CKListView: View {
                                 }
                                 .padding(20)
                             }
-                        TextField("ck-title".localized, text: $observedData.listItemsArray[item].title)
+                        TextField("Title".localized, text: $observedData.listItemsArray[item].title)
                             .onChange(of: observedData.listItemsArray[item].title) { _, textRequired in
                                 userInputState.listItems[item].title = textRequired
                             }
@@ -112,11 +112,11 @@ struct CKListView: View {
                             }
                     }
                     HStack {
-                        TextField("ck-statustext".localized, text: $observedData.listItemsArray[item].statusText)
+                        TextField("Status Text".localized, text: $observedData.listItemsArray[item].statusText)
                             .onChange(of: observedData.listItemsArray[item].statusText) { _, textRequired in
                                 userInputState.listItems[item].statusText = textRequired
                             }
-                        Picker("ck-status".localized, selection: $observedData.listItemsArray[item].statusIcon) {
+                        Picker("Status".localized, selection: $observedData.listItemsArray[item].statusIcon) {
                             Text("").tag("")
                             ForEach(statusTypeArray, id: \.self) {
                                 Text($0)

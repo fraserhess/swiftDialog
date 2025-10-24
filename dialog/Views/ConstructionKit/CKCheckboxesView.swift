@@ -52,7 +52,7 @@ struct CKCheckBoxesView: View {
                 .onChange(of: observedData.args.checkboxStyle.present) { _, style in
                     observedData.appProperties.checkboxControlStyle = style ? "switch" : ""
                 }
-            Toggle("ck-show".localized, isOn: $observedData.args.checkbox.present)
+            Toggle("Show".localized, isOn: $observedData.args.checkbox.present)
                 .toggleStyle(.switch)
             
             //Button("Clear All") {
@@ -107,7 +107,7 @@ struct CKCheckBoxesView: View {
                                                 observedData.observedUserInputState.checkBoxes[item].icon = "sf=\(sfName)"
                                             }
                                     }
-                                    ColorPicker("ck-colour".localized,selection: $tmpColour)
+                                    ColorPicker("Colour".localized,selection: $tmpColour)
                                         .onChange(of: tmpColour) { _, colour in
                                             observedData.observedUserInputState.checkBoxes[item].sfColour = colour.hexValue
                                             observedData.observedUserInputState.checkBoxes[item].icon = "sf=\(observedData.observedUserInputState.checkBoxes[item].sfSymbol),color=\(colour.hexValue)"

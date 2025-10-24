@@ -121,7 +121,7 @@ func quitDialog(exitCode: Int32, exitMessage: String? = "", observedObject: Dial
                 if exitCode == 0 {
                     if textfieldRequired && textfieldValue == "" { // && userInputState.textFields[index].regex.isEmpty {
                         NSSound.beep()
-                        requiredString += "  - \"\(textfieldTitle)\" \("is-required".localized)<br>"
+                        requiredString += "  - \"\(textfieldTitle)\" \("is required".localized)<br>"
                         userInputState.textFields[index].requiredTextfieldHighlight = Color.red
                         dontQuit = true
                         writeLog("Required text field \(textfieldName) has no value")
@@ -137,7 +137,7 @@ func quitDialog(exitCode: Int32, exitMessage: String? = "", observedObject: Dial
                         writeLog("Textfield \(textfieldTitle) value \(textfieldValue) does not meet regex requirements \(String(describing: textField.regex))")
                     } else if textfieldValidation && textFieldValidationValue != textfieldValue {
                         NSSound.beep()
-                        requiredString += "  - \"\(textfieldTitle)\" \("confirmation-failed".localized)<br>"
+                        requiredString += "  - \"\(textfieldTitle)\" \("confirmation failed  <br>values do not match".localized)<br>"
                         userInputState.textFields[index].requiredTextfieldHighlight = Color.red
                         dontQuit = true
                         writeLog("Text field \(textfieldName) confirmation failed")
@@ -177,7 +177,7 @@ func quitDialog(exitCode: Int32, exitMessage: String? = "", observedObject: Dial
 
                 if exitCode == 0 && dropdownItemRequired && dropdownItemSelectedValue == "" {
                     NSSound.beep()
-                    requiredString += "  - \"\(dropdownItem.title)\" \("is-required".localized)<br>"
+                    requiredString += "  - \"\(dropdownItem.title)\" \("is required".localized)<br>"
                     userInputState.dropdownItems[index].requiredfieldHighlight = Color.red
                     dontQuit = true
                     writeLog("Required select item \(dropdownItem.title) has no value")

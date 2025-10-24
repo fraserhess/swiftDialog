@@ -23,9 +23,9 @@ struct AppDefaults {
                                                       "right": .trailing,
                                                       "centre": .center,
                                                       "center": .center]
-    let button1Default                  = String("button-ok".localized)
-    let button2Default                  = String("button-cancel".localized)
-    let buttonInfoDefault               = String("button-more-info".localized)
+    let button1Default                  = String("OK".localized)
+    let button2Default                  = String("Cancel".localized)
+    let buttonInfoDefault               = String("More Information".localized)
     let buttonInfoActionDefault         = String("")
     let buttonSizeStates: [String: ControlSize] = ["mini": .mini,
                                                       "small": .small,
@@ -95,7 +95,7 @@ struct AppVariables {
     var button1DefaultAction            = KeyboardShortcut.defaultAction
     var button2DefaultAction            = KeyboardShortcut.cancelAction
 
-    var helpButtonHoverText             = String("help-hover".localized)
+    var helpButtonHoverText             = String("Click for additional information".localized)
 
     // Window Sizes
     var windowWidth                     = CGFloat(820)      // set default dialog width

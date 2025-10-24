@@ -36,10 +36,10 @@ struct WelcomeView: View {
             }
             .frame(width: 150, height: 150)
             
-            Text("ck-welcome".localized)
+            Text("Welcome to the swiftDialog builder".localized)
                 .font(.largeTitle)
             Divider()
-            Text("ck-welcomeinfo".localized)
+            Text("Select properties on the left to modify. swiftDialog will update to show the changes in realtime".localized)
                 .foregroundColor(.secondary)
         }
     }
@@ -86,7 +86,7 @@ struct ConstructionKitView: View {
 
         NavigationView {
             List {
-                Section(header: Text("ck-basic".localized)) {
+                Section(header: Text("Basic".localized)) {
                     NavigationLink(destination: CKTitleView(observedDialogContent: observedData)) {
                         Text("Title Bar".localized)
                     }
@@ -94,16 +94,16 @@ struct ConstructionKitView: View {
                         Text("Message".localized)
                     }
                     NavigationLink(destination: CKWindowProperties(observedDialogContent: observedData)) {
-                        Text("ck-window".localized)
+                        Text("Window".localized)
                     }
                     NavigationLink(destination: CKIconView(observedDialogContent: observedData)) {
-                        Text("ck-icon".localized)
+                        Text("Icon".localized)
                     }
                     NavigationLink(destination: CKSidebarView(observedDialogContent: observedData)) {
-                        Text("ck-sidebar".localized)
+                        Text("Sidebar".localized)
                     }
                     NavigationLink(destination: CKButtonView(observedDialogContent: observedData)) {
-                        Text("ck-buttons".localized)
+                        Text("Buttons".localized)
                     }
                 }
                 Section(header: Text("Data Entry")) {
@@ -117,21 +117,21 @@ struct ConstructionKitView: View {
                         Text("Checkboxes".localized)
                     }
                 }
-                Section(header: Text("ck-advanced".localized)) {
+                Section(header: Text("Advanced".localized)) {
                     NavigationLink(destination: CKListView(observedDialogContent: observedData)) {
-                        Text("ck-listitems".localized)
+                        Text("List Items".localized)
                     }
                     NavigationLink(destination: CKImageView(observedDialogContent: observedData)) {
-                        Text("ck-images".localized)
+                        Text("Images".localized)
                     }
                     NavigationLink(destination: CKMediaView(observedDialogContent: observedData)) {
-                        Text("ck-media".localized)
+                        Text("Media".localized)
                     }
                 }
                 Spacer()
-                Section(header: Text("ck-output".localized)) {
+                Section(header: Text("Output".localized)) {
                     NavigationLink(destination: JSONView(observedDialogContent: observedData) ) {
-                        Text("ck-jsonoutput".localized)
+                        Text("JSON Output".localized)
                     }
                 }
             }
@@ -150,7 +150,7 @@ struct ConstructionKitView: View {
                 }
                 Spacer()
                 .disabled(false)
-                Button("ck-exportcommand".localized) {}
+                Button("Export Command".localized) {}
                     .disabled(true)
             }
         }

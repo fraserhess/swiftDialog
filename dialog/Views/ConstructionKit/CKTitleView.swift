@@ -22,23 +22,23 @@ struct CKTitleView: View {
     var body: some View {
 
         ScrollView {
-            LabelView(label: "ck-title".localized)
+            LabelView(label: "Title".localized)
             HStack {
                 TextField("", text: $observedData.args.titleOption.value)
-                ColorPicker("ck-colour".localized,selection: $observedData.appProperties.titleFontColour)
-                Button("ck-reset".localized) {
+                ColorPicker("Colour".localized,selection: $observedData.appProperties.titleFontColour)
+                Button("Reset".localized) {
                     observedData.appProperties.titleFontColour = .primary
                 }
             }
             HStack {
-                Text("ck-fontsize".localized)
+                Text("Font Size: ".localized)
                 Slider(value: $observedData.appProperties.titleFontSize, in: 10...80)
-                TextField("ck-value".localized, value: $observedData.appProperties.titleFontSize, formatter: NumberFormatter())
+                TextField("value:".localized, value: $observedData.appProperties.titleFontSize, formatter: NumberFormatter())
                     .frame(width: 50)
             }
             
             Group {
-                LabelView(label: "ck-bannerimage".localized)
+                LabelView(label: "Banner Image".localized)
                 IconView(image: observedData.args.bannerImage.value)
                     .frame(width: 200, height: 48)
                     .opacity(observedData.args.bannerImage.present ? 1 : 0.5)
@@ -87,12 +87,12 @@ struct CKTitleView: View {
                     Spacer()
                 }
                 HStack {
-                    ColorPicker("ck-colour".localized,selection: $bannerColour)
+                    ColorPicker("Colour".localized,selection: $bannerColour)
                         .onChange(of: bannerColour) {
                             observedData.args.bannerImage.value = "color=\(bannerColour.hexValue)"
                             observedData.args.bannerImage.present = true
                         }
-                    Button("ck-select".localized) {
+                    Button("Select".localized) {
                         let panel = NSOpenPanel()
                         panel.allowsMultipleSelection = false
                         panel.canChooseDirectories = false

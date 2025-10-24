@@ -26,9 +26,9 @@ struct CKWindowProperties: View {
     var body: some View {
 
         ScrollView {
-            LabelView(label: "ck-windowheight".localized)
+            LabelView(label: "Window Height".localized)
             HStack {
-                TextField("ck-heightvalue".localized, value: $observedData.appProperties.windowHeight, formatter: displayAsInt )
+                TextField("Height value:".localized, value: $observedData.appProperties.windowHeight, formatter: displayAsInt )
                     .frame(width: 50)
                 Slider(value: $observedData.appProperties.windowHeight, in: 200...2000)
                     .frame(width: 200)
@@ -37,9 +37,9 @@ struct CKWindowProperties: View {
                     }
                 Spacer()
             }
-            LabelView(label: "ck-windowwidth".localized)
+            LabelView(label: "Window Width".localized)
             HStack {
-                TextField("ck-widthvalue".localized, value: $observedData.appProperties.windowWidth, formatter: displayAsInt)
+                TextField("Width value:".localized, value: $observedData.appProperties.windowWidth, formatter: displayAsInt)
                     .frame(width: 50)
                 Slider(value: $observedData.appProperties.windowWidth, in: 200...2000)
                     .frame(width: 200)
@@ -49,7 +49,7 @@ struct CKWindowProperties: View {
                 Spacer()
             }
             Group {
-                LabelView(label: "ck-windowproperties".localized)
+                LabelView(label: "Window Properties".localized)
                 //HStack {
                 //    Text("Mini view")
                 //        .frame(width: 100, alignment: .leading)
@@ -58,9 +58,9 @@ struct CKWindowProperties: View {
                 //    Spacer()
                 //}
                 HStack {
-                    Text("ck-presetsizes".localized)
+                    Text("Preset Sizes".localized)
                         .frame(width: 100, alignment: .leading)
-                    Toggle("ck-small".localized, isOn: $observedData.args.smallWindow.present)
+                    Toggle("Small".localized, isOn: $observedData.args.smallWindow.present)
                         .toggleStyle(.switch)
                         .onChange(of: observedData.args.smallWindow.present) {
                             observedData.appProperties.scaleFactor = 0.75
@@ -69,7 +69,7 @@ struct CKWindowProperties: View {
                                 observedData.args.bigWindow.present = false
                             }
                         }
-                    Toggle("ck-big".localized, isOn: $observedData.args.bigWindow.present)
+                    Toggle("Big".localized, isOn: $observedData.args.bigWindow.present)
                         .toggleStyle(.switch)
                         .onChange(of: observedData.args.bigWindow.present) {
                             observedData.appProperties.scaleFactor = 1.25
@@ -92,21 +92,21 @@ struct CKWindowProperties: View {
                     Spacer()
                 }
                 HStack {
-                    Text("ck-screenblur".localized)
+                    Text("Screen Background Blur".localized)
                         .frame(width: 100, alignment: .leading)
                     Toggle("", isOn: $observedData.args.blurScreen.present)
                         .toggleStyle(.switch)
                     Spacer()
                 }
                 HStack {
-                    Text("ck-movable".localized)
+                    Text("Movable".localized)
                         .frame(width: 100, alignment: .leading)
                     Toggle("", isOn: $observedData.args.movableWindow.present)
                         .toggleStyle(.switch)
                     Spacer()
                 }
                 HStack {
-                    Text("ck-forceontop".localized)
+                    Text("Force on Top".localized)
                         .frame(width: 100, alignment: .leading)
                     Toggle("", isOn: $observedData.args.forceOnTop.present)
                         .toggleStyle(.switch)
@@ -114,13 +114,13 @@ struct CKWindowProperties: View {
                 }
                 LabelView(label: "Progress Bar")
                 HStack {
-                    Text("ck-progressbar".localized)
+                    Text("Progress Bar".localized)
                         .frame(width: 100, alignment: .leading)
                     Toggle("", isOn: $observedData.args.progressBar.present)
                         .toggleStyle(.switch)
-                    TextField("ck-progressvalue".localized, value: $observedData.args.progressBar.value, formatter: displayAsInt)
+                    TextField("Progress value:".localized, value: $observedData.args.progressBar.value, formatter: displayAsInt)
                         .frame(width: 50)
-                    TextField("ck-progresstext".localized, text: $observedData.args.progressText.value)
+                    TextField("Progress Text:".localized, text: $observedData.args.progressText.value)
                         .frame(width: 150)
                         .onChange(of: observedData.args.progressText.value) {
                             observedData.args.progressText.present = true
@@ -158,12 +158,12 @@ struct CKWindowProperties: View {
                             .foregroundColor(.gray.opacity(0.5))
                     )
             HStack {
-                Text("ck-watermark".localized)
+                Text("Watermark".localized)
                     .frame(width: 100, alignment: .leading)
                 Toggle("", isOn: $observedData.args.watermarkImage.present)
                     .toggleStyle(.switch)
                     .disabled(observedData.args.watermarkImage.value == "")
-                Button("ck-select".localized) {
+                Button("Select".localized) {
                     let panel = NSOpenPanel()
                     panel.allowsMultipleSelection = false
                     panel.canChooseDirectories = false
@@ -175,26 +175,26 @@ struct CKWindowProperties: View {
                 TextField("", text: $observedData.args.watermarkImage.value)
             }
             VStack {
-                Picker("ck-fill".localized, selection: $observedData.args.watermarkFill.value) {
+                Picker("Fill".localized, selection: $observedData.args.watermarkFill.value) {
                     Text("").tag("")
                     ForEach(fillScaleArray, id: \.self) {
                         Text($0)
                     }
                 }
                 HStack {
-                    Text("ck-alpha".localized)
+                    Text("Opacity".localized)
                     Slider(value: $bgAlpha, in: 0.0...1.0, step: 0.1)
                         .onChange(of: bgAlpha) {
                             observedData.args.watermarkAlpha.value = String(format: "%.1f", bgAlpha)
                         }
                 }
-                Picker("ck-scale".localized, selection: $observedData.args.watermarkScale.value) {
+                Picker("Scale".localized, selection: $observedData.args.watermarkScale.value) {
                     Text("").tag("")
                     ForEach(fillScaleArray, id: \.self) {
                         Text($0)
                     }
                 }
-                Picker("ck-position".localized, selection: $observedData.args.watermarkPosition.value) {
+                Picker("Position".localized, selection: $observedData.args.watermarkPosition.value) {
                     Text("").tag("")
                     ForEach(positionArray, id: \.self) {
                         Text($0)

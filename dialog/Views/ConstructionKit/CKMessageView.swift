@@ -20,7 +20,7 @@ struct CKMessageView: View {
         LabelView(label: "ck-message".localized)
         VStack {
             HStack {
-                Picker("ck-textalignmnet".localized, selection: $observedData.args.messageAlignment.value) {
+                Picker("Text Alignment".localized, selection: $observedData.args.messageAlignment.value) {
                     Text("").tag("")
                     ForEach(appDefaults.allignmentStates.keys.sorted(), id: \.self) {
                         Text($0)
@@ -30,10 +30,10 @@ struct CKMessageView: View {
                     observedData.appProperties.messageAlignment = appDefaults.allignmentStates[state] ?? .leading
                     observedData.args.messageAlignment.present = true
                 }
-                Toggle("ck-verticalposition".localized, isOn: $observedData.args.messageVerticalAlignment.present)
+                Toggle("Vertical Position".localized, isOn: $observedData.args.messageVerticalAlignment.present)
                     .toggleStyle(.switch)
-                ColorPicker("ck-colour".localized,selection: $observedData.appProperties.messageFontColour)
-                Button("ck-reset".localized) {
+                ColorPicker("Colour".localized,selection: $observedData.appProperties.messageFontColour)
+                Button("Reset".localized) {
                     observedData.appProperties.messageFontColour = .primary
                 }
             }
