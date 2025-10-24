@@ -39,7 +39,8 @@
 "Window"             = "Venster";
 "Sidebar"            = "Zijbalk";
 "Data Entry"          = "Gegevensinvoer";
-"Buttons"            = "Toetsen";
+"Buttons"            = "Knoppen";
+"Button Size"       = "Knopgrootte";
 "Advanced"           = "Geavanceerd";
 "List Items"          = "Lijstitems";
 "Images"             = "Afbeeldingen";
@@ -49,7 +50,7 @@
 "Quit"              = "Afsluiten";
 "Export Command"      = "Exportopdracht";
 "Title"              = "Titel";
-"Colour"             = "Kleur";
+"Color"             = "Kleur";
 "Reset"              = "Resetten";
 "Font Size: "           = "Lettertypegrootte: ";
 "value:"              = "waarde:";
