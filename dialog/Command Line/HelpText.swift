@@ -202,6 +202,11 @@ struct SDHelp {
         Adjusts the size of the buttons at the bottom of the window.
         Default: regular
 """
+        argument.buttonTextSize.helpShort = "Set the font sized used on buttons"
+        argument.buttonTextSize.helpUsage = "<num>"
+        argument.buttonTextSize.helpLong = """
+        The font size of button text will be set to the specified value. Default is system font default. 
+"""
 
         argument.webcontent.helpShort = "Display a web page"
         argument.webcontent.helpUsage = "<url>"
@@ -348,7 +353,24 @@ struct SDHelp {
 
         If the text \"none\" is used, the button will be hidden.
 """
+        
+        argument.button1Symbol.helpShort = "Set the symbol for Button1"
+        argument.button1Symbol.helpUsage = "<sf symbol name>[,position,rendering mode,size,color]"
+        argument.button1Symbol.helpLong = """
+        Sets the SF Symbol to use in addition to the button label
 
+        Takes SF Symbol name as the argument
+        
+        Optional properties supplied as comma seperated values (in any order):
+          position: one of leading, trailing, top, bottom - default leading
+          rendering mode: one of hierarchical, monochrome, multicolour, palette - default monochrome
+            palette: add two or three colours in the format palette=colour1-colour2-colour3
+                     e.g. palette=red-green-blue
+          size: in the format size=<num>
+          color: in the format color=<text|hex> - if multicolour rendering mode is set, color is ignored
+
+"""
+        
         argument.button1ActionOption.helpShort = "Set the Button1 action"
         argument.button1ActionOption.helpUsage = "<url>"
         argument.button1ActionOption.helpLong = """
@@ -378,6 +400,9 @@ struct SDHelp {
         Bound to <ESC> key
         Return code when actioned is 2
 """
+        argument.button2Symbol.helpShort = "Set the symbol for Button2"
+        argument.button2Symbol.helpUsage = argument.button1Symbol.helpUsage
+        argument.button2Symbol.helpLong = argument.button1Symbol.helpLong
 
         argument.button2ActionOption.helpShort = "Custom Actions For Button 2 Is Not Implemented"
         argument.button2ActionOption.helpLong = """
@@ -402,6 +427,9 @@ struct SDHelp {
         If not specified, Info button will not be displayed
         Return code when actioned is 3
 """
+        argument.buttonInfoSymbol.helpShort = "Set the symbol for Info Button"
+        argument.buttonInfoSymbol.helpUsage = argument.button1Symbol.helpUsage
+        argument.buttonInfoSymbol.helpLong = argument.button1Symbol.helpLong
 
         argument.buttonInfoActionOption.helpShort = "Set the info button action"
         argument.buttonInfoActionOption.helpUsage = "<url>"
@@ -410,7 +438,6 @@ struct SDHelp {
         button from triggering a dialog exit
         Default action if not specified is to exit with return code 3
 """
-
 
         argument.infoText.helpShort = "Display <text> in place of info button"
         argument.infoText.helpLong = """

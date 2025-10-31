@@ -10,6 +10,7 @@ import SwiftUI
 struct CKButtonView: View {
 
     @ObservedObject var observedData: DialogUpdatableContent
+    @State var buttonFontSize: CGFloat = 16
 
     init(observedDialogContent: DialogUpdatableContent) {
         self.observedData = observedDialogContent
@@ -18,28 +19,37 @@ struct CKButtonView: View {
     var body: some View {
         ScrollView { //buttons
             VStack {
-                     LabelView(label: "Button Size".localized)
-                     HStack {
-                         Button("mini") {
-                             observedData.args.buttonSize.value = "mini"
-                         } .controlSize(.mini)
+                 LabelView(label: "Button Size".localized)
+                 HStack {
+                     Button("mini") {
+                         observedData.args.buttonSize.value = "mini"
+                     } .controlSize(.mini)
 
-                         Button("small") {
-                             observedData.args.buttonSize.value = "small"
-                         } .controlSize(.small)
-                         Button("regular") {
-                             observedData.args.buttonSize.value = "regular"
-                         } .controlSize(.regular)
-                         Button("large") {
-                             observedData.args.buttonSize.value = "large"
-                         } .controlSize(.large)
+                     Button("small") {
+                         observedData.args.buttonSize.value = "small"
+                     } .controlSize(.small)
+                     Button("regular") {
+                         observedData.args.buttonSize.value = "regular"
+                     } .controlSize(.regular)
+                     Button("large") {
+                         observedData.args.buttonSize.value = "large"
+                     } .controlSize(.large)
 
 
-                         TextField("", text: $observedData.args.buttonSize.value)
-                             .onChange(of: observedData.args.buttonSize.value) { _, newValue in
-                                    observedData.appProperties.buttonSize = appDefaults.buttonSizeStates[newValue] ?? .regular
-                                }
-                     }
+                     TextField("", text: $observedData.args.buttonSize.value)
+                         .onChange(of: observedData.args.buttonSize.value) { _, newValue in
+                                observedData.appProperties.buttonSize = appDefaults.buttonSizeStates[newValue] ?? .regular
+                            }
+                 }
+                LabelView(label: "Button Text Size".localized)
+                HStack {
+                    Text("Button Font Size")
+                    Slider(value: $buttonFontSize, in: 8...32, step: 1)
+                        .onChange(of: buttonFontSize) { _, value in
+                            observedData.args.buttonTextSize.value = "\(Int(value))"
+                        }
+                    Text("\(Int(buttonFontSize))")
+                }
                  }
             VStack {
                 LabelView(label: "Button1".localized)
@@ -47,6 +57,9 @@ struct CKButtonView: View {
                     Toggle("Disabled".localized, isOn: $observedData.args.button1Disabled.present)
                         .toggleStyle(.switch)
                     TextField("", text: $observedData.args.button1TextOption.value)
+                }
+                HStack {
+                    TextField("Symbol", text: $observedData.args.button1Symbol.value)
                 }
             }
             VStack {
@@ -58,6 +71,9 @@ struct CKButtonView: View {
                         }
                         .toggleStyle(.switch)
                     TextField("", text: $observedData.args.button2TextOption.value)
+                }
+                HStack {
+                    TextField("Symbol", text: $observedData.args.button2Symbol.value)
                 }
             }
             VStack {
@@ -76,6 +92,9 @@ struct CKButtonView: View {
                 HStack {
                     Text("Label: ".localized)
                     TextField("", text: $observedData.args.buttonInfoTextOption.value)
+                }
+                HStack {
+                    TextField("Symbol", text: $observedData.args.buttonInfoSymbol.value)
                 }
                 HStack {
                     Text("Info Button Action: ".localized)

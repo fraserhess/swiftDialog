@@ -187,13 +187,16 @@ struct NewButton: View {
     @State var symbolSize: CGFloat = 16
     var keyboardShortcut: KeyboardShortcut = .init(.return)
     var buttonMinWidth: CGFloat = 40
-    var buttonFontSize: CGFloat?
+    @State var buttonFontSize: CGFloat?
     var buttonStyle: ControlSize = .regular
     var action: String = ""
     var isShellCommand: Bool = false
     var shouldQuit: Bool = false
     var exitCode: Int32 = 0
     @ObservedObject var observedData: DialogUpdatableContent
+    
+    @State private var symbolColour2: Color = .clear
+    @State private var symbolColour3: Color = .clear
     
     let timer = Timer.publish(every: 3.0, on: .main, in: .common).autoconnect()
     
@@ -215,7 +218,7 @@ struct NewButton: View {
                         .scaledToFit()
                         .symbolRenderingMode(symbolRenderingMode)
                         .frame(height: symbolSize)
-                        .foregroundStyle(symbolColour)
+                        .foregroundStyle(symbolColour, symbolColour2, symbolColour3)
                         .padding(2)
                 }
                 if !label.isEmpty && (symbolPosition != .bottom) {
@@ -238,6 +241,9 @@ struct NewButton: View {
         .onChange(of: enableOnChangeOf?.wrappedValue ?? false) { _, value in
             isDisabled = value
         }
+        .onChange(of: observedData.args.buttonTextSize.value) { _, value in
+            buttonFontSize = String(value).floatValue()
+        }
         .onAppear {
             // Populate symbol properties from name
             let symbolParts = symbolName.split(separator: ",").map { $0.lowercased() }
@@ -257,6 +263,20 @@ struct NewButton: View {
                 }
                 if part.prefixMatch(of: /colou?r=/) != nil {
                     self.symbolColour = Color(argument: part.split(separator: "=").last?.lowercased() ?? "primary")
+                }
+                if part.starts(with: "palette=") {
+                    self.symbolRenderingMode = .palette
+                    let paletteColours = part.split(separator: "=").last!.split(separator: "-").map { $0.lowercased() }
+                    if paletteColours.count > 0 {
+                        self.symbolColour = Color(argument: paletteColours[0])
+                    }
+                    if paletteColours.count > 1 {
+                        self.symbolColour2 = Color(argument: paletteColours[1])
+                    }
+                    if paletteColours.count > 2 {
+                        self.symbolColour3 = Color(argument: paletteColours[2])
+                    }
+                    
                 }
             }
         }
