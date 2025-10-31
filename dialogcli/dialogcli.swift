@@ -147,8 +147,12 @@ struct DialogLauncher: ParsableCommand {
             fputs("ERROR: Unable to determine current GUI user\n", stderr)
             throw ExitCode(1)
         }
-
-        let reorderedArgs = ["--pid", "\(myPid)", "--commandfile", "\(commandFilePath)"]+reorderArguments(passthroughArgs)
+        
+        // Filter out empty arguments
+        let filteredArgs = passthroughArgs.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        
+        // Re-order arguments
+        let reorderedArgs = ["--pid", "\(myPid)", "--commandfile", "\(commandFilePath)"]+reorderArguments(filteredArgs)
 
         // If at loginwindow (root user with --loginwindow flag), run Dialog directly as root
         if hasLoginwindowFlag && userUID == 0 {
