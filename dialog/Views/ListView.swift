@@ -96,6 +96,7 @@ struct ListView: View {
                                     userInputState.listItems[index].selected = true
                                 }
                             } else {
+                                selection.remove(index)
                                 handleClick(userInputState.listItems[index].action)
                             }
                         }) {
@@ -178,7 +179,7 @@ struct ListView: View {
                         //)
                     }
                     .background(Color("listBackgroundColour"))
-                    .listStyle(SidebarListStyle())
+                    .listStyle(.sidebar)
                     //.listStyle(.plain)
                     
                 }

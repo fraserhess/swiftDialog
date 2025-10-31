@@ -756,6 +756,18 @@ struct SDHelp {
         <status> can be one of "wait", "success", "fail", "error" or "pending"
         and will display an appropriate icon in the status area.
 
+        You can include a URL action to perform when a list item is clicked with the "action" property
+        Example:
+            --\(appArguments.listItem.long) "<title>",action="<url>"
+        or as json:
+            {
+              "listitem" : [
+                {"title" : "<text>", "action" : "<url>"}
+              ]
+            }
+
+        If --\(argument.listSelectionEnabled.long) is used, actions will be ignored.
+        
         Updates to items in the list can be sent to the command file specified by --\(appArguments.statusLogFile.long):
         Clear an existing list:
             list: clear
@@ -778,6 +790,23 @@ struct SDHelp {
         argument.listStyle.helpShort = "Set list style [expanded|compact]"
         argument.listStyle.helpLong = """
         When presenting a list, use of this argument will adjust the vertical spacing between each row.
+"""
+        
+        argument.listSelectionEnabled.helpShort = "Enable list selection behabiour"
+        argument.listSelectionEnabled.helpLong = """
+        When presenting a list, use of this argument will enable list items to be selected.
+
+        The results of the selection will be returned to stdout in the form <title> : <selected state>. 
+        Example:
+            "Item One" : "true"
+            "Item Two" : "false"
+            "Item Three" : "true"
+        or as json:
+            {
+              "Item One" : true,
+              "Item Two" : false,
+              "Item Three" : true
+            }
 """
 
         argument.watermarkImage.helpShort = "Set a dialog background image"
