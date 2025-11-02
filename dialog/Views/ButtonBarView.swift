@@ -67,7 +67,9 @@ struct ButtonBarView: View {
                 }
             }
             
-            Spacer()
+            if !buttonStackStyle && !buttonCentreStyle {
+                Spacer()
+            }
             
             // Additional Buttons can go here if we implement it
             
