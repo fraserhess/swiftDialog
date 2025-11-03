@@ -77,6 +77,7 @@ struct ButtonBarView: View {
             let buttonArray: [AnyView]   = [
                 // Default Cancel button
                 AnyView(NewButton(label: observedData.args.button2TextOption.value == "nil" ? "" : observedData.args.button2TextOption.value,
+                          isVisible: (observedData.args.button2Option.present || observedData.args.button2TextOption.present),
                           isDisabled: observedData.args.button2Disabled.present,
                           enableOnChangeOf: $observedData.args.button2Disabled.present,
                           isStacked: buttonStackStyle,
@@ -179,6 +180,7 @@ struct HelpButtonStyle: ButtonStyle {
 struct NewButton: View {
     
     var label: String
+    var isVisible: Bool = true
     @State var isDisabled: Bool = false
     var enableOnTimer: Bool = false
     var enableOnChangeOf: Binding<Bool>?
@@ -242,62 +244,64 @@ struct NewButton: View {
     }
     
     var body: some View {
-        // .top and .bottom force VStack, otherwise HStack
-        let symbolLayout = (symbolPosition == .top || symbolPosition == .bottom) ? AnyLayout(VStackLayout()) : AnyLayout(HStackLayout())
-        
-        Button(action: {
-            buttonAction(action: action, exitCode: exitCode, executeShell: isShellCommand, shouldQuit: shouldQuit, observedObject: observedData)
-        }, label: {
-            symbolLayout {
-                if !label.isEmpty && (symbolPosition == .bottom) {
-                    Text(label)
-                        .font(buttonFontSize != nil ? .system(size: buttonFontSize!) : .body)
-                        .foregroundStyle(isDisabled ? .secondary : .primary)
+        if isVisible {
+            // .top and .bottom force VStack, otherwise HStack
+            let symbolLayout = (symbolPosition == .top || symbolPosition == .bottom) ? AnyLayout(VStackLayout()) : AnyLayout(HStackLayout())
+            
+            Button(action: {
+                buttonAction(action: action, exitCode: exitCode, executeShell: isShellCommand, shouldQuit: shouldQuit, observedObject: observedData)
+            }, label: {
+                symbolLayout {
+                    if !label.isEmpty && (symbolPosition == .bottom) {
+                        Text(label)
+                            .font(buttonFontSize != nil ? .system(size: buttonFontSize!) : .body)
+                            .foregroundStyle(isDisabled ? .secondary : .primary)
+                    }
+                    if symbolIsVisible {
+                        Image(systemName: symbolName)
+                            .resizable()
+                            .scaledToFit()
+                            .symbolRenderingMode(symbolRenderingMode)
+                            .frame(height: symbolSize)
+                            .foregroundStyle(symbolColour, symbolColour2, symbolColour3)
+                            .padding(2)
+                            .opacity(isDisabled ? 0.5 : 1)
+                    }
+                    if !label.isEmpty && (symbolPosition != .bottom) {
+                        Text(label)
+                            .font(buttonFontSize != nil ? .system(size: buttonFontSize!) : .body)
+                            .foregroundStyle(isDisabled ? .secondary : .primary)
+                    }
                 }
-                if symbolIsVisible {
-                    Image(systemName: symbolName)
-                        .resizable()
-                        .scaledToFit()
-                        .symbolRenderingMode(symbolRenderingMode)
-                        .frame(height: symbolSize)
-                        .foregroundStyle(symbolColour, symbolColour2, symbolColour3)
-                        .padding(2)
-                        .opacity(isDisabled ? 0.5 : 1)
-                }
-                if !label.isEmpty && (symbolPosition != .bottom) {
-                    Text(label)
-                        .font(buttonFontSize != nil ? .system(size: buttonFontSize!) : .body)
-                        .foregroundStyle(isDisabled ? .secondary : .primary)
+                .frame(minWidth: buttonMinWidth, alignment: .center)
+                .frame(maxWidth: isStacked ? .infinity: nil)
+                .environment(\.layoutDirection, (symbolPosition == .leading) ? .leftToRight : .rightToLeft)
+            })
+            .focused($isFocused)
+            .keyboardShortcut(keyboardShortcut)
+            .controlSize(buttonStyle)
+            .disabled(isDisabled)
+            .onReceive(timer) { _ in
+                if enableOnTimer && isDisabled {
+                    isDisabled = false
                 }
             }
-            .frame(minWidth: buttonMinWidth, alignment: .center)
-            .frame(maxWidth: isStacked ? .infinity: nil)
-            .environment(\.layoutDirection, (symbolPosition == .leading) ? .leftToRight : .rightToLeft)
-        })
-        .focused($isFocused)
-        .keyboardShortcut(keyboardShortcut)
-        .controlSize(buttonStyle)
-        .disabled(isDisabled)
-        .onReceive(timer) { _ in
-            if enableOnTimer && isDisabled {
-                isDisabled = false
+            .onChange(of: enableOnChangeOf?.wrappedValue ?? false) { _, value in
+                isDisabled = value
             }
-        }
-        .onChange(of: enableOnChangeOf?.wrappedValue ?? false) { _, value in
-            isDisabled = value
-        }
-        .onChange(of: observedData.args.buttonTextSize.value) { _, value in
-            buttonFontSize = String(value).floatValue()
-        }
-        .onAppear {
-            symbolProcessing()
-        }
-        .onChange(of: needsFocusRefresh) { _, refresh in
-            if refresh {
-                isFocused = false
-                DispatchQueue.main.async {
-                    isFocused = true
-                    needsFocusRefresh = false
+            .onChange(of: observedData.args.buttonTextSize.value) { _, value in
+                buttonFontSize = String(value).floatValue()
+            }
+            .onAppear {
+                symbolProcessing()
+            }
+            .onChange(of: needsFocusRefresh) { _, refresh in
+                if refresh {
+                    isFocused = false
+                    DispatchQueue.main.async {
+                        isFocused = true
+                        needsFocusRefresh = false
+                    }
                 }
             }
         }
