@@ -250,6 +250,7 @@ struct NewButton: View {
                 if !label.isEmpty && (symbolPosition == .bottom) {
                     Text(label)
                         .font(buttonFontSize != nil ? .system(size: buttonFontSize!) : .body)
+                        .foregroundStyle(isDisabled ? .secondary : .primary)
                 }
                 if symbolIsVisible {
                     Image(systemName: symbolName)
@@ -259,10 +260,12 @@ struct NewButton: View {
                         .frame(height: symbolSize)
                         .foregroundStyle(symbolColour, symbolColour2, symbolColour3)
                         .padding(2)
+                        .opacity(isDisabled ? 0.5 : 1)
                 }
                 if !label.isEmpty && (symbolPosition != .bottom) {
                     Text(label)
                         .font(buttonFontSize != nil ? .system(size: buttonFontSize!) : .body)
+                        .foregroundStyle(isDisabled ? .secondary : .primary)
                 }
             }
             .frame(minWidth: buttonMinWidth, alignment: .center)
