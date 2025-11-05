@@ -13,13 +13,27 @@ import CoreGraphics
 /// Centralized sizing definitions for all Inspect Mode presets
 public enum InspectSizes {
 
+    /// Normalize preset name from short form to canonical form
+    /// - Parameter preset: Preset name (e.g., "6" or "preset6")
+    /// - Returns: Canonical preset name (e.g., "preset6")
+    private static func normalizePreset(_ preset: String) -> String {
+        if let number = Int(preset), number >= 1 && number <= 9 {
+            return "preset\(number)"
+        }
+        // Already in canonical form or unknown
+        return preset.lowercased()
+    }
+
     /// Get the window size for a specific preset and size mode
     /// - Parameters:
     ///   - preset: In JSON fiel call the preset by name (e.g., "preset1", "preset2", etc.)
     ///   - mode: Set the size mode ("compact", "standard", or "large")
     ///  - Returns: A tuple of (width, height) as CGFloat values
     public static func getSize(preset: String, mode: String) -> (CGFloat, CGFloat) {
-        switch preset {
+        // Normalize short forms to canonical preset names
+        let normalizedPreset = normalizePreset(preset)
+
+        switch normalizedPreset {
         case "preset1":
             switch mode {
             case "compact": return (800, 600)
@@ -56,17 +70,33 @@ public enum InspectSizes {
             }
 
         case "preset6":
+            // Progress Stepper with Side Panel (formerly Preset9)
             switch mode {
-            case "compact": return (900, 500)
-            case "large": return (1300, 700)
-            default: return (1100, 640)  // standard
+            case "compact": return (900, 650)
+            case "large": return (1200, 800)
+            default: return (1000, 700)  // standard
             }
 
         case "preset7":
             switch mode {
             case "compact": return (900, 600)
             case "large": return (1000, 700)
-            default: return (1000, 600)  // standard
+            default: return (1000, 640)  // standard
+            }
+
+        case "preset8":
+            switch mode {
+            case "compact": return (900, 600)
+            case "large": return (1000, 700)
+            default: return (1000, 640)  // standard
+            }
+            
+        case "preset9":
+            // Modern Two-Panel Onboarding Flow (formerly Preset11)
+            switch mode {
+            case "compact": return (1000, 680)
+            case "large": return (1400, 950)
+            default: return (1200, 750)  // standard - increased for better text balance
             }
 
         default:
