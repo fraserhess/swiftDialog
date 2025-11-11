@@ -50,7 +50,7 @@ class AudioManager: ObservableObject {
         }
         
         // Download audio data
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
             guard let self = self else { return }
             
             if let error = error {

@@ -22,9 +22,9 @@ struct Preset6View: View, InspectLayoutProtocol {
     @StateObject private var iconCache = PresetIconCache()
     @State private var lastDownloadingCount = 0
     @State private var isInitialized = false
-    @State private var lastDownloadingItemId: String? = nil
+    @State private var lastDownloadingItemId: String?
     @State private var autoAdvanceTimer: Timer?
-    @State private var cachedBannerImage: NSImage? = nil
+    @State private var cachedBannerImage: NSImage?
     @State private var bannerImageLoaded = false
 
     init(inspectState: InspectState) {
@@ -599,7 +599,7 @@ struct Preset6View: View, InspectLayoutProtocol {
     // MARK: - Banner Image Caching
     private func cacheBannerImage() {
         guard cachedBannerImage == nil,
-              let _ = inspectState.uiConfiguration.bannerImage else {
+              inspectState.uiConfiguration.bannerImage != nil else {
             return
         }
 
@@ -1038,16 +1038,14 @@ struct Preset6View: View, InspectLayoutProtocol {
                 }
 
                 // Find latest downloading item (last one in the list)
-                for (index, item) in inspectState.items.enumerated().reversed() {
-                    if inspectState.downloadingItems.contains(item.id) {
-                        let targetIndex = min(index, imagePaths.count - 1)
+                for (index, item) in inspectState.items.enumerated().reversed() where inspectState.downloadingItems.contains(item.id) == true {
+                    let targetIndex = min(index, imagePaths.count - 1)
 
-                        // Only update if actually changing index
-                        if currentImageIndex != targetIndex {
-                            currentImageIndex = targetIndex
-                        }
-                        break
+                    // Only update if actually changing index
+                    if currentImageIndex != targetIndex {
+                        currentImageIndex = targetIndex
                     }
+                    break
                 }
             } else if lastDownloadingItemId != nil {
                 // Downloads just finished - resume rotation
@@ -1058,15 +1056,13 @@ struct Preset6View: View, InspectLayoutProtocol {
         }
 
         // Original sync mode logic
-        var targetIndex: Int? = nil
+        var targetIndex: Int?
 
         // Priority 1: Show image for the LATEST downloading item (most recently started)
         if !inspectState.downloadingItems.isEmpty {
-            for (index, item) in inspectState.items.enumerated().reversed() {
-                if inspectState.downloadingItems.contains(item.id) {
-                    targetIndex = min(index, imagePaths.count - 1)
-                    break
-                }
+            for (index, item) in inspectState.items.enumerated().reversed() where inspectState.downloadingItems.contains(item.id) {
+                targetIndex = min(index, imagePaths.count - 1)
+                break
             }
         }
 

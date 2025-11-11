@@ -356,10 +356,8 @@ class FileMonitor {
 
         // Check by filename matching
         let filename = (path as NSString).lastPathComponent
-        for item in monitoredItems {
-            if fileMatchesItem(filename, item: item) {
-                return item.id
-            }
+        for item in monitoredItems where fileMatchesItem(filename, item: item) {
+            return item.id
         }
 
         return nil

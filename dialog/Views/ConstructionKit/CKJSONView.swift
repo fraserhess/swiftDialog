@@ -1,4 +1,3 @@
-
 //
 //  JSONView.swift
 //  dialog

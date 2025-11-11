@@ -11,9 +11,9 @@ import SwiftUI
 
 // MARK: - Icon Cache Manager
 class PresetIconCache: ObservableObject {
-    @Published var mainIcon: String? = nil
+    @Published var mainIcon: String?
     @Published var itemIcons: [String: String] = [:]
-    @Published var bannerImage: NSImage? = nil
+    @Published var bannerImage: NSImage?
 
     private let resolver = ImageResolver.shared
 

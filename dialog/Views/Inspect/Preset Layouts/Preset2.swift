@@ -14,7 +14,7 @@ struct Preset2View: View, InspectLayoutProtocol {
     @State private var showingAboutPopover = false
     @StateObject private var iconCache = PresetIconCache()
     @State private var scrollOffset: Int = 0
-    @State private var lastDownloadingItem: String? = nil
+    @State private var lastDownloadingItem: String?
 
     init(inspectState: InspectState) {
         self.inspectState = inspectState
@@ -282,21 +282,19 @@ struct Preset2View: View, InspectLayoutProtocol {
         let visibleCount = sizeMode == "compact" ? 3 : (sizeMode == "large" ? 6 : 4)
         let centerPosition = visibleCount / 2  // Center position in the visible cards
 
-        for (index, item) in inspectState.items.enumerated() {
-            if downloadingItems.contains(item.id) {
-                // Check if this is a new downloading item
-                if lastDownloadingItem != item.id {
-                    lastDownloadingItem = item.id
-                    // Calculate offset to center this item
-                    let targetOffset = max(0, min(index - centerPosition, inspectState.items.count - visibleCount))
-                    if targetOffset != scrollOffset {
-                        withAnimation(.easeInOut(duration: 0.5)) {
-                            scrollOffset = targetOffset
-                        }
+        for (index, item) in inspectState.items.enumerated() where downloadingItems.contains(item.id) == true {
+            // Check if this is a new downloading item
+            if lastDownloadingItem != item.id {
+                lastDownloadingItem = item.id
+                // Calculate offset to center this item
+                let targetOffset = max(0, min(index - centerPosition, inspectState.items.count - visibleCount))
+                if targetOffset != scrollOffset {
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        scrollOffset = targetOffset
                     }
                 }
-                break // Only center the first downloading item
             }
+            break // Only center the first downloading item
         }
 
         // Clear last downloading item if nothing is downloading

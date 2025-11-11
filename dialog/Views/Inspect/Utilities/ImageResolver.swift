@@ -53,7 +53,7 @@ class ImageResolver {
         }
 
         // Try to resolve the path
-        var resolvedPath: String? = nil
+        var resolvedPath: String?
 
         // 1. If it's an absolute path and exists, use it
         if path.hasPrefix("/") {
