@@ -51,23 +51,27 @@ enum ConfigurationError: Error, LocalizedError {
 
 class Config {
     
-    // MARK: - Isnpect API
+    // MARK: - Inspect API
     
-    /// Load configuration from environment variable or fallback to test data
+    /// Load configuration from explicit file path via commandline --inspect-config arg (see https://github.com/swiftDialog/swiftDialog/commit/e884ee60f8925c7e47a3096ec6d89f5d92b72d5b#diff-c3b51bf2b51dc1dab1f2d5e8d90baaefa239d674a20f4cf22d67903bef14cb45, else use environment variable,, or fallback to test data
+    /// - Parameters:
+    ///   - request: Configuration request with environment variable and fallback settings
+    ///   - fromFile: Optional explicit file path to load configuration from (takes precedence over environment)
+    /// - Returns: Result containing configuration or error
     func loadConfiguration(_ request: ConfigurationRequest = .default, fromFile: String = "") -> Result<ConfigurationResult, ConfigurationError> {
-        // Required: get config path from environment
-        if let configPath = getConfigPath(from: request.environmentVariable) {
-            writeLog("ConfigurationService: Using config from environment: \(configPath)", logLevel: .info)
-            return loadConfigurationFromFile(at: configPath)
-        }
-        
-        // Check if a file path was supplied
+        // Priority 1: Use explicit file path if provided
         if !fromFile.isEmpty {
             writeLog("ConfigurationService: Using config from provided file: \(fromFile)", logLevel: .info)
             return loadConfigurationFromFile(at: fromFile)
         }
         
-        // Check if fallback is allowed
+        // Priority 2: Get config path from environment
+        if let configPath = getConfigPath(from: request.environmentVariable) {
+            writeLog("ConfigurationService: Using config from environment: \(configPath)", logLevel: .info)
+            return loadConfigurationFromFile(at: configPath)
+        }
+        
+        // Priority 3: Check if fallback is allowed
         guard request.fallbackToTestData else {
             return .failure(.missingEnvironmentVariable(name: request.environmentVariable))
         }
@@ -87,9 +91,28 @@ class Config {
         do {
             // Load and parse JSON
             let data = try Data(contentsOf: URL(fileURLWithPath: path))
+
+            // Auto-detect iconBasePath if not explicitly set
+            var jsonData = data
+            if let jsonObject = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                var mutableJSON = jsonObject
+
+                // If iconBasePath is nil or missing, auto-set to config directory
+                if mutableJSON["iconBasePath"] == nil {
+                    let configDirectory = (path as NSString).deletingLastPathComponent
+                    mutableJSON["iconBasePath"] = configDirectory
+                    writeLog("ConfigurationService: Auto-set iconBasePath to: \(configDirectory)", logLevel: .debug)
+
+                    // Re-serialize modified JSON
+                    if let modifiedData = try? JSONSerialization.data(withJSONObject: mutableJSON, options: []) {
+                        jsonData = modifiedData
+                    }
+                }
+            }
+
             let decoder = JSONDecoder()
-            let config = try decoder.decode(InspectConfig.self, from: data)
-            
+            let config = try decoder.decode(InspectConfig.self, from: jsonData)
+
             // Validate and apply defaults
             let processedConfig = applyConfigurationDefaults(to: config)
             let warnings = validateConfiguration(processedConfig)
@@ -123,6 +146,14 @@ class Config {
             "popupButton": "Installation Details",
             "highlightColor": "#007AFF",
             "cachePaths": ["/tmp"],
+            "uiLabels": {
+                "completedStatus": "Installed",
+                "downloadingStatus": "Installing...",
+                "pendingStatus": "Pending",
+                "progressFormat": "{completed} of {total} apps installed",
+                "completionMessage": "All Applications Installed!",
+                "completionSubtitle": "Your software is ready to use"
+            },
             "items": [
                 {
                     "id": "word",
@@ -274,6 +305,10 @@ class Config {
             uiConfig.highlightColor = highlightColor
         }
 
+        if let secondaryColor = config.secondaryColor {
+            uiConfig.secondaryColor = secondaryColor
+        }
+
         // Banner configuration
         if let banner = config.banner {
             print("Config.swift: Setting uiConfig.bannerImage = \(banner)")
@@ -372,17 +407,23 @@ class Config {
     
     func extractButtonConfiguration(from config: InspectConfig) -> ButtonConfiguration {
         var buttonConfig = ButtonConfiguration()
-        
+
         if let button1Text = config.button1Text {
             buttonConfig.button1Text = button1Text
+            writeLog("Config: Extracted button1Text = '\(button1Text)'", logLevel: .info)
+        } else {
+            writeLog("Config: button1Text is nil in config", logLevel: .info)
         }
-        
+
         if let button1Disabled = config.button1Disabled {
             buttonConfig.button1Disabled = button1Disabled
         }
-        
+
         if let button2Text = config.button2Text {
             buttonConfig.button2Text = button2Text
+            writeLog("Config: Extracted button2Text = '\(button2Text)'", logLevel: .info)
+        } else {
+            writeLog("Config: button2Text is nil in config", logLevel: .info)
         }
 
         // Deprecated: button2Disabled - button2 is always enabled when shown
