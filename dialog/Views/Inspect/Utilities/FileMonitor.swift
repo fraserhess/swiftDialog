@@ -43,7 +43,10 @@ class FileMonitor {
     // Tracking states
     private var installedItems: Set<String> = []
     private var downloadingItems: Set<String> = []
-    
+
+    // Plist monitoring
+    private var plistCallbacks: [String: (String) -> Void] = [:] // path -> callback
+
     // MARK: - Public Interface
 
     func startMonitoring(items: [InspectConfig.ItemConfig], cachePaths: [String]) {
@@ -105,6 +108,12 @@ class FileMonitor {
         var changesDetected = false
 
         for item in monitoredItems {
+            // Skip items with empty paths - they should be managed by presets
+            guard !item.paths.isEmpty else {
+                writeLog("FileMonitor: Skipping status check for item \(item.id) - empty paths array", logLevel: .debug)
+                continue
+            }
+            
             let wasInstalled = installedItems.contains(item.id)
             let wasDownloading = downloadingItems.contains(item.id)
 
@@ -148,6 +157,12 @@ class FileMonitor {
     private func performInitialScan() {
         // Perform initial scan to set up current state
         for item in monitoredItems {
+            // Skip items with empty paths - they should be managed by presets
+            guard !item.paths.isEmpty else {
+                writeLog("FileMonitor: Skipping initial scan for item \(item.id) - empty paths array", logLevel: .debug)
+                continue
+            }
+            
             if isInstalled(item) {
                 installedItems.insert(item.id)
             } else if isDownloading(item) {
@@ -162,6 +177,12 @@ class FileMonitor {
 
         // Build mappings for quick lookups
         for item in monitoredItems {
+            // Skip items with empty paths - they should be managed by presets
+            guard !item.paths.isEmpty else {
+                writeLog("FileMonitor: Skipping path mappings for item \(item.id) - empty paths array", logLevel: .debug)
+                continue
+            }
+            
             for path in item.paths {
                 let expandedPath = (path as NSString).expandingTildeInPath
                 pathToItemMap[expandedPath] = item.id
@@ -176,6 +197,12 @@ class FileMonitor {
         
         // Watch both app paths and cache paths
         for item in monitoredItems {
+            // Skip items with empty paths - they should be managed by presets
+            guard !item.paths.isEmpty else {
+                writeLog("FileMonitor: Skipping FSEvents setup for item \(item.id) - empty paths array", logLevel: .debug)
+                continue
+            }
+            
             for path in item.paths {
                 let expandedPath = (path as NSString).expandingTildeInPath
                 // Add parent directory to watch list
@@ -356,8 +383,15 @@ class FileMonitor {
 
         // Check by filename matching
         let filename = (path as NSString).lastPathComponent
-        for item in monitoredItems where fileMatchesItem(filename, item: item) {
-            return item.id
+        for item in monitoredItems {
+            // Skip items with empty paths - they should be managed by presets
+            guard !item.paths.isEmpty else {
+                continue
+            }
+            
+            if fileMatchesItem(filename, item: item) {
+                return item.id
+            }
         }
 
         return nil
@@ -423,6 +457,46 @@ class FileMonitor {
         let condensedDisplayName = cleanDisplayName.replacingOccurrences(of: "_", with: "")
 
         return cleanFilename.contains(condensedItemId) || cleanFilename.contains(condensedDisplayName)
+    }
+
+    // MARK: - Plist Monitoring
+
+    /// Add a plist file to FSEvents monitoring with callback
+    /// - Parameters:
+    ///   - path: Plist file path (should be expanded)
+    ///   - key: Plist key to monitor
+    ///   - callback: Called when file changes (receives new value as String)
+    func addPlistMonitor(path: String, key: String, callback: @escaping (String) -> Void) {
+        let expandedPath = (path as NSString).expandingTildeInPath
+
+        // Store callback
+        plistCallbacks[expandedPath] = callback
+
+        // Note: FSEvents monitors parent directories, so we don't need to restart the stream
+        // The existing setupFSEvents() will catch changes to any files in monitored directories
+
+        writeLog("FileMonitor: Added plist monitor for \(expandedPath) key=\(key)", logLevel: .info)
+    }
+
+    /// Remove plist monitor for a path
+    /// - Parameter path: Plist file path
+    func removePlistMonitor(path: String) {
+        let expandedPath = (path as NSString).expandingTildeInPath
+        plistCallbacks.removeValue(forKey: expandedPath)
+        writeLog("FileMonitor: Removed plist monitor for \(expandedPath)", logLevel: .debug)
+    }
+
+    /// Handle plist file change event
+    /// - Parameter path: Path to changed plist file
+    private func handlePlistChange(path: String) {
+        guard let callback = plistCallbacks[path] else { return }
+
+        // Read new value - this is a simplified version, real implementation would need to know the key
+        // For now, just trigger the callback with a placeholder
+        // The actual plist reading happens in the callback via Validation.shared
+        callback("changed")
+
+        writeLog("FileMonitor: Plist changed, triggered callback for \(path)", logLevel: .info)
     }
 }
 

@@ -92,9 +92,9 @@ struct InstallationInfoPopoverView: View {
                 VStack(spacing: 6) {
                     EnhancedInfoRow(label: "Total Items", value: "\(inspectState.items.count)")
                     EnhancedInfoRow(label: "Completed", value: "\(inspectState.completedItems.count)",
-                                  valueColor: inspectState.completedItems.count > 0 ? .green : .primary)
+                                  valueColor: !inspectState.completedItems.isEmpty ? .green : .primary)
                     EnhancedInfoRow(label: "Installing", value: "\(inspectState.downloadingItems.count)",
-                                  valueColor: inspectState.downloadingItems.count > 0 ? .blue : .primary)
+                                  valueColor: !inspectState.downloadingItems.isEmpty ? .blue : .primary)
                     EnhancedInfoRow(label: "Pending", value: "\(inspectState.items.count - inspectState.completedItems.count - inspectState.downloadingItems.count)",
                                   valueColor: .secondary)
 

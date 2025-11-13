@@ -28,24 +28,25 @@ struct Preset5View: View, InspectLayoutProtocol {
         let scale: CGFloat = scaleFactor
         
         VStack(spacing: 0) {
-            // Header Section - Corporate Style
-            VStack(spacing: 16 * scale) {
-                // Security Icon and Title
-                HStack(spacing: 16 * scale) {
-                    // Icon from configuration
+            // Header Section with Logo and Title
+            VStack(spacing: 20 * scale) {
+                // Icon and Title - Larger and more prominent
+                HStack(spacing: 20 * scale) {
                     IconView(image: iconCache.getMainIconPath(for: inspectState), defaultImage: "shield.checkered", defaultColour: "accent")
-                            .frame(width: 72 * scale, height: 72 * scale)
-                            .onAppear { iconCache.cacheMainIcon(for: inspectState) }
-
-                    VStack(alignment: .leading, spacing: 2 * scale) {
+                        .frame(width: 64 * scale, height: 64 * scale)
+                        .onAppear { iconCache.cacheMainIcon(for: inspectState) }
+                    
+                    VStack(alignment: .leading, spacing: 4 * scale) {
                         Text(inspectState.uiConfiguration.windowTitle)
-                            .font(.system(size: 20 * scale, weight: .semibold))
+                            .font(.system(size: 22 * scale, weight: .semibold))
                             .foregroundColor(.primary)
+                            .lineLimit(2)
                         
                         if let message = inspectState.uiConfiguration.subtitleMessage, !message.isEmpty {
                             Text(message)
                                 .font(.system(size: 14 * scale))
                                 .foregroundColor(.secondary)
+                                .lineLimit(2)
                         } else {
                             Text("Last Check: \(lastCheck)")
                                 .font(.system(size: 12 * scale))
@@ -54,59 +55,91 @@ struct Preset5View: View, InspectLayoutProtocol {
                     }
                     
                     Spacer()
+                    
+                    // Status badge on the right
+                    Text(getOverallStatusText())
+                        .font(.system(size: 12 * scale, weight: .semibold))
+                        .foregroundColor(inspectState.colorThresholds.getColor(for: getLiveOverallScore()))
+                        .padding(.horizontal, 16 * scale)
+                        .padding(.vertical, 8 * scale)
+                        .background(
+                            Capsule()
+                                .fill(inspectState.colorThresholds.getColor(for: getLiveOverallScore()).opacity(0.15))
+                        )
                 }
                 .padding(.horizontal, 32 * scale)
                 .padding(.top, 24 * scale)
                 
-                // Overall Progress Bar - Cleaner design
-                VStack(spacing: 8 * scale) {
-                    HStack {
-                        // Progress fraction - smaller text (live calculation)
-                        Text("\(getLivePassedCount())/\(getLiveTotalCount())")
-                            .font(.system(size: 16 * scale, weight: .semibold, design: .monospaced))
-                            .foregroundColor(.primary)
-                        
-                        // Progress bar - thinner and more refined
-                        GeometryReader { geometry in
-                            ZStack(alignment: .leading) {
-                                // Background
-                                Rectangle()
-                                    .fill(Color.gray.opacity(0.15))
-                                    .frame(height: 4 * scale)
-                                    .cornerRadius(2 * scale)
-                                
-                                // Progress fill (live calculation)
-                                Rectangle()
-                                    .fill(inspectState.colorThresholds.getColor(for: getLiveOverallScore()))
-                                    .frame(width: geometry.size.width * getLiveOverallScore(), height: 4 * scale)
-                                    .cornerRadius(2 * scale)
-                            }
+                // Progress Bar Section - Horizontal and informative
+                VStack(spacing: 12 * scale) {
+                    // Stats row
+                    HStack(spacing: 32 * scale) {
+                        // Passed
+                        HStack(spacing: 8 * scale) {
+                            Circle()
+                                .fill(inspectState.colorThresholds.getPositiveColor())
+                                .frame(width: 8 * scale, height: 8 * scale)
+                            Text("Passed")
+                                .font(.system(size: 11 * scale, weight: .medium))
+                                .foregroundColor(.secondary)
+                            Text("\(getLivePassedCount())")
+                                .font(.system(size: 16 * scale, weight: .bold, design: .monospaced))
+                                .foregroundColor(inspectState.colorThresholds.getPositiveColor())
                         }
-                        .frame(height: 4 * scale)
                         
                         Spacer()
                         
-                        // Status indicators - cleaner design
-                        HStack(spacing: 12 * scale) {
-                            HStack(spacing: 3 * scale) {
-                                Circle()
-                                    .fill(inspectState.colorThresholds.getPositiveColor())
-                                    .frame(width: 8 * scale, height: 8 * scale)
-                                Text("\(getLivePassedCount())")
-                                    .font(.system(size: 12 * scale, weight: .medium))
-                                    .foregroundColor(inspectState.colorThresholds.getPositiveColor())
-                            }
-                            
-                            HStack(spacing: 3 * scale) {
-                                Circle()
-                                    .fill(inspectState.colorThresholds.getNegativeColor())
-                                    .frame(width: 8 * scale, height: 8 * scale)
-                                Text("\(getLiveFailedCount())")
-                                    .font(.system(size: 12 * scale, weight: .medium))
-                                    .foregroundColor(inspectState.colorThresholds.getNegativeColor())
-                            }
+                        // Overall percentage
+                        Text("\(Int(getLiveOverallScore() * 100))%")
+                            .font(.system(size: 20 * scale, weight: .bold, design: .rounded))
+                            .foregroundColor(.primary)
+                        
+                        Spacer()
+                        
+                        // Failed
+                        HStack(spacing: 8 * scale) {
+                            Text("\(getLiveFailedCount())")
+                                .font(.system(size: 16 * scale, weight: .bold, design: .monospaced))
+                                .foregroundColor(inspectState.colorThresholds.getNegativeColor())
+                            Text("Failed")
+                                .font(.system(size: 11 * scale, weight: .medium))
+                                .foregroundColor(.secondary)
+                            Circle()
+                                .fill(inspectState.colorThresholds.getNegativeColor())
+                                .frame(width: 8 * scale, height: 8 * scale)
                         }
                     }
+                    
+                    // Progress bar
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            // Background bar
+                            RoundedRectangle(cornerRadius: 6 * scale)
+                                .fill(Color.gray.opacity(0.2))
+                                .frame(height: 12 * scale)
+                            
+                            // Progress bar
+                            RoundedRectangle(cornerRadius: 6 * scale)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            inspectState.colorThresholds.getColor(for: getLiveOverallScore()),
+                                            inspectState.colorThresholds.getColor(for: getLiveOverallScore()).opacity(0.8)
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: max(0, geometry.size.width * getLiveOverallScore()), height: 12 * scale)
+                                .animation(.spring(response: 0.8, dampingFraction: 0.6), value: getLiveOverallScore())
+                        }
+                    }
+                    .frame(height: 12 * scale)
+                    
+                    // Total count
+                    Text("Total: \(getLiveTotalCount()) items")
+                        .font(.system(size: 10 * scale, weight: .medium))
+                        .foregroundColor(.secondary)
                 }
                 .padding(.horizontal, 32 * scale)
                 .padding(.bottom, 20 * scale)
@@ -114,17 +147,18 @@ struct Preset5View: View, InspectLayoutProtocol {
             
             Spacer()
             
-            // Category Breakdown Section - Enhanced layout with more space
+            // Category Breakdown Section - More spacious grid layout
             ScrollView {
                 LazyVGrid(columns: [
-                    GridItem(.flexible(), spacing: 16 * scale),
-                    GridItem(.flexible(), spacing: 16 * scale)
-                ], spacing: 12 * scale) {
+                    GridItem(.flexible(minimum: 340 * scale), spacing: 32 * scale),
+                    GridItem(.flexible(minimum: 340 * scale), spacing: 32 * scale)
+                ], spacing: 32 * scale) {
                     ForEach(complianceData, id: \.name) { category in
                         CategoryCardView(category: category, scale: scale, colorThresholds: inspectState.colorThresholds, inspectState: inspectState)
                     }
                 }
                 .padding(.horizontal, 32 * scale)
+                .padding(.top, 20 * scale)
             }
             
             Spacer()
@@ -150,7 +184,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                 Spacer()
                 
                 // Action buttons
-                HStack(spacing: 12) {
+                HStack(spacing: 16) {
                     if inspectState.buttonConfiguration.button2Visible && !inspectState.buttonConfiguration.button2Text.isEmpty {
                         Button(inspectState.buttonConfiguration.button2Text) {
                             writeLog("Preset5View: User clicked button2 (\(inspectState.buttonConfiguration.button2Text)) - exiting with code 2", logLevel: .info)
@@ -161,9 +195,11 @@ struct Preset5View: View, InspectLayoutProtocol {
                         // Note: button2 is always enabled when visible
                     }
                     
-                    Button(inspectState.buttonConfiguration.button1Text) {
-                        writeLog("Preset5View: User clicked button1 (\(inspectState.buttonConfiguration.button1Text)) - exiting with code 0", logLevel: .info)
-                        exit(0)
+                    let finalButtonText = inspectState.config?.finalButtonText ??
+                                         inspectState.buttonConfiguration.button1Text
+
+                    Button(finalButtonText) {
+                        handleFinalButtonPress(buttonText: finalButtonText)
                     }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
@@ -172,7 +208,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                 }
             }
             .padding(.horizontal, 32 * scale)
-            .padding(.bottom, 30 * scale)
+            .padding(.bottom, 32 * scale)
         }
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
@@ -317,7 +353,8 @@ struct Preset5View: View, InspectLayoutProtocol {
                                 id: String(key), // Ensure string copy, not reference
                                 category: getCategoryForKey(key, source: source),
                                 finding: finding,
-                                isCritical: isCriticalKey(key, source: source)
+                                isCritical: isCriticalKey(key, source: source),
+                                isInProgress: false  // Plist validation items don't have in-progress state
                             )
                             items.append(item)
                             processedCount += 1
@@ -421,10 +458,14 @@ struct Preset5View: View, InspectLayoutProtocol {
     // NEW: Simple item validation for non-audit use cases
     private func loadSimpleItemValidation() {
         var items: [ComplianceItem] = []
-        
+
         for item in inspectState.items {
             let isValid: Bool
-            
+            let isInProgress: Bool
+
+            // Check if item is currently downloading/installing
+            isInProgress = inspectState.downloadingItems.contains(item.id)
+
             // Check if this item needs plist validation
             if item.plistKey != nil {
                 // Use plist validation
@@ -434,12 +475,12 @@ struct Preset5View: View, InspectLayoutProtocol {
                 isValid = item.paths.first(where: { FileManager.default.fileExists(atPath: $0) }) != nil ||
                          inspectState.completedItems.contains(item.id)
             }
-            
+
             // Create ComplianceItem from validation result
             // Use intelligent categorization with multiple fallback options
             let category: String
             let isCritical: Bool
-            
+
             // Priority 1: Direct category specification
             if let itemCategory = item.category {
                 category = itemCategory
@@ -456,14 +497,15 @@ struct Preset5View: View, InspectLayoutProtocol {
                 category = "Applications"
                 isCritical = false
             }
-            
+
             let complianceItem = ComplianceItem(
                 id: item.id,
                 category: category,
                 finding: isValid,
-                isCritical: isCritical
+                isCritical: isCritical,
+                isInProgress: isInProgress
             )
-            
+
             items.append(complianceItem)
         }
         
@@ -601,13 +643,76 @@ struct Preset5View: View, InspectLayoutProtocol {
         return Double(getLivePassedCount()) / Double(total)
     }
 
-    
+    private func getOverallStatusText() -> String {
+        let score = getLiveOverallScore()
+        if score >= 0.95 {
+            return "Excellent Compliance"
+        } else if score >= 0.8 {
+            return "Good Compliance"
+        } else if score >= 0.6 {
+            return "Needs Improvement"
+        } else {
+            return "Critical Issues"
+        }
+    }
+
+
     private func formatIssueTitle(_ id: String) -> String {
         return id.replacingOccurrences(of: "_", with: " ")
             .capitalized
             .trimmingCharacters(in: .whitespaces)
     }
-    
+
+    /// Handle final button press with safe callback mechanisms
+    /// Writes trigger file, updates plist, logs event, then exits
+    private func handleFinalButtonPress(buttonText: String) {
+        writeLog("Preset5: User clicked final button (\(buttonText))", logLevel: .info)
+
+        // 1. Write to interaction log for script monitoring
+        let logPath = "/tmp/preset5_interaction.log"
+        let logEntry = "final_button:clicked:\(buttonText)\n"
+        if let data = logEntry.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: logPath) {
+                if let fileHandle = try? FileHandle(forWritingTo: URL(fileURLWithPath: logPath)) {
+                    _ = try? fileHandle.seekToEnd()
+                    _ = try? fileHandle.write(contentsOf: data)
+                    try? fileHandle.close()
+                }
+            } else {
+                try? data.write(to: URL(fileURLWithPath: logPath))
+            }
+        }
+
+        // 2. Create trigger file (touch equivalent)
+        let triggerPath = "/tmp/preset5_final_button.trigger"
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let triggerContent = "button_text=\(buttonText)\ntimestamp=\(timestamp)\nstatus=completed\n"
+        if let data = triggerContent.data(using: .utf8) {
+            try? data.write(to: URL(fileURLWithPath: triggerPath), options: .atomic)
+            writeLog("Preset5: Created trigger file at \(triggerPath)", logLevel: .debug)
+        }
+
+        // 3. Write to plist for structured data access
+        let plistPath = "/tmp/preset5_interaction.plist"
+        let plistData: [String: Any] = [
+            "finalButtonPressed": true,
+            "buttonText": buttonText,
+            "timestamp": timestamp,
+            "preset": "preset5"
+        ]
+        if let data = try? PropertyListSerialization.data(fromPropertyList: plistData, format: .xml, options: 0) {
+            try? data.write(to: URL(fileURLWithPath: plistPath), options: .atomic)
+            writeLog("Preset5: Updated interaction plist at \(plistPath)", logLevel: .debug)
+        }
+
+        // 4. Small delay to ensure file operations complete
+        usleep(100000) // 100ms
+
+        // 5. Exit with success code
+        writeLog("Preset5: Exiting with code 0", logLevel: .info)
+        exit(0)
+    }
+
 }
 
 // MARK: - Supporting Views
@@ -663,83 +768,291 @@ struct CategoryCardView: View {
     let category: ComplianceCategory
     let scale: CGFloat
     let colorThresholds: InspectConfig.ColorThresholds
-    @ObservedObject var inspectState: InspectState  // Changed to ObservedObject
+    @ObservedObject var inspectState: InspectState
     @State private var showingCategoryHelp = false
+    @State private var animateProgress = false
     
     var body: some View {
-        VStack(spacing: 8 * scale) {
-            // Header with icon and status
+        VStack(alignment: .leading, spacing: 0) {
+            // Header with category title
             HStack {
-                // Make the category icon clickable for help
-                Button(action: {
-                    showingCategoryHelp = true
-                }) {
-                    Image(systemName: category.icon)
-                        .font(.system(size: 16 * scale, weight: .medium))
-                        .foregroundColor(.blue)
-                        .background(
-                            Circle()
-                                .fill(Color.blue.opacity(0.1))
-                                .frame(width: 24 * scale, height: 24 * scale)
-                        )
-                }
-                .buttonStyle(.plain)
-                .help("Click for category information and recommendations")
-                .popover(isPresented: $showingCategoryHelp) {
-                    CategoryHelpPopover(category: category, scale: scale, inspectState: inspectState)
+                HStack(spacing: 8 * scale) {
+                    Text(category.name)
+                        .font(.system(size: 16 * scale, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .lineLimit(2)
+                    
+                    // Info button next to category name
+                    Button(action: {
+                        showingCategoryHelp = true
+                    }) {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 14 * scale, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Click for category information and recommendations")
+                    .popover(isPresented: $showingCategoryHelp) {
+                        CategoryHelpPopover(category: category, scale: scale, inspectState: inspectState)
+                    }
                 }
                 
                 Spacer()
                 
-                // Status icon
-                Image(systemName: colorThresholds.getStatusIcon(for: category.score))
-                    .font(.system(size: 14 * scale))
+                // Status badge
+                Text(getStatusText())
+                    .font(.system(size: 10 * scale, weight: .medium))
                     .foregroundColor(colorThresholds.getColor(for: category.score))
+                    .padding(.horizontal, 10 * scale)
+                    .padding(.vertical, 4 * scale)
+                    .background(
+                        Capsule()
+                            .fill(colorThresholds.getColor(for: category.score).opacity(0.1))
+                    )
             }
+            .padding(.horizontal, 20 * scale)
+            .padding(.top, 20 * scale)
+            .padding(.bottom, 16 * scale)
             
-            // Category name
-            Text(category.name)
-                .font(.system(size: 14 * scale, weight: .medium))
-                .foregroundColor(.primary)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .frame(minHeight: 28 * scale)
+            // Divider
+            Divider()
+                .padding(.horizontal, 20 * scale)
             
-            // Progress bar - higher contrast
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.4))
-                        .frame(height: 4 * scale)
-                        .cornerRadius(2 * scale)
-                    
-                    Rectangle()
-                        .fill(colorThresholds.getColor(for: category.score))
-                        .frame(width: geometry.size.width * category.score, height: 4 * scale)
-                        .cornerRadius(2 * scale)
+            // Main content area: Items list on left, Progress indicator on right
+            HStack(alignment: .top, spacing: 24 * scale) {
+                // Items list - takes up most space
+                ScrollView {
+                    LazyVStack(spacing: 4 * scale) {
+                        ForEach(getCategoryItems(), id: \.id) { item in
+                            ItemRowView(
+                                item: item, 
+                                scale: scale, 
+                                colorThresholds: colorThresholds, 
+                                inspectState: inspectState
+                            )
+                            
+                            if item.id != getCategoryItems().last?.id {
+                                Divider()
+                                    .padding(.horizontal, 16 * scale)
+                            }
+                        }
+                    }
                 }
+                .frame(maxHeight: 220 * scale)
+                
+                // Right side: Circular progress and metrics - positioned lower
+                VStack(spacing: 12 * scale) {
+                    // Add spacing to push content lower
+                    Spacer()
+                        .frame(height: 20 * scale)
+                    
+                    // Circular progress indicator with percentage inside
+                    ZStack {
+                        Circle()
+                            .stroke(Color.gray.opacity(0.15), lineWidth: 4 * scale)
+                            .frame(width: 60 * scale, height: 60 * scale)
+                        
+                        Circle()
+                            .trim(from: 0, to: animateProgress ? category.score : 0)
+                            .stroke(
+                                colorThresholds.getColor(for: category.score),
+                                style: StrokeStyle(lineWidth: 4 * scale, lineCap: .round)
+                            )
+                            .frame(width: 60 * scale, height: 60 * scale)
+                            .rotationEffect(.degrees(-90))
+                            .animation(.spring(response: 0.8, dampingFraction: 0.6), value: animateProgress)
+                        
+                        // Percentage display inside the ring
+                        Text("\(Int(category.score * 100))%")
+                            .font(.system(size: 12 * scale, weight: .bold, design: .rounded))
+                            .foregroundColor(.primary)
+                    }
+                    
+                    // Compact status summary
+                    VStack(spacing: 6 * scale) {
+                        HStack(spacing: 6 * scale) {
+                            Circle()
+                                .fill(colorThresholds.getPositiveColor())
+                                .frame(width: 4 * scale, height: 4 * scale)
+                            Text("\(category.passed)")
+                                .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
+                                .foregroundColor(colorThresholds.getPositiveColor())
+                        }
+                        
+                        HStack(spacing: 6 * scale) {
+                            Circle()
+                                .fill(colorThresholds.getNegativeColor())
+                                .frame(width: 4 * scale, height: 4 * scale)
+                            Text("\(category.total - category.passed)")
+                                .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
+                                .foregroundColor(colorThresholds.getNegativeColor())
+                        }
+                    }
+                    
+                    Spacer()
+                }
+                .frame(width: 80 * scale)
             }
-            .frame(height: 4 * scale)
-            .overlay(
-                RoundedRectangle(cornerRadius: 2 * scale)
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 0.5)
-            )
-            
-            // Score text
-            Text("\(category.passed)/\(category.total) (\(Int(category.score * 100))%)")
-                .font(.system(size: 12 * scale, weight: .semibold, design: .monospaced))
-                .foregroundColor(.primary)
+            .padding(.horizontal, 20 * scale)
+            .padding(.bottom, 20 * scale)
         }
-        .padding(12 * scale)
         .background(
-            RoundedRectangle(cornerRadius: 8 * scale)
-                .fill(Color.gray.opacity(0.05))
+            RoundedRectangle(cornerRadius: 16 * scale)
+                .fill(Color(NSColor.controlBackgroundColor))
+                .shadow(
+                    color: Color.black.opacity(0.06), 
+                    radius: 8 * scale, 
+                    x: 0, 
+                    y: 2 * scale
+                )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8 * scale)
-                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 16 * scale)
+                        .stroke(
+                            Color.gray.opacity(0.08), 
+                            lineWidth: 1
+                        )
                 )
         )
+        .onAppear {
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.6).delay(0.1)) {
+                animateProgress = true
+            }
+        }
     }
+    
+    private func getStatusText() -> String {
+        if category.score >= 0.95 {
+            return "Excellent"
+        } else if category.score >= 0.8 {
+            return "Good"
+        } else if category.score >= 0.6 {
+            return "Needs Work"
+        } else {
+            return "Critical"
+        }
+    }
+    
+    private func getCategoryItems() -> [CategoryItemData] {
+        // Get items that belong to this category
+        let categoryItems = inspectState.items.filter { item in
+            let itemCategory: String
+            if let category = item.category {
+                itemCategory = category
+            } else if let plistKey = item.plistKey,
+                      let firstSource = inspectState.plistSources?.first {
+                itemCategory = getCategoryForKey(plistKey, source: firstSource, inspectState: inspectState)
+            } else {
+                itemCategory = "Applications"
+            }
+            return itemCategory == category.name
+        }
+        
+        // Convert to CategoryItemData
+        return categoryItems.map { item in
+            let isValid: Bool
+            if item.plistKey != nil {
+                isValid = inspectState.validatePlistItem(item)
+            } else {
+                isValid = item.paths.first(where: { FileManager.default.fileExists(atPath: $0) }) != nil ||
+                         inspectState.completedItems.contains(item.id)
+            }
+
+            let isInProgress = inspectState.downloadingItems.contains(item.id)
+
+            return CategoryItemData(
+                id: item.id,
+                displayName: item.displayName,
+                isValid: isValid,
+                isCritical: false, // Can be enhanced later
+                isInProgress: isInProgress
+            )
+        }.sorted { $0.displayName < $1.displayName }
+    }
+}
+
+// Helper function for category key mapping
+private func getCategoryForKey(_ key: String, source: InspectConfig.PlistSourceConfig, inspectState: InspectState) -> String {
+    // Check key mappings first
+    if let keyMappings = source.keyMappings {
+        if let mapping = keyMappings.first(where: { $0.key == key }),
+           let category = mapping.category {
+            return category
+        }
+    }
+    
+    // Check category prefixes
+    if let categoryPrefix = source.categoryPrefix {
+        for (prefix, category) in categoryPrefix where key.hasPrefix(prefix) {
+            return category
+        }
+    }
+    
+    return source.displayName
+}
+
+// MARK: - Item Row View
+struct ItemRowView: View {
+    let item: CategoryItemData
+    let scale: CGFloat
+    let colorThresholds: InspectConfig.ColorThresholds
+    @ObservedObject var inspectState: InspectState
+
+    var body: some View {
+        HStack(spacing: 12 * scale) {
+            // Status indicator
+            Circle()
+                .fill(getItemColor())
+                .frame(width: 6 * scale, height: 6 * scale)
+
+            // Item name
+            Text(item.displayName)
+                .font(.system(size: 13 * scale, weight: .medium))
+                .foregroundColor(.primary)
+                .multilineTextAlignment(.leading)
+                .lineLimit(2)
+
+            Spacer()
+
+            // Status icon
+            Image(systemName: getItemIcon())
+                .font(.system(size: 12 * scale))
+                .foregroundColor(getItemColor())
+        }
+        .padding(.horizontal, 20 * scale)
+        .padding(.vertical, 12 * scale)
+    }
+
+    // MARK: - Helper Methods
+
+    /// Determine color based on item status (in-progress, valid, invalid)
+    private func getItemColor() -> Color {
+        if item.isInProgress {
+            // Use warning/middle color (orange) for in-progress items
+            // Pass 0.5 to get the warning threshold color
+            return colorThresholds.getColor(for: colorThresholds.warning)
+        }
+        // Use standard validation colors (green/red)
+        return colorThresholds.getValidationColor(isValid: item.isValid)
+    }
+
+    /// Determine icon based on item status (in-progress, valid, invalid)
+    private func getItemIcon() -> String {
+        if item.isInProgress {
+            // Use spinner/progress icon for in-progress items
+            return "arrow.triangle.2.circlepath"
+        }
+        // Use standard checkmark/xmark icons
+        return item.isValid ? "checkmark.circle.fill" : "xmark.circle.fill"
+    }
+}
+
+// MARK: - Category Item Data Model
+struct CategoryItemData {
+    let id: String
+    let displayName: String
+    let isValid: Bool
+    let isCritical: Bool
+    let isInProgress: Bool  // NEW: true when item is currently downloading/installing
 }
 
 struct ComplianceDetailsPopoverView: View {
@@ -1157,6 +1470,7 @@ struct ComplianceItem {
     let category: String
     let finding: Bool
     let isCritical: Bool
+    let isInProgress: Bool  // NEW: true when item is currently downloading/installing
 }
 
 struct ComplianceCategory {
@@ -1287,13 +1601,20 @@ struct CategoryHelpPopover: View {
             }
         }
         
-        // Then check global UI labels
+        // Then check compliance labels (new location)
+        if let complianceLabels = inspectState.config?.complianceLabels {
+            if let complianceStatus = complianceLabels.complianceStatus {
+                return complianceStatus
+            }
+        }
+
+        // Legacy: Check old uiLabels location for backward compatibility
         if let uiLabels = inspectState.config?.uiLabels {
             if let complianceStatus = uiLabels.complianceStatus {
                 return complianceStatus
             }
         }
-        
+
         // Default fallback
         return "Compliance Status"
     }
@@ -1308,19 +1629,36 @@ struct CategoryHelpPopover: View {
             }
         }
         
-        // Then check global UI labels
+        // Then check compliance labels (new location)
+        if let complianceLabels = inspectState.config?.complianceLabels {
+            if let recommendedActions = complianceLabels.recommendedActions {
+                return recommendedActions
+            }
+        }
+
+        // Legacy: Check old uiLabels location for backward compatibility
         if let uiLabels = inspectState.config?.uiLabels {
             if let recommendedActions = uiLabels.recommendedActions {
                 return recommendedActions
             }
         }
-        
+
         // Default fallback
         return "Recommended Actions"
     }
     
     private func getChecksPassedText() -> String {
-        // Check for custom format in UI labels
+        // Check for custom format in compliance labels (new location)
+        if let complianceLabels = inspectState.config?.complianceLabels {
+            if let checksPassed = complianceLabels.checksPassed {
+                // Replace placeholders with actual values
+                return checksPassed
+                    .replacingOccurrences(of: "{passed}", with: "\(category.passed)")
+                    .replacingOccurrences(of: "{total}", with: "\(category.total)")
+            }
+        }
+
+        // Legacy: Check old uiLabels location for backward compatibility
         if let uiLabels = inspectState.config?.uiLabels {
             if let checksPassed = uiLabels.checksPassed {
                 // Replace placeholders with actual values

@@ -247,19 +247,64 @@ struct Preset4View: View, InspectLayoutProtocol {
     // MARK: - Button Area
     
     private func buttonArea() -> some View {
-        HStack(spacing: 12 * scaleFactor) {
-            Button("Continue") {
-                writeLog("Preset4View: User clicked Continue button - exiting with code 0", logLevel: .info)
-                exit(0)
+        let finalButtonText = inspectState.config?.finalButtonText ??
+                             inspectState.config?.button1Text ??
+                             (inspectState.buttonConfiguration.button1Text.isEmpty ? "Continue" : inspectState.buttonConfiguration.button1Text)
+
+        return HStack(spacing: 12 * scaleFactor) {
+            Button(finalButtonText) {
+                handleFinalButtonPress(buttonText: finalButtonText)
             }
             .keyboardShortcut(.defaultAction)
             .buttonStyle(.borderedProminent)
-            
+
             Button("Show Details") {
                 showingDetailPopover = true
             }
             .buttonStyle(.bordered)
         }
+    }
+
+    /// Handle final button press with safe callback mechanisms
+    private func handleFinalButtonPress(buttonText: String) {
+        writeLog("Preset4: User clicked final button (\(buttonText))", logLevel: .info)
+
+        // Write to interaction log
+        let logPath = "/tmp/preset4_interaction.log"
+        let logEntry = "final_button:clicked:\(buttonText)\n"
+        if let data = logEntry.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: logPath) {
+                if let fileHandle = try? FileHandle(forWritingTo: URL(fileURLWithPath: logPath)) {
+                    _ = try? fileHandle.seekToEnd()
+                    _ = try? fileHandle.write(contentsOf: data)
+                    try? fileHandle.close()
+                }
+            } else {
+                try? data.write(to: URL(fileURLWithPath: logPath))
+            }
+        }
+
+        // Create trigger file
+        let triggerPath = "/tmp/preset4_final_button.trigger"
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let triggerContent = "button_text=\(buttonText)\ntimestamp=\(timestamp)\nstatus=completed\n"
+        if let data = triggerContent.data(using: .utf8) {
+            try? data.write(to: URL(fileURLWithPath: triggerPath), options: .atomic)
+        }
+
+        // Write plist
+        let plistPath = "/tmp/preset4_interaction.plist"
+        let plistData: [String: Any] = [
+            "finalButtonPressed": true,
+            "buttonText": buttonText,
+            "timestamp": timestamp
+        ]
+        if let data = try? PropertyListSerialization.data(fromPropertyList: plistData, format: .xml, options: 0) {
+            try? data.write(to: URL(fileURLWithPath: plistPath), options: .atomic)
+        }
+
+        usleep(100000) // 100ms delay
+        exit(0)
     }
     
     // MARK: - Validation Results Caching

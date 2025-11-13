@@ -20,6 +20,18 @@ enum ConfigurationSource: Equatable {
     case fallback
 }
 
+// MARK: - Form Input State Structure
+
+/// Stores form input values for guidance content (checkboxes, dropdowns, radios, toggles, sliders)
+/// Universal structure usable across all presets with guidance content
+struct GuidanceFormInputState: Codable {
+    var checkboxes: [String: Bool] = [:]      // checkbox id -> checked state
+    var dropdowns: [String: String] = [:]     // dropdown id -> selected value
+    var radios: [String: String] = [:]        // radio id -> selected option
+    var toggles: [String: Bool] = [:]         // toggle id -> enabled state
+    var sliders: [String: Double] = [:]       // slider id -> current value
+}
+
 // MARK: - Configuration Structs for Grouped State
 
 struct UIConfiguration {
@@ -32,6 +44,7 @@ struct UIConfiguration {
     var popupButtonText: String = "Install details..."
     var preset: String = "preset1"
     var highlightColor: String = "#808080"
+    var secondaryColor: String = "#A0A0A0"
     var iconSize: Int = 120
     var subtitleMessage: String?
 
@@ -63,9 +76,9 @@ struct BackgroundConfiguration {
 }
 
 struct ButtonConfiguration {
-    var button1Text: String = "OK"           // Text during progress/installation
+    var button1Text: String = ""             // Text for primary button (loaded from config)
     var button1Disabled: Bool = false
-    var button2Text: String = "Cancel"       // Optional second button text
+    var button2Text: String = ""             // Text for secondary button (loaded from config)
     var button2Visible: Bool = true          // Show second button when complete
     var autoEnableButton: Bool = true
     // Note: button2Disabled removed - button2 is always enabled when shown
@@ -85,9 +98,29 @@ class InspectState: ObservableObject, FileMonitorDelegate {
     
     // MARK: - Preset-specific State
     @Published var plistSources: [InspectConfig.PlistSourceConfig]?
-    @Published var colorThresholds: InspectConfig.ColorThresholds = InspectConfig.ColorThresholds.default
+    @Published var colorThresholds = InspectConfig.ColorThresholds.default
     @Published var plistValidationResults: [String: Bool] = [:] // Track plist validation results
-    
+
+    // MARK: - Plist Monitoring - Generalized from Preset6
+    private var plistMonitors: [String: PlistMonitorTask] = [:] // Track active monitoring tasks
+    private var jsonMonitors: [String: JsonMonitorTask] = [:] // Track active JSON monitoring tasks
+
+    /// Encapsulates a plist monitoring task with timer and state
+    private struct PlistMonitorTask {
+        let timer: Timer
+        let initialValue: String
+        let currentValue: String
+        let recheckInterval: Int
+    }
+
+    /// Encapsulates a JSON monitoring task with timer and state
+    private struct JsonMonitorTask {
+        let timer: Timer
+        let initialValue: String
+        let currentValue: String
+        let recheckInterval: Int
+    }
+
     // MARK: - View-specific State (Should be @State in views, but keeping for now)
     @Published var scrollOffset: Int = 0 // Manual scroll offset, currently needed in preset3
     @Published var lastManualScrollTime: Date? // Track manual scrolling
@@ -95,7 +128,10 @@ class InspectState: ObservableObject, FileMonitorDelegate {
     // MARK: - Dynamic State (Needs @Published for UI updates)
     @Published var completedItems: Set<String> = []
     @Published var downloadingItems: Set<String> = []
-    
+
+    // MARK: - Form Input State (Preset9 and other guidance content)
+    @Published var guidanceFormInputs: [String: GuidanceFormInputState] = [:]
+
     private var appInspector: AppInspector?
     @Published var configurationSource: ConfigurationSource = .testData
     private var configPath: String?
@@ -114,10 +150,9 @@ class InspectState: ObservableObject, FileMonitorDelegate {
 
     private let fsEventsMonitor = FileMonitor()
     private var lastFSEventTime: Date?
-    private var lastLogTime: Date = Date()
+    private var lastLogTime = Date()
     
     // MARK: - Base Business Logic Services initialize
-    private let validationService = Validation()
     private let configurationService = Config()
     
     func initialize() {
@@ -132,6 +167,7 @@ class InspectState: ObservableObject, FileMonitorDelegate {
     private func loadConfiguration() {
         // Use configuration service to load config
         // TODO: this works when calling the global appvars but really should be passed in as a config item.
+        // Pass the inspect config path from appvars if available
         let result = configurationService.loadConfiguration(fromFile: appvars.inspectConfigPath)
         
         switch result {
@@ -463,6 +499,12 @@ class InspectState: ObservableObject, FileMonitorDelegate {
         var changesDetected = false
         
         for item in items {
+            // Skip filesystem monitoring for items with empty paths - they should be managed by presets
+            guard !item.paths.isEmpty else {
+                writeLog("InspectState: Skipping filesystem check for item \(item.id) - empty paths array", logLevel: .debug)
+                continue
+            }
+            
             let wasCompleted = completedItems.contains(item.id)
             let wasDownloading = downloadingItems.contains(item.id)
             
@@ -480,7 +522,18 @@ class InspectState: ObservableObject, FileMonitorDelegate {
                     guard let self = self else { return }
                     self.completedItems.insert(item.id)
                     self.downloadingItems.remove(item.id)
-
+                    
+                    // Re-validate the completed item if it has plist configuration
+                    if item.plistKey != nil || self.plistSources?.contains(where: { source in
+                        item.paths.contains(source.path)
+                    }) == true {
+                        DispatchQueue.main.async { [weak self] in
+                            guard let self = self else { return }
+                            let isValid = self.validatePlistItem(item)
+                            writeLog("InspectState: Re-validated \(item.displayName) after completion: \(isValid)", logLevel: .info)
+                        }
+                    }
+                    
                     // Check if this was the last item to complete
                     if self.completedItems.count == self.items.count {
                         writeLog("InspectState: All items completed - triggering button state update", logLevel: .info)
@@ -902,6 +955,21 @@ class InspectState: ObservableObject, FileMonitorDelegate {
         if totalApps > 0 && completedCount == totalApps {
             writeLog("InspectState: All apps completed (\(completedCount)/\(totalApps))", logLevel: .info)
             
+            // Validate all completed items to ensure plist validation results are up-to-date
+            Task { @MainActor in
+                let completedItemsToValidate = items.filter { completedItems.contains($0.id) }
+                writeLog("InspectState: Re-validating \(completedItemsToValidate.count) completed items for button state update", logLevel: .info)
+                
+                for item in completedItemsToValidate {
+                    if item.plistKey != nil || plistSources?.contains(where: { source in
+                        item.paths.contains(source.path)
+                    }) == true {
+                        let isValid = validatePlistItem(item)
+                        writeLog("InspectState: Re-validated completed item '\(item.id)': \(isValid)", logLevel: .info)
+                    }
+                }
+            }
+            
             // Update button state directly since InspectView uses independent state management
             DispatchQueue.main.asyncAfter(deadline: .now() + InspectConstants.debounceDelay) { [weak self] in
                 guard let self = self else { return }
@@ -918,8 +986,11 @@ class InspectState: ObservableObject, FileMonitorDelegate {
 
     /// TODO: this can be build better, however plist are oftentime pretty complex, our actual at least works for the current use cases tested
     
+    @MainActor
     func validatePlistItem(_ item: InspectConfig.ItemConfig) -> Bool {
-        writeLog("InspectState: validatePlistItem called for '\(item.id)'", logLevel: .debug)
+        writeLog("InspectState: validatePlistItem called for '\(item.id)' (\(item.displayName))", logLevel: .info)
+        writeLog("InspectState: Item details - plistKey: '\(item.plistKey ?? "nil")', expectedValue: '\(item.expectedValue ?? "nil")', evaluation: '\(item.evaluation ?? "nil")'", logLevel: .info)
+        writeLog("InspectState: Item paths: \(item.paths)", logLevel: .info)
         
         // Use validation service for all validation logic
         let request = ValidationRequest(
@@ -927,16 +998,18 @@ class InspectState: ObservableObject, FileMonitorDelegate {
             plistSources: plistSources
         )
         
-        let result = validationService.validateItem(request)
+        let result = Validation.shared.validateItem(request)
         
         // Cache the result for UI consistency
         plistValidationResults[item.id] = result.isValid
         
+        writeLog("InspectState: Validation result for '\(item.id)': isValid=\(result.isValid), type=\(result.validationType)", logLevel: .info)
+        
         // Log validation details for debugging
         if let details = result.details {
-            writeLog("InspectState: Validation for '\(item.id)' - Path: \(details.path), Key: \(details.key ?? "N/A"), Expected: \(details.expectedValue ?? "N/A"), Actual: \(details.actualValue ?? "N/A"), Result: \(result.isValid)", logLevel: .debug)
+            writeLog("InspectState: Validation details - Path: \(details.path), Key: \(details.key ?? "N/A"), Expected: \(details.expectedValue ?? "N/A"), Actual: \(details.actualValue ?? "N/A"), EvalType: \(details.evaluationType ?? "N/A")", logLevel: .info)
         } else {
-            writeLog("InspectState: Validation for '\(item.id)' - Type: \(result.validationType), Result: \(result.isValid)", logLevel: .debug)
+            writeLog("InspectState: No validation details available for '\(item.id)'", logLevel: .info)
         }
         
         return result.isValid
@@ -945,38 +1018,790 @@ class InspectState: ObservableObject, FileMonitorDelegate {
     // MARK: - Validation Initialization
     
     /// Validate all items to populate the validation results dictionary
+    /// ✅ FIXED: Now uses modern Swift Concurrency instead of DispatchSemaphore
+    /// This eliminates potential deadlocks and silent crashes in production builds
     func validateAllItems() {
-        writeLog("InspectState: Starting async validation of \(items.count) items", logLevel: .debug)
-
-        // Use optimized async validation
-        Validation.shared.validateItemsBatch(items, plistSources: plistSources) { [weak self] results in
-            guard let self = self else { return }
-
-            DispatchQueue.main.async {
-                self.plistValidationResults = results
-                writeLog("InspectState: Async validation complete. \(results.filter { $0.value }.count) valid items", logLevel: .info)
-
-                // Update UI if needed
-                self.objectWillChange.send()
+        writeLog("InspectState: Starting async validation of \(items.count) items", logLevel: .info)
+        
+        // Log each item being validated
+        for item in items {
+            writeLog("InspectState: Will validate item '\(item.id)' - plistKey: '\(item.plistKey ?? "nil")', expectedValue: '\(item.expectedValue ?? "nil")', evaluation: '\(item.evaluation ?? "nil")'", logLevel: .info)
+        }
+        
+        // Use Task to handle the main actor call properly
+        Task { @MainActor in
+            // Use optimized async validation
+            Validation.shared.validateItemsBatch(items, plistSources: plistSources) { [weak self] results in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    self.plistValidationResults = results
+                    writeLog("InspectState: Async validation complete. \(results.filter { $0.value }.count) valid items out of \(results.count) total", logLevel: .info)
+                    
+                    // Log each result
+                    for (itemId, isValid) in results {
+                        writeLog("InspectState: Validation result - '\(itemId)': \(isValid)", logLevel: .info)
+                    }
+                    
+                    // Update UI if needed
+                    self.objectWillChange.send()
+                }
             }
         }
     }
     
     
     // NEW: Get actual plist value for display purposes
+    @MainActor
     func getPlistValueForDisplay(item: InspectConfig.ItemConfig) -> String? {
         guard let plistKey = item.plistKey else { return nil }
-        
+
         // Use validation service to get the actual plist value
         for path in item.paths {
-            if let value = validationService.getPlistValue(at: path, key: plistKey) {
+            if let value = Validation.shared.getPlistValue(at: path, key: plistKey) {
                 return value
             }
         }
         return nil
     }
-    
-    
+
+    // MARK: - Plist Monitoring Methods - Generalized from Preset6
+
+    /// Start monitoring a plist value with periodic rechecks
+    /// - Parameters:
+    ///   - itemId: Unique identifier for the monitoring task
+    ///   - item: Item configuration containing plist details
+    ///   - recheckInterval: Seconds between checks (1-3600)
+    ///   - onValueChanged: Callback when value changes (oldValue, newValue)
+    nonisolated func startPlistMonitoring(
+        itemId: String,
+        item: InspectConfig.ItemConfig,
+        recheckInterval: Int,
+        onValueChanged: @escaping (String, String) -> Void
+    ) {
+        guard let plistKey = item.plistKey, recheckInterval > 0 else {
+            writeLog("InspectState: Cannot start monitoring for '\(itemId)' - missing plistKey or invalid interval", logLevel: .error)
+            return
+        }
+
+        // Validate interval range
+        guard recheckInterval >= 1 && recheckInterval <= 3600 else {
+            writeLog("InspectState: Invalid recheckInterval \(recheckInterval) for '\(itemId)', must be 1-3600", logLevel: .error)
+            return
+        }
+
+        // Stop existing monitor if any
+        Task { @MainActor in
+            self.stopPlistMonitoring(itemId: itemId)
+        }
+
+        // Determine reading method based on useUserDefaults flag 
+        let useUserDefaults = item.useUserDefaults == true
+        let readingMethod = useUserDefaults ? "UserDefaults" : "file"
+
+        // Capture initial value from main actor context
+        Task { @MainActor in
+            // Get initial value using appropriate method
+            let initialValue: String
+            if useUserDefaults {
+                // Extract domain for UserDefaults reading
+                guard let path = item.paths.first,
+                      let domain = Validation.shared.extractDomainFromPath(path) else {
+                    writeLog("InspectState: Cannot extract UserDefaults domain from path for '\(itemId)'", logLevel: .error)
+                    return
+                }
+                initialValue = Validation.shared.getUserDefaultsValue(domain: domain, key: plistKey) ?? "(not set)"
+                writeLog("InspectState: Starting plist monitoring (UserDefaults) for '\(itemId)' - initial: \(initialValue), interval: \(recheckInterval)s", logLevel: .info)
+            } else {
+                initialValue = self.getPlistValueForDisplay(item: item) ?? "(not set)"
+                writeLog("InspectState: Starting plist monitoring (file) for '\(itemId)' - initial: \(initialValue), interval: \(recheckInterval)s", logLevel: .info)
+            }
+
+            // Start periodic recheck timer (same for both methods)
+            let timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(recheckInterval), repeats: true) { [weak self] _ in
+                guard let self = self else { return }
+
+                // Access main actor-isolated methods from main actor context
+                Task { @MainActor in
+                    // Get current value using same method as initial
+                    let currentValue: String
+                    if useUserDefaults {
+                        guard let path = item.paths.first,
+                              let domain = Validation.shared.extractDomainFromPath(path) else {
+                            return
+                        }
+                        currentValue = Validation.shared.getUserDefaultsValue(domain: domain, key: plistKey) ?? "(not set)"
+                    } else {
+                        currentValue = self.getPlistValueForDisplay(item: item) ?? "(not set)"
+                    }
+
+                    // Check if value changed from initial
+                    if currentValue != initialValue {
+                        writeLog("InspectState: Plist value changed (\(readingMethod)) for '\(itemId)': \(initialValue) → \(currentValue)", logLevel: .info)
+
+                        // Notify callback
+                        onValueChanged(initialValue, currentValue)
+
+                        // Stop monitoring after change detected
+                        self.stopPlistMonitoring(itemId: itemId)
+                    }
+                }
+            }
+
+            // Store monitoring task
+            self.plistMonitors[itemId] = PlistMonitorTask(
+                timer: timer,
+                initialValue: initialValue,
+                currentValue: initialValue,
+                recheckInterval: recheckInterval
+            )
+        }
+    }
+
+    /// Stop monitoring a specific plist item
+    /// - Parameter itemId: The item to stop monitoring
+    func stopPlistMonitoring(itemId: String) {
+        guard let monitor = plistMonitors[itemId] else { return }
+
+        monitor.timer.invalidate()
+        plistMonitors.removeValue(forKey: itemId)
+        writeLog("InspectState: Stopped plist monitoring for '\(itemId)'", logLevel: .info)
+    }
+
+    /// Stop all active plist monitors (cleanup)
+    func stopAllPlistMonitors() {
+        for (itemId, monitor) in plistMonitors {
+            monitor.timer.invalidate()
+            writeLog("InspectState: Stopped plist monitoring for '\(itemId)'", logLevel: .debug)
+        }
+        plistMonitors.removeAll()
+    }
+
+    // MARK: - Multiple Plist Monitors
+
+    /// Start multiple plist monitors for an item that auto-update guidance components
+    /// - Parameters:
+    ///   - item: The item configuration containing plistMonitors array
+    ///   - onUpdate: Callback triggered when plist value changes (receives: itemId, guidanceBlockIndex, targetProperty, newValue)
+    func startMultiplePlistMonitors(
+        for item: InspectConfig.ItemConfig,
+        onUpdate: @escaping (String, Int, String, String) -> Void,
+        onComplete: @escaping (String, InspectCompletionResult, String?) -> Void
+    ) {
+        guard let monitors = item.plistMonitors, !monitors.isEmpty else {
+            return
+        }
+
+        let itemId = item.id
+        writeLog("InspectState: Starting \(monitors.count) plist monitor(s) for '\(itemId)'", logLevel: .info)
+
+        for (monitorIndex, monitor) in monitors.enumerated() {
+            // Validate interval
+            guard monitor.recheckInterval >= 1 && monitor.recheckInterval <= 3600 else {
+                writeLog("InspectState: Invalid recheckInterval \(monitor.recheckInterval) for monitor \(monitorIndex) in '\(itemId)'", logLevel: .error)
+                continue
+            }
+
+            // Create unique monitor key
+            let monitorKey = "\(itemId)_monitor_\(monitorIndex)"
+
+            // Determine reading method
+            let useUserDefaults = monitor.useUserDefaults == true
+
+            // Start monitoring on main actor
+            Task { @MainActor in
+                // Stop existing monitor if any
+                if let existingMonitor = self.plistMonitors[monitorKey] {
+                    existingMonitor.timer.invalidate()
+                    self.plistMonitors.removeValue(forKey: monitorKey)
+                }
+
+                // Read initial value
+                let initialValue = self.readPlistMonitorValue(monitor: monitor, useUserDefaults: useUserDefaults)
+
+                writeLog("InspectState: Monitor \(monitorIndex) for '\(itemId)' - path: \(monitor.path), key: \(monitor.key), initial: \(initialValue), interval: \(monitor.recheckInterval)s", logLevel: .info)
+
+                // Trigger initial UI update with the current value
+                let mappedInitialValue = monitor.valueMap?[initialValue] ?? initialValue
+                onUpdate(itemId, monitor.guidanceBlockIndex, monitor.targetProperty, mappedInitialValue)
+                writeLog("InspectState: Monitor \(monitorIndex) set initial value for '\(itemId)': \(mappedInitialValue)", logLevel: .info)
+
+                // Start periodic timer
+                let timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(monitor.recheckInterval), repeats: true) { [weak self] _ in
+                    guard let self = self else { return }
+
+                    Task { @MainActor in
+                        // Read current value
+                        let currentValue = self.readPlistMonitorValue(monitor: monitor, useUserDefaults: useUserDefaults)
+
+                        // Get the last known value from stored monitor (not initialValue!)
+                        let lastValue = self.plistMonitors[monitorKey]?.currentValue ?? initialValue
+
+                        // Check if value changed from last known value
+                        if currentValue != lastValue {
+                            writeLog("InspectState: Monitor \(monitorIndex) detected change for '\(itemId)': \(lastValue) → \(currentValue)", logLevel: .info)
+
+                            // Apply value mapping if defined
+                            let mappedValue = monitor.valueMap?[currentValue] ?? currentValue
+
+                            // Trigger callback with update info
+                            onUpdate(itemId, monitor.guidanceBlockIndex, monitor.targetProperty, mappedValue)
+
+                            // Check for completion trigger
+                            if let trigger = monitor.completionTrigger {
+                                let conditionMet = self.evaluateTriggerCondition(
+                                    condition: trigger.condition,
+                                    currentValue: currentValue,
+                                    expectedValue: trigger.value
+                                )
+
+                                if conditionMet {
+                                    writeLog("InspectState: Completion trigger met for '\(itemId)' - condition: \(trigger.condition), result: \(trigger.result)", logLevel: .info)
+
+                                    let result: InspectCompletionResult = trigger.result.lowercased() == "success"
+                                        ? .success(message: trigger.message)
+                                        : .failure(message: trigger.message)
+
+                                    let delay = trigger.delay ?? 0.0
+
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                                        onComplete(itemId, result, trigger.message)
+                                    }
+                                }
+                            }
+
+                            // Update stored current value
+                            if let storedMonitor = self.plistMonitors[monitorKey] {
+                                self.plistMonitors[monitorKey] = PlistMonitorTask(
+                                    timer: storedMonitor.timer,
+                                    initialValue: storedMonitor.initialValue,
+                                    currentValue: currentValue,
+                                    recheckInterval: storedMonitor.recheckInterval
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Store monitor task
+                self.plistMonitors[monitorKey] = PlistMonitorTask(
+                    timer: timer,
+                    initialValue: initialValue,
+                    currentValue: initialValue,
+                    recheckInterval: monitor.recheckInterval
+                )
+            }
+        }
+    }
+
+    /// Read plist value for a monitor configuration
+    /// - Parameters:
+    ///   - monitor: The plist monitor configuration
+    ///   - useUserDefaults: Whether to use UserDefaults reading
+    /// - Returns: String representation of the plist value
+    @MainActor
+    private func readPlistMonitorValue(monitor: InspectConfig.PlistMonitor, useUserDefaults: Bool) -> String {
+        // Handle "exists" evaluation - check file presence instead of reading value
+        if let evaluation = monitor.evaluation?.lowercased(), evaluation == "exists" {
+            let expandedPath = (monitor.path as NSString).expandingTildeInPath
+            let fileExists = FileManager.default.fileExists(atPath: expandedPath)
+
+            // If file exists, read the actual value to display (e.g., timestamp)
+            if fileExists {
+                if useUserDefaults {
+                    // Use full path support - pathOrDomain detects if it's a full path
+                    return Validation.shared.getUserDefaultsValue(pathOrDomain: monitor.path, key: monitor.key) ?? "Present"
+                } else {
+                    return Validation.shared.getPlistValue(path: monitor.path, key: monitor.key) ?? "Present"
+                }
+            } else {
+                return "Not detected"
+            }
+        }
+
+        // Standard value reading for other evaluation types
+        if useUserDefaults {
+            // Use full path support - pathOrDomain detects if it's a full path or domain
+            return Validation.shared.getUserDefaultsValue(pathOrDomain: monitor.path, key: monitor.key) ?? "(not set)"
+        } else {
+            // Use file-based plist reading with validation service
+            return Validation.shared.getPlistValue(path: monitor.path, key: monitor.key) ?? "(not set)"
+        }
+    }
+
+    /// Evaluate completion trigger condition
+    /// - Parameters:
+    ///   - condition: The condition type ("equals", "notEquals", "exists", "match", "greaterThan", "lessThan")
+    ///   - currentValue: The current plist value
+    ///   - expectedValue: The expected value (optional for "exists")
+    /// - Returns: true if condition is met, false otherwise
+    private func evaluateTriggerCondition(condition: String, currentValue: String, expectedValue: String?) -> Bool {
+        let normalizedCondition = condition.lowercased()
+
+        switch normalizedCondition {
+        case "equals":
+            guard let expected = expectedValue else { return false }
+            return currentValue == expected
+
+        case "notequals", "not_equals":
+            guard let expected = expectedValue else { return false }
+            return currentValue != expected
+
+        case "exists":
+            // Value exists if it's not empty and not the "(not set)" placeholder
+            return !currentValue.isEmpty && currentValue != "(not set)" && currentValue != "Not detected"
+
+        case "match", "contains":
+            guard let expected = expectedValue else { return false }
+            return currentValue.contains(expected)
+
+        case "greaterthan", "greater_than", ">":
+            guard let expected = expectedValue else { return false }
+            // Try numeric comparison first
+            if let currentNum = Double(currentValue), let expectedNum = Double(expected) {
+                return currentNum > expectedNum
+            }
+            // Fall back to string comparison
+            return currentValue > expected
+
+        case "lessthan", "less_than", "<":
+            guard let expected = expectedValue else { return false }
+            // Try numeric comparison first
+            if let currentNum = Double(currentValue), let expectedNum = Double(expected) {
+                return currentNum < expectedNum
+            }
+            // Fall back to string comparison
+            return currentValue < expected
+
+        default:
+            writeLog("InspectState: Unknown completion trigger condition '\(condition)' - returning false", logLevel: .error)
+            return false
+        }
+    }
+
+    // MARK: - Multiple JSON Monitors
+
+    /// Start multiple JSON monitors for an item that auto-update guidance components
+    /// - Parameters:
+    ///   - item: The item configuration containing jsonMonitors array
+    ///   - onUpdate: Callback triggered when JSON value changes (receives: itemId, guidanceBlockIndex, targetProperty, newValue)
+    func startMultipleJsonMonitors(
+        for item: InspectConfig.ItemConfig,
+        onUpdate: @escaping (String, Int, String, String) -> Void,
+        onComplete: @escaping (String, InspectCompletionResult, String?) -> Void
+    ) {
+        guard let monitors = item.jsonMonitors, !monitors.isEmpty else {
+            return
+        }
+
+        let itemId = item.id
+        writeLog("InspectState: Starting \(monitors.count) JSON monitor(s) for '\(itemId)'", logLevel: .info)
+
+        for (monitorIndex, monitor) in monitors.enumerated() {
+            // Validate interval
+            guard monitor.recheckInterval >= 1 && monitor.recheckInterval <= 3600 else {
+                writeLog("InspectState: Invalid recheckInterval \(monitor.recheckInterval) for JSON monitor \(monitorIndex) in '\(itemId)'", logLevel: .error)
+                continue
+            }
+
+            // Create unique monitor key
+            let monitorKey = "\(itemId)_json_monitor_\(monitorIndex)"
+
+            // Start monitoring on main actor
+            Task { @MainActor in
+                // Stop existing monitor if any
+                if let existingMonitor = self.jsonMonitors[monitorKey] {
+                    existingMonitor.timer.invalidate()
+                    self.jsonMonitors.removeValue(forKey: monitorKey)
+                }
+
+                // Read initial value
+                let initialValue = self.readJsonMonitorValue(monitor: monitor)
+
+                writeLog("InspectState: JSON monitor \(monitorIndex) for '\(itemId)' - path: \(monitor.path), key: \(monitor.key), initial: \(initialValue), interval: \(monitor.recheckInterval)s", logLevel: .info)
+
+                // Trigger initial UI update with the current value
+                let mappedInitialValue = monitor.valueMap?[initialValue] ?? initialValue
+                onUpdate(itemId, monitor.guidanceBlockIndex, monitor.targetProperty, mappedInitialValue)
+                writeLog("InspectState: JSON monitor \(monitorIndex) set initial value for '\(itemId)': \(mappedInitialValue)", logLevel: .info)
+
+                // Start periodic timer
+                let timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(monitor.recheckInterval), repeats: true) { [weak self] _ in
+                    guard let self = self else { return }
+
+                    Task { @MainActor in
+                        // Read current value
+                        let currentValue = self.readJsonMonitorValue(monitor: monitor)
+
+                        // Get the last known value from stored monitor (not initialValue!)
+                        let lastValue = self.jsonMonitors[monitorKey]?.currentValue ?? initialValue
+
+                        // Check if value changed from last known value
+                        if currentValue != lastValue {
+                            writeLog("InspectState: JSON monitor \(monitorIndex) detected change for '\(itemId)': \(lastValue) → \(currentValue)", logLevel: .info)
+
+                            // Apply value mapping if defined
+                            let mappedValue = monitor.valueMap?[currentValue] ?? currentValue
+
+                            // Trigger callback with update info
+                            onUpdate(itemId, monitor.guidanceBlockIndex, monitor.targetProperty, mappedValue)
+
+                            // Check for completion trigger
+                            if let trigger = monitor.completionTrigger {
+                                let conditionMet = self.evaluateTriggerCondition(
+                                    condition: trigger.condition,
+                                    currentValue: currentValue,
+                                    expectedValue: trigger.value
+                                )
+
+                                if conditionMet {
+                                    writeLog("InspectState: JSON completion trigger met for '\(itemId)' - condition: \(trigger.condition), result: \(trigger.result)", logLevel: .info)
+
+                                    let result: InspectCompletionResult = trigger.result.lowercased() == "success"
+                                        ? .success(message: trigger.message)
+                                        : .failure(message: trigger.message)
+
+                                    let delay = trigger.delay ?? 0.0
+
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                                        onComplete(itemId, result, trigger.message)
+                                    }
+                                }
+                            }
+
+                            // Update stored current value
+                            if let storedMonitor = self.jsonMonitors[monitorKey] {
+                                self.jsonMonitors[monitorKey] = JsonMonitorTask(
+                                    timer: storedMonitor.timer,
+                                    initialValue: storedMonitor.initialValue,
+                                    currentValue: currentValue,
+                                    recheckInterval: storedMonitor.recheckInterval
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Store monitor task
+                self.jsonMonitors[monitorKey] = JsonMonitorTask(
+                    timer: timer,
+                    initialValue: initialValue,
+                    currentValue: initialValue,
+                    recheckInterval: monitor.recheckInterval
+                )
+            }
+        }
+    }
+
+    /// Read JSON value for a monitor configuration
+    /// - Parameter monitor: The JSON monitor configuration
+    /// - Returns: String representation of the JSON value
+    @MainActor
+    private func readJsonMonitorValue(monitor: InspectConfig.JsonMonitor) -> String {
+        // Handle "exists" evaluation - check file presence instead of reading value
+        if let evaluation = monitor.evaluation?.lowercased(), evaluation == "exists" {
+            let expandedPath = (monitor.path as NSString).expandingTildeInPath
+            let fileExists = FileManager.default.fileExists(atPath: expandedPath)
+
+            // If file exists, read the actual value to display (e.g., timestamp)
+            if fileExists {
+                return Validation.shared.getJsonValue(path: monitor.path, key: monitor.key) ?? "Present"
+            } else {
+                return "Not detected"
+            }
+        }
+
+        // Standard value reading for other evaluation types
+        return Validation.shared.getJsonValue(path: monitor.path, key: monitor.key) ?? "(not set)"
+    }
+
+    /// Force immediate recheck of plist monitors for a specific item
+    /// - Parameters:
+    ///   - itemId: The item ID to recheck monitors for
+    ///   - onUpdate: Callback triggered when values changed (receives: itemId, guidanceBlockIndex, targetProperty, newValue)
+    @MainActor
+    func recheckPlistMonitorsForItem(_ itemId: String, onUpdate: @escaping (String, Int, String, String) -> Void) {
+        // Find all monitors for this item (format: "itemId_monitor_N")
+        let monitorKeys = plistMonitors.keys.filter { $0.hasPrefix("\(itemId)_monitor_") }
+
+        guard !monitorKeys.isEmpty else {
+            writeLog("InspectState: No monitors found for item '\(itemId)' to recheck", logLevel: .debug)
+            return
+        }
+
+        writeLog("InspectState: Manual recheck triggered for '\(itemId)' (\(monitorKeys.count) monitor(s))", logLevel: .info)
+
+        // Find the item configuration to get monitor details
+        guard let item = items.first(where: { $0.id == itemId }),
+              let monitors = item.plistMonitors else {
+            writeLog("InspectState: Item '\(itemId)' not found or has no plistMonitors", logLevel: .error)
+            return
+        }
+
+        // Recheck each monitor
+        for (monitorIndex, monitor) in monitors.enumerated() {
+            let monitorKey = "\(itemId)_monitor_\(monitorIndex)"
+
+            guard let storedMonitor = plistMonitors[monitorKey] else {
+                continue
+            }
+
+            // Determine reading method
+            let useUserDefaults = monitor.useUserDefaults == true
+
+            // Read current value
+            let currentValue = readPlistMonitorValue(monitor: monitor, useUserDefaults: useUserDefaults)
+            let lastValue = storedMonitor.currentValue
+
+            // Check if value changed
+            if currentValue != lastValue {
+                writeLog("InspectState: Manual recheck detected change for '\(itemId)' monitor \(monitorIndex): \(lastValue) → \(currentValue)", logLevel: .info)
+
+                // Apply value mapping if defined
+                let mappedValue = monitor.valueMap?[currentValue] ?? currentValue
+
+                // Trigger callback with update info
+                onUpdate(itemId, monitor.guidanceBlockIndex, monitor.targetProperty, mappedValue)
+
+                // Update stored current value
+                plistMonitors[monitorKey] = PlistMonitorTask(
+                    timer: storedMonitor.timer,
+                    initialValue: storedMonitor.initialValue,
+                    currentValue: currentValue,
+                    recheckInterval: storedMonitor.recheckInterval
+                )
+            } else {
+                writeLog("InspectState: Manual recheck for '\(itemId)' monitor \(monitorIndex): no change (value: \(currentValue))", logLevel: .debug)
+            }
+        }
+    }
+
+    /// Force immediate recheck of ALL active plist monitors
+    /// - Parameter onUpdate: Callback triggered when values changed (receives: itemId, guidanceBlockIndex, targetProperty, newValue)
+    @MainActor
+    func recheckAllPlistMonitors(onUpdate: @escaping (String, Int, String, String) -> Void) {
+        // Group monitor keys by itemId
+        var itemIds = Set<String>()
+        for monitorKey in plistMonitors.keys {
+            // Extract itemId from key format: "itemId_monitor_N"
+            let components = monitorKey.split(separator: "_")
+            if components.count >= 3 {
+                let itemId = components[0..<components.count-2].joined(separator: "_")
+                itemIds.insert(itemId)
+            }
+        }
+
+        guard !itemIds.isEmpty else {
+            writeLog("InspectState: No active monitors to recheck", logLevel: .debug)
+            return
+        }
+
+        writeLog("InspectState: Manual recheck triggered for ALL items (\(itemIds.count) item(s), \(plistMonitors.count) monitor(s))", logLevel: .info)
+
+        // Recheck monitors for each item
+        for itemId in itemIds {
+            recheckPlistMonitorsForItem(itemId, onUpdate: onUpdate)
+        }
+    }
+
+    // MARK: - Guidance Form Input Management
+
+    /// Initialize form input state for an item if not already present
+    /// Populates default values from guidance content configuration
+    func initializeGuidanceFormState(for itemId: String) {
+        // Don't reinitialize if state already exists (preserve user selections)
+        if guidanceFormInputs[itemId] != nil {
+            return
+        }
+
+        // Find the item configuration to extract default values
+        guard let item = items.first(where: { $0.id == itemId }),
+              let guidanceContent = item.guidanceContent else {
+            // No guidance content, create empty state
+            guidanceFormInputs[itemId] = GuidanceFormInputState()
+            writeLog("InspectState: Initialized empty form state for item '\(itemId)' (no guidance content)", logLevel: .debug)
+            return
+        }
+
+        // Create new state and populate with defaults from configuration
+        var newState = GuidanceFormInputState()
+
+        for block in guidanceContent {
+            guard let fieldId = block.id else { continue }
+
+            // Populate defaults based on field type
+            switch block.type {
+            case "checkbox":
+                // Parse boolean from value string ("true", "yes", "1" → true)
+                if let value = block.value?.lowercased() {
+                    let isChecked = value == "true" || value == "yes" || value == "1"
+                    newState.checkboxes[fieldId] = isChecked
+                    writeLog("InspectState: Set default checkbox '\(fieldId)' = \(isChecked)", logLevel: .debug)
+                }
+
+            case "dropdown":
+                // Use value as selected option if it's in the options list
+                if let value = block.value, !value.isEmpty,
+                   let options = block.options, options.contains(value) {
+                    newState.dropdowns[fieldId] = value
+                    writeLog("InspectState: Set default dropdown '\(fieldId)' = '\(value)'", logLevel: .debug)
+                }
+
+            case "radio":
+                // Use value as selected option if it's in the options list
+                if let value = block.value, !value.isEmpty,
+                   let options = block.options, options.contains(value) {
+                    newState.radios[fieldId] = value
+                    writeLog("InspectState: Set default radio '\(fieldId)' = '\(value)'", logLevel: .debug)
+                }
+
+            default:
+                continue
+            }
+        }
+
+        guidanceFormInputs[itemId] = newState
+        writeLog("InspectState: Initialized form state for item '\(itemId)' with \(newState.checkboxes.count) checkboxes, \(newState.dropdowns.count) dropdowns, \(newState.radios.count) radios", logLevel: .info)
+    }
+
+    /// Validate that all required form inputs are filled for a given item
+    func validateGuidanceInputs(for item: InspectConfig.ItemConfig) -> Bool {
+        guard let guidanceContent = item.guidanceContent else { return true }
+
+        // Don't initialize during validation (avoid publishing during view updates)
+        // If state doesn't exist yet, return true (valid by default)
+        // GuidanceContentView.init will handle async initialization
+        guard let formState = guidanceFormInputs[item.id] else { return true }
+
+        // Check each guidance content block for required fields
+        for block in guidanceContent {
+            guard block.required == true, let fieldId = block.id else { continue }
+
+            switch block.type {
+            case "checkbox":
+                // Required checkbox must be checked OR have a default value
+                let hasUserValue = formState.checkboxes[fieldId] == true
+                let hasDefault = block.value != nil && !block.value!.isEmpty
+
+                if !hasUserValue && !hasDefault {
+                    writeLog("InspectState: Required checkbox '\(fieldId)' not checked and no default", logLevel: .info)
+                    return false
+                }
+
+            case "dropdown":
+                // Required dropdown must have a value selected OR have a default value
+                let hasUserValue = formState.dropdowns[fieldId] != nil && !formState.dropdowns[fieldId]!.isEmpty
+                let hasDefault = block.value != nil && !block.value!.isEmpty
+
+                if !hasUserValue && !hasDefault {
+                    writeLog("InspectState: Required dropdown '\(fieldId)' not selected and no default", logLevel: .info)
+                    return false
+                }
+
+            case "radio":
+                // Required radio must have an option selected OR have a default value
+                let hasUserValue = formState.radios[fieldId] != nil && !formState.radios[fieldId]!.isEmpty
+                let hasDefault = block.value != nil && !block.value!.isEmpty
+
+                if !hasUserValue && !hasDefault {
+                    writeLog("InspectState: Required radio '\(fieldId)' not selected and no default", logLevel: .info)
+                    return false
+                }
+
+            default:
+                continue
+            }
+        }
+
+        writeLog("InspectState: All required fields validated for '\(item.id)'", logLevel: .debug)
+        return true
+    }
+
+    /// Export guidance selections for external script consumption
+    func exportGuidanceSelections(for itemId: String) -> [String: Any] {
+        guard let formState = guidanceFormInputs[itemId] else {
+            return [:]
+        }
+
+        var result: [String: Any] = [:]
+        result["itemId"] = itemId
+        result["timestamp"] = ISO8601DateFormatter().string(from: Date())
+        result["checkboxes"] = formState.checkboxes
+        result["dropdowns"] = formState.dropdowns
+        result["radios"] = formState.radios
+        result["toggles"] = formState.toggles
+        result["sliders"] = formState.sliders
+
+        return result
+    }
+
+    /// Write all guidance selections to log file for calling scripts
+    func writeGuidanceSelectionsToLog() {
+        let logPath = "/tmp/preset6_form_inputs.json"
+
+        var allSelections: [[String: Any]] = []
+        for (itemId, _) in guidanceFormInputs {
+            let selections = exportGuidanceSelections(for: itemId)
+            if !selections.isEmpty {
+                allSelections.append(selections)
+            }
+        }
+
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: allSelections, options: .prettyPrinted)
+            try jsonData.write(to: URL(fileURLWithPath: logPath), options: .atomic)
+            writeLog("InspectState: Form selections written to \(logPath)", logLevel: .info)
+
+            // Also log to console in parseable format
+            for selection in allSelections {
+                if let itemId = selection["itemId"] as? String {
+                    let checkboxes = selection["checkboxes"] as? [String: Bool] ?? [:]
+                    let dropdowns = selection["dropdowns"] as? [String: String] ?? [:]
+                    let radios = selection["radios"] as? [String: String] ?? [:]
+                    let toggles = selection["toggles"] as? [String: Bool] ?? [:]
+                    let sliders = selection["sliders"] as? [String: Double] ?? [:]
+
+                    for (fieldId, checked) in checkboxes {
+                        print("[PRESET9_FORM] stepId=\(itemId) field=\(fieldId) type=checkbox value=\(checked)")
+                    }
+                    for (fieldId, value) in dropdowns {
+                        print("[PRESET9_FORM] stepId=\(itemId) field=\(fieldId) type=dropdown value=\(value)")
+                    }
+                    for (fieldId, value) in radios {
+                        print("[PRESET9_FORM] stepId=\(itemId) field=\(fieldId) type=radio value=\(value)")
+                    }
+                    for (fieldId, enabled) in toggles {
+                        print("[PRESET9_FORM] stepId=\(itemId) field=\(fieldId) type=toggle value=\(enabled)")
+                    }
+                    for (fieldId, value) in sliders {
+                        print("[PRESET9_FORM] stepId=\(itemId) field=\(fieldId) type=slider value=\(value)")
+                    }
+                }
+            }
+        } catch {
+            writeLog("InspectState: Failed to write form selections: \(error)", logLevel: .error)
+        }
+    }
+
+    /// Write a simple interaction log entry to /tmp/preset6_interaction.log
+    /// Used for real-time form element callbacks (sliders, toggles, extra button)
+    func writeToInteractionLog(_ message: String) {
+        let logPath = "/tmp/preset6_interaction.log"
+        let logEntry = "\(message)\n"
+
+        if let data = logEntry.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: logPath) {
+                if let fileHandle = try? FileHandle(forWritingTo: URL(fileURLWithPath: logPath)) {
+                    _ = try? fileHandle.seekToEnd()
+                    _ = try? fileHandle.write(contentsOf: data)
+                    try? fileHandle.close()
+                }
+            } else {
+                try? data.write(to: URL(fileURLWithPath: logPath))
+            }
+        }
+    }
+
+
     deinit {
         writeLog("InspectState.deinit() - Starting resource cleanup", logLevel: .info)
 
@@ -986,10 +1811,13 @@ class InspectState: ObservableObject, FileMonitorDelegate {
         // Stop all timers
         updateTimer?.invalidate()
         updateTimer = nil
-        fileSystemCheckTimer?.invalidate() 
+        fileSystemCheckTimer?.invalidate()
         fileSystemCheckTimer = nil
         sideMessageTimer?.invalidate()
         sideMessageTimer = nil
+
+        // Stop all plist monitoring 
+        stopAllPlistMonitors()
         
         // Stop DispatchSource monitoring
         commandFileMonitor?.cancel()
@@ -1005,8 +1833,9 @@ class InspectState: ObservableObject, FileMonitorDelegate {
         // Clear AppInspector reference
         appInspector = nil
         
-        // Note: Services (validationService, configurationService) are value types with no explicit cleanup needed
+        // Note: Services (configurationService) are value types with no explicit cleanup needed
         // They will be automatically deallocated when InspectState is deallocated
+        // Validation.shared is a singleton and doesn't need explicit cleanup
         
         writeLog("InspectState.deinit() - Resource cleanup completed", logLevel: .info)
     }
