@@ -23,10 +23,17 @@ struct AudioControl: View {
                         .foregroundColor(.white.opacity(0.5))
                     
                 case .downloading:
-                    Image(systemName: "hourglass.circle")
-                        .font(.system(size: 40))
-                        .foregroundColor(.white)
-                        .symbolEffect(.rotate.byLayer, options: .repeat(.periodic(delay: 1.0)))
+                    if #available(macOS 15.0, *) {
+                        Image(systemName: "hourglass.circle")
+                            .font(.system(size: 40))
+                            .foregroundColor(.white)
+                            .symbolEffect(.rotate.byLayer, options: .repeat(.periodic(delay: 1.0)))
+                    } else {
+                        // Fallback on earlier versions
+                        Image(systemName: "hourglass.circle")
+                            .font(.system(size: 40))
+                            .foregroundColor(.white)
+                    }
                     
                 case .ready:
                     Image(systemName: "waveform")

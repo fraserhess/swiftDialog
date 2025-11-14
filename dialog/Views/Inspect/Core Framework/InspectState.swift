@@ -85,7 +85,7 @@ struct ButtonConfiguration {
     // Note: buttonStyle removed - not used in Inspect mode
 }
 
-class InspectState: ObservableObject, FileMonitorDelegate {
+class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
     // MARK: - Core State (Keep as @Published)
     @Published var loadingState: LoadingState = .loading
     @Published var items: [InspectConfig.ItemConfig] = []

@@ -241,9 +241,13 @@ struct dialogApp: App {
                     } else if appArguments.inspectMode.present {
                         // Wrap InspectView to delay its initialization
                         let _ = appvars.debugMode ? print("DEBUG: Loading InspectView") : ()
-                        InspectView()
-                            .frame(width: observedData.appProperties.windowWidth, 
-                                  height: observedData.appProperties.windowHeight)
+                        if appArguments.windowResizable.present {
+                            InspectView()
+                        } else {
+                            InspectView()
+                                .frame(width: observedData.appProperties.windowWidth,
+                                       height: observedData.appProperties.windowHeight)
+                        }
                     } else if appArguments.presentationMode.present {
                         let _ = appvars.debugMode ? print("DEBUG: Loading PresentationView") : ()
                         PresentationView(observedData: observedData)

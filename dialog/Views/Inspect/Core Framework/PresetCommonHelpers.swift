@@ -445,6 +445,20 @@ struct GuidanceContentView: View {
 
         return groups
     }
+    
+    private func attributedMarkdown(_ markdown: String) -> AttributedString {
+        do {
+            return try AttributedString(
+                markdown: markdown,
+                options: AttributedString.MarkdownParsingOptions(
+                    interpretedSyntax: .inlineOnlyPreservingWhitespace
+                )
+            )
+        } catch {
+            // Fallback to plain text if markdown parsing fails
+            return AttributedString(markdown)
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8 * scaleFactor) {
@@ -475,7 +489,7 @@ struct GuidanceContentView: View {
         switch block.type {
         case "text":
             let resolvedContent = resolveTemplateVariables(block.content ?? "", inspectState: inspectState)
-            Text(resolvedContent)
+            Text(attributedMarkdown(resolvedContent))
                 .font(.system(size: 13 * scaleFactor, weight: isBold ? .semibold : .regular))
                 .foregroundColor(textColor)
                 .fixedSize(horizontal: false, vertical: true)
@@ -579,10 +593,16 @@ struct GuidanceContentView: View {
                             .foregroundColor(iconColor)
 
                         // Native SwiftUI markdown support
+                        Text(attributedMarkdown(resolvedContent))
+                            .font(.system(size: 13 * scaleFactor))
+                            .foregroundColor(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        /*
                         Text(try! AttributedString(markdown: resolvedContent, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
                             .font(.system(size: 13 * scaleFactor))
                             .foregroundColor(.primary)
                             .fixedSize(horizontal: false, vertical: true)
+                         */
                     }
                     .padding(10 * scaleFactor)
                     .background(
@@ -591,7 +611,7 @@ struct GuidanceContentView: View {
                     )
                 } else {
                     // Plain style without box
-                    Text(try! AttributedString(markdown: resolvedContent, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
+                    Text(attributedMarkdown(resolvedContent))
                         .font(.system(size: 13 * scaleFactor))
                         .foregroundColor(.primary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -639,9 +659,9 @@ struct GuidanceContentView: View {
             let (labelColor, valueFontSize, showBullet): (Color, CGFloat, Bool) = {
                 switch style {
                 case "success":
-                    return (Color(hex: "#34C759") ?? .green, 15, true)  // Green labels, larger values, with bullet
+                    return (Color(hex: "#34C759"), 15, true)  // Green labels, larger values, with bullet
                 case "table":
-                    return (Color(hex: "#34C759") ?? .green, 15, false)  // Green labels, larger values, no bullet
+                    return (Color(hex: "#34C759"), 15, false)  // Green labels, larger values, no bullet
                 default:
                     return (.secondary, 13, true)  // Default: grey labels, normal size, with bullet
                 }
@@ -1710,11 +1730,11 @@ struct StatusBadgeView: View {
         let lowercaseState = state.lowercased()
         switch lowercaseState {
         case "enabled", "active", "pass", "success", "valid", "enrolled", "connected", "on", "true", "yes":
-            return Color(hex: "#34C759") ?? .green
+            return Color(hex: "#34C759")
         case "disabled", "inactive", "fail", "failure", "invalid", "unenrolled", "disconnected", "off", "false", "no":
-            return Color(hex: "#FF3B30") ?? .red
+            return Color(hex: "#FF3B30")
         case "pending", "in-progress", "waiting", "unknown", "partial":
-            return Color(hex: "#FF9F0A") ?? .orange
+            return Color(hex: "#FF9F0A")
         default:
             return .secondary
         }
@@ -1803,11 +1823,9 @@ struct ComparisonTableView: View {
 
         // Remove common URL protocols
         let protocols = ["https://", "http://", "ftp://", "ftps://"]
-        for proto in protocols {
-            if normalized.hasPrefix(proto) {
-                normalized = String(normalized.dropFirst(proto.count))
-                break
-            }
+        for proto in protocols where normalized.hasPrefix(proto) {
+            normalized = String(normalized.dropFirst(proto.count))
+            break
         }
 
         // Remove trailing slashes
@@ -1827,7 +1845,7 @@ struct ComparisonTableView: View {
             return .secondary
         }
 
-        return isMatch ? (Color(hex: "#34C759") ?? .green) : (Color(hex: "#FF3B30") ?? .red)
+        return isMatch ? (Color(hex: "#34C759")) : (Color(hex: "#FF3B30"))
     }
 
     /// Effective color for expected column (with override support)
@@ -2187,8 +2205,8 @@ struct PhaseTrackerView: View {
                     // Phase circle
                     ZStack {
                         Circle()
-                            .fill(isCompleted ? Color(hex: "#34C759") ?? .green :
-                                  isActive ? Color(hex: "#FF9F0A") ?? .orange :
+                            .fill(isCompleted ? Color(hex: "#34C759") :
+                                    isActive ? Color(hex: "#FF9F0A") :
                                   Color.secondary.opacity(0.3))
                             .frame(width: 28 * scaleFactor, height: 28 * scaleFactor)
 
@@ -2211,7 +2229,7 @@ struct PhaseTrackerView: View {
                     // Connector line (except for last item)
                     if index < phaseLabels.count - 1 {
                         Rectangle()
-                            .fill(phaseNum < currentPhase ? (Color(hex: "#34C759") ?? .green) : Color.secondary.opacity(0.3))
+                            .fill(phaseNum < currentPhase ? (Color(hex: "#34C759")) : Color.secondary.opacity(0.3))
                             .frame(width: 20 * scaleFactor, height: 2 * scaleFactor)
                     }
                 }
@@ -2237,7 +2255,7 @@ struct PhaseTrackerView: View {
 
             ProgressView(value: Double(currentPhase), total: Double(phaseLabels.count))
                 .progressViewStyle(LinearProgressViewStyle())
-                .tint(Color(hex: "#FF9F0A") ?? .orange)
+                .tint(Color(hex: "#FF9F0A"))
         }
         .padding(12 * scaleFactor)
     }
@@ -2255,8 +2273,8 @@ struct PhaseTrackerView: View {
                           isActive ? "square.fill" :
                           "square")
                         .font(.system(size: 16 * scaleFactor))
-                        .foregroundColor(isCompleted ? (Color(hex: "#34C759") ?? .green) :
-                                       isActive ? (Color(hex: "#FF9F0A") ?? .orange) :
+                        .foregroundColor(isCompleted ? (Color(hex: "#34C759")) :
+                                            isActive ? (Color(hex: "#FF9F0A")) :
                                        .secondary)
 
                     Text(phaseLabels[index])
@@ -2680,6 +2698,7 @@ struct ImageCarouselView: View {
     }
 }
 
+/*
 // Helper for type-erased shapes
 private struct AnyShape: Shape {
     private let _path: (CGRect) -> Path
@@ -2694,6 +2713,7 @@ private struct AnyShape: Shape {
         _path(rect)
     }
 }
+ */
 
 /// Extension to provide safe array subscripting that returns nil instead of crashing on out-of-bounds access
 extension Array {

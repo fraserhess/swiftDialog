@@ -363,11 +363,9 @@ class Monitoring {
         } else {
             // Fallback to simple parsing if index-based parsing fails
             if line.contains("success") || line.contains("installed") {
-                for item in items {
-                    if line.lowercased().contains(item.id.lowercased()) {
-                        delegate?.monitoringService(self, didDetectInstallation: item.id)
-                        break
-                    }
+                for item in items where line.lowercased().contains(item.id.lowercased()) {
+                    delegate?.monitoringService(self, didDetectInstallation: item.id)
+                    break
                 }
             }
         }

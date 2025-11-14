@@ -174,11 +174,9 @@ struct Preset3View: View, InspectLayoutProtocol {
                                         }) == true)
                                     }
                                     
-                                    for item in completedItemsNeedingValidation {
-                                        if inspectState.plistValidationResults[item.id] == nil {
-                                            writeLog("Preset3: Manual validation trigger for '\(item.id)' - missing from results dict", logLevel: .info)
-                                            _ = inspectState.validatePlistItem(item)
-                                        }
+                                    for item in completedItemsNeedingValidation where inspectState.plistValidationResults[item.id] == nil {
+                                        writeLog("Preset3: Manual validation trigger for '\(item.id)' - missing from results dict", logLevel: .info)
+                                        _ = inspectState.validatePlistItem(item)
                                     }
                                 }
                             }

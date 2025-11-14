@@ -552,7 +552,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                         // Text fallback with highlight color (works where SF Symbols don't)
                         Text("?")
                             .font(.system(size: 22 * scaleFactor, weight: .bold))
-                            .foregroundColor(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor) ?? .blue)
+                            .foregroundColor(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor))
                     }
                     .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
@@ -625,7 +625,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                         // Text fallback with highlight color (works where SF Symbols don't)
                         Text("?")
                             .font(.system(size: 22 * scaleFactor, weight: .bold))
-                            .foregroundColor(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor) ?? .blue)
+                            .foregroundColor(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor))
                     }
                     .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
