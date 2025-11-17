@@ -545,20 +545,12 @@
 		BAC04B1D2E2FB3E6006B0F89 /* Inspect */ = {
 			isa = PBXGroup;
 			children = (
-				BAEFDFC42E83FB310017CFC2 /* Components */,
 				BAEFDFCB2E83FB310017CFC2 /* Core Framework */,
 				BAEFDFD42E83FB310017CFC2 /* Preset Layouts */,
 				BAEFDFDA2E83FB310017CFC2 /* Services */,
 				BAEFDFE02E83FB310017CFC2 /* Utilities */,
 			);
 			path = Inspect;
-			sourceTree = "<group>";
-		};
-		BAEFDFC42E83FB310017CFC2 /* Components */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Components;
 			sourceTree = "<group>";
 		};
 		BAEFDFCB2E83FB310017CFC2 /* Core Framework */ = {
