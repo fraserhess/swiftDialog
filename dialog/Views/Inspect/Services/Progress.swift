@@ -536,7 +536,7 @@ struct InspectBottomProgressBar: View {
                 }
                 .frame(height: 8)
                 .padding(.horizontal, 12)
-                .padding(.bottom, 8)
+                .padding([.top, .bottom], 12)
             }
             .frame(height: 16)
             .clipped()  // Prevent overflow beyond container
