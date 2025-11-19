@@ -38,6 +38,9 @@ struct ButtonBarView: View {
         let buttonLayout = (buttonStackStyle ? AnyLayout(VStackLayout()) : AnyLayout(HStackLayout()))
         
         buttonLayout {
+            if buttonCentreStyle {
+                Spacer()
+            }
             if !buttonStackStyle && !buttonCentreStyle {
                 // only show this content if not in stack or centre mode
                 HStack {
