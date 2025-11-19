@@ -2179,7 +2179,7 @@ struct Preset6View: View, InspectLayoutProtocol {
 
                 // Check if the last segment (after last ":") is a color (starts with #)
                 var value = valueAndColor
-                var color: String? = nil
+                var color: String?
 
                 if let lastColonIndex = valueAndColor.lastIndex(of: ":") {
                     let potentialColor = String(valueAndColor[valueAndColor.index(after: lastColonIndex)...])
