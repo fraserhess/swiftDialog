@@ -312,6 +312,8 @@ func processCLOptions(json: JSON = getJSON()) {
         writeLog("Auth key is required", logLevel: .debug)
         quitDialog(exitCode: appDefaults.exit30.code, exitMessage: appDefaults.exit30.message)
     }
+    
+    appvars.authorised = appArguments.authkey.present && !dialogAuthorisationKey().isEmpty && dialogIsAuthorised
 
     // hash a key value
     if appArguments.hash.present {

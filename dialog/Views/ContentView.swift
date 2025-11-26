@@ -81,6 +81,7 @@ struct ContentView: View {
                             .symbolRenderingMode(.monochrome)
                             .foregroundColor(.yellow)
                             .opacity(0.5)
+                            .padding(5)
                     }
                     Spacer()
                 }
