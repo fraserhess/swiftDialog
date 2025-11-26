@@ -332,6 +332,8 @@ struct IconView: View {
 
         }
         .padding(framePadding)
+        .transition(AnyTransition.opacity.animation(.easeInOut(duration: 0.2)))
+        .contentTransition(.symbolEffect(.replace))
 
     }
 }
