@@ -433,12 +433,16 @@ struct GuidanceContentView: View {
     }
 
     /// Group comparison-table blocks by category for collapsible rendering
+    /// Filters out blocks where visible == false
     private var groupedBlocks: [(category: String?, items: [InspectConfig.GuidanceContent])] {
         var groups: [(String?, [InspectConfig.GuidanceContent])] = []
         var currentCategory: String?
         var currentItems: [InspectConfig.GuidanceContent] = []
 
-        for block in contentBlocks {
+        // Filter out hidden blocks (visible == false)
+        let visibleBlocks = contentBlocks.filter { $0.visible != false }
+
+        for block in visibleBlocks {
             if block.type == "comparison-table" && block.category != nil {
                 // Comparison table with category
                 if block.category != currentCategory {
@@ -1096,9 +1100,10 @@ struct GuidanceContentView: View {
                     customColor: customColor,
                     expectedColor: block.expectedColor.flatMap { Color(hex: $0) },
                     actualColor: block.actualColor.flatMap { Color(hex: $0) },
-                    scaleFactor: scaleFactor
+                    scaleFactor: scaleFactor,
+                    stateOverride: block.state
                 )
-                .id("comparison-\(label)-\(actual)-\(block.comparisonStyle ?? "stacked")")
+                .id("comparison-\(label)-\(actual)-\(block.state ?? "")-\(block.comparisonStyle ?? "stacked")")
             } else if appvars.debugMode {
                 Text("comparison-table requires 'expected' and 'actual' properties")
                     .font(.system(size: 11 * scaleFactor))
@@ -1815,9 +1820,24 @@ struct ComparisonTableView: View {
     let expectedColor: Color?
     let actualColor: Color?
     let scaleFactor: CGFloat
+    let stateOverride: String?  // Optional: "pass", "fail", "pending" to override auto-match
 
     /// Smart comparison that handles common edge cases
+    /// Can be overridden by stateOverride for evaluation types like withinSeconds, notExists
     private var isMatch: Bool {
+        // Check for explicit state override first
+        if let state = stateOverride?.lowercased() {
+            switch state {
+            case "pass", "passed", "success", "true", "yes", "enabled", "enrolled", "detected":
+                return true
+            case "fail", "failed", "failure", "false", "no", "disabled", "error", "not detected":
+                return false
+            default:
+                break  // Fall through to auto-detect
+            }
+        }
+
+        // Auto-detect based on string comparison
         let expectedNorm = normalizeForComparison(expected)
         let actualNorm = normalizeForComparison(actual)
         return expectedNorm == actualNorm
@@ -2163,9 +2183,10 @@ struct ComparisonGroupView: View {
                                 customColor: customColor,
                                 expectedColor: comparison.expectedColor.flatMap { Color(hex: $0) },
                                 actualColor: comparison.actualColor.flatMap { Color(hex: $0) },
-                                scaleFactor: scaleFactor
+                                scaleFactor: scaleFactor,
+                                stateOverride: comparison.state
                             )
-                            .id("comparison-group-\(category)-\(index)-\(actual)")
+                            .id("comparison-group-\(category)-\(index)-\(actual)-\(comparison.state ?? "")")
                         }
                     }
                 }

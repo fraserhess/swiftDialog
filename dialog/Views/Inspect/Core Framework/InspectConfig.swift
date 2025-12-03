@@ -288,6 +288,7 @@ struct InspectConfig: Codable {
         let content: String?            // The actual text content (or button label for type="button") - optional for status monitoring types
         let color: String?              // Optional color override (hex format)
         let bold: Bool?                 // Whether to display in bold
+        let visible: Bool?              // Show/hide this block dynamically (default: true) - can be updated via plistMonitor or update_guidance command
 
         // Image-specific fields (for type="image")
         let imageShape: String?         // "rectangle" | "square" | "circle" - shape/clipping for the image

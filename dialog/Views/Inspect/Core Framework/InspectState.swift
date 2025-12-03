@@ -1226,6 +1226,18 @@ class InspectState: ObservableObject, FileMonitorDelegate {
                 onUpdate(itemId, monitor.guidanceBlockIndex, monitor.targetProperty, mappedInitialValue)
                 writeLog("InspectState: Monitor \(monitorIndex) set initial value for '\(itemId)': \(mappedInitialValue)", logLevel: .info)
 
+                // If there's a completion trigger, also update the 'state' property based on initial evaluation
+                if let trigger = monitor.completionTrigger {
+                    let conditionMet = self.evaluateTriggerCondition(
+                        condition: trigger.condition,
+                        currentValue: initialValue,
+                        expectedValue: trigger.value
+                    )
+                    let stateValue = conditionMet ? "pass" : "fail"
+                    onUpdate(itemId, monitor.guidanceBlockIndex, "state", stateValue)
+                    writeLog("InspectState: Monitor \(monitorIndex) set initial state for '\(itemId)': \(stateValue) (condition: \(trigger.condition))", logLevel: .info)
+                }
+
                 // Start periodic timer
                 let timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(monitor.recheckInterval), repeats: true) { [weak self] _ in
                     guard let self = self else { return }
@@ -1247,13 +1259,18 @@ class InspectState: ObservableObject, FileMonitorDelegate {
                             // Trigger callback with update info
                             onUpdate(itemId, monitor.guidanceBlockIndex, monitor.targetProperty, mappedValue)
 
-                            // Check for completion trigger
+                            // Check for completion trigger and update state
                             if let trigger = monitor.completionTrigger {
                                 let conditionMet = self.evaluateTriggerCondition(
                                     condition: trigger.condition,
                                     currentValue: currentValue,
                                     expectedValue: trigger.value
                                 )
+
+                                // Always update state based on condition result
+                                let stateValue = conditionMet ? "pass" : "fail"
+                                onUpdate(itemId, monitor.guidanceBlockIndex, "state", stateValue)
+                                writeLog("InspectState: Monitor updated state for '\(itemId)': \(stateValue)", logLevel: .debug)
 
                                 if conditionMet {
                                     writeLog("InspectState: Completion trigger met for '\(itemId)' - condition: \(trigger.condition), result: \(trigger.result)", logLevel: .info)
@@ -1505,6 +1522,18 @@ class InspectState: ObservableObject, FileMonitorDelegate {
                 onUpdate(itemId, monitor.guidanceBlockIndex, monitor.targetProperty, mappedInitialValue)
                 writeLog("InspectState: JSON monitor \(monitorIndex) set initial value for '\(itemId)': \(mappedInitialValue)", logLevel: .info)
 
+                // If there's a completion trigger, also update the 'state' property based on initial evaluation
+                if let trigger = monitor.completionTrigger {
+                    let conditionMet = self.evaluateTriggerCondition(
+                        condition: trigger.condition,
+                        currentValue: initialValue,
+                        expectedValue: trigger.value
+                    )
+                    let stateValue = conditionMet ? "pass" : "fail"
+                    onUpdate(itemId, monitor.guidanceBlockIndex, "state", stateValue)
+                    writeLog("InspectState: JSON monitor \(monitorIndex) set initial state for '\(itemId)': \(stateValue) (condition: \(trigger.condition))", logLevel: .info)
+                }
+
                 // Start periodic timer
                 let timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(monitor.recheckInterval), repeats: true) { [weak self] _ in
                     guard let self = self else { return }
@@ -1526,13 +1555,18 @@ class InspectState: ObservableObject, FileMonitorDelegate {
                             // Trigger callback with update info
                             onUpdate(itemId, monitor.guidanceBlockIndex, monitor.targetProperty, mappedValue)
 
-                            // Check for completion trigger
+                            // Check for completion trigger and update state
                             if let trigger = monitor.completionTrigger {
                                 let conditionMet = self.evaluateTriggerCondition(
                                     condition: trigger.condition,
                                     currentValue: currentValue,
                                     expectedValue: trigger.value
                                 )
+
+                                // Always update state based on condition result
+                                let stateValue = conditionMet ? "pass" : "fail"
+                                onUpdate(itemId, monitor.guidanceBlockIndex, "state", stateValue)
+                                writeLog("InspectState: JSON Monitor updated state for '\(itemId)': \(stateValue)", logLevel: .debug)
 
                                 if conditionMet {
                                     writeLog("InspectState: JSON completion trigger met for '\(itemId)' - condition: \(trigger.condition), result: \(trigger.result)", logLevel: .info)
