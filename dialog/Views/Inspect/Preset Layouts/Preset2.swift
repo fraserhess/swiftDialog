@@ -55,33 +55,25 @@ struct Preset2View: View, InspectLayoutProtocol {
                     .padding(.bottom, 20 * scaleFactor)
             } else {
                 // Original icon display (when no banner is set)
-                VStack(spacing: 0) {
-                    Spacer()
-                        .frame(height: 40 * scaleFactor)
-
-                    // Main icon - DOMINANT visual element
+                VStack(spacing: 20 * scaleFactor) {
+                    // Main icon - DOMINANT visual element with FIXED height
                     IconView(
                         image: getMainIconPath(),
                         overlay: iconCache.getOverlayIconPath(for: inspectState),
                         defaultImage: "briefcase.fill",
                         defaultColour: "accent"
                     )
-                    .frame(maxHeight: 240 * scaleFactor)
+                    .frame(height: 120 * scaleFactor)
                     .onAppear { iconCache.cacheMainIcon(for: inspectState) }
-
-                    Spacer()
-                        .frame(height: 28 * scaleFactor)
 
                     // Title - positioned below icon, centered
                     Text(inspectState.uiConfiguration.windowTitle)
                         .font(.title2)
                         .fontWeight(.semibold)
                         .multilineTextAlignment(.center)
-
-                    Spacer()
-                        .frame(height: 12 * scaleFactor)
                 }
                 .frame(maxWidth: .infinity)
+                .padding(.top, 40 * scaleFactor)
             }
 
             // Rotating side messages - always visible
@@ -91,20 +83,20 @@ struct Preset2View: View, InspectLayoutProtocol {
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(4)
-                    .padding(.horizontal, 60 * scaleFactor)
-                    .frame(minHeight: 55 * scaleFactor)
+                    .padding(.horizontal, 50 * scaleFactor)
+                    .frame(minHeight: 45 * scaleFactor)
                     .animation(.easeInOut(duration: InspectConstants.standardAnimationDuration), value: inspectState.uiConfiguration.currentSideMessageIndex)
             }
 
             // App cards with navigation arrows
-            VStack(spacing: 8 * scaleFactor) {
-                HStack(spacing: 20 * scaleFactor) {
+            VStack(spacing: 6 * scaleFactor) {
+                HStack(spacing: 16 * scaleFactor) {
                     // Left arrow
                     Button(action: {
                         scrollLeft()
                     }) {
                         Image(systemName: "chevron.left.circle.fill")
-                            .font(.system(size: 32 * scaleFactor))
+                            .font(.system(size: 28 * scaleFactor))
                             .foregroundColor(canScrollLeft() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
                     }
                     .disabled(!canScrollLeft())
@@ -145,7 +137,7 @@ struct Preset2View: View, InspectLayoutProtocol {
                         scrollRight()
                     }) {
                         Image(systemName: "chevron.right.circle.fill")
-                            .font(.system(size: 32 * scaleFactor))
+                            .font(.system(size: 28 * scaleFactor))
                             .foregroundColor(canScrollRight() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
                     }
                     .disabled(!canScrollRight())
@@ -155,6 +147,7 @@ struct Preset2View: View, InspectLayoutProtocol {
             }
 
             Spacer()
+                .frame(maxHeight: 30 * scaleFactor)
 
             // Bottom progress section
             VStack(spacing: 12) {
@@ -169,7 +162,7 @@ struct Preset2View: View, InspectLayoutProtocol {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-            .padding(.vertical, 20 * scaleFactor)
+            .padding(.vertical, 16 * scaleFactor)
 
             // Bottom buttons
             HStack {
@@ -224,7 +217,7 @@ struct Preset2View: View, InspectLayoutProtocol {
                 }
             }
             .padding(.horizontal, 40 * scaleFactor)
-            .padding(.bottom, 30 * scaleFactor)
+            .padding(.bottom, 24 * scaleFactor)
         }
         .frame(width: windowSize.width, height: windowSize.height)
         .background(Color(NSColor.windowBackgroundColor))
