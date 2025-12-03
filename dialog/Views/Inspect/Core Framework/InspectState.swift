@@ -39,6 +39,7 @@ struct UIConfiguration {
     var statusMessage: String = "Inspection active - Items will appear as they are detected"
     var iconPath: String?
     var iconBasePath: String?  // Base path for relative icon paths
+    var overlayIcon: String?   // Overlay icon for brand identity badges
     var sideMessages: [String] = []
     var currentSideMessageIndex: Int = 0
     var popupButtonText: String = "Install details..."

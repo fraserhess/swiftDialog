@@ -349,6 +349,10 @@ class Config {
             uiConfig.iconBasePath = iconBasePath
         }
 
+        if let overlayicon = config.overlayicon {
+            uiConfig.overlayIcon = overlayicon
+        }
+
         if let rotatingImages = config.rotatingImages {
             uiConfig.rotatingImages = rotatingImages
         }

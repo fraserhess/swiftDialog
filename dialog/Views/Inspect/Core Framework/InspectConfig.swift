@@ -109,6 +109,7 @@ struct InspectConfig: Codable {
     let pickerLabels: PickerLabels?         // Optional picker mode text customization (Preset8, Preset9, etc.)
 
     let iconBasePath: String?                // Icon base path for relative loading icon paths
+    let overlayicon: String?                  // Overlay icon for brand identity badges
     let rotatingImages: [String]?            // Array of image paths for image rotation
     let imageRotationInterval: Double?      // set interval for auto-rotation
     let imageShape: String?                  // rectangle, square, circle - used in preset6
@@ -651,6 +652,7 @@ struct InspectConfig: Codable {
         try container.encodeIfPresent(bannerHeight, forKey: .bannerHeight)
         try container.encodeIfPresent(bannerTitle, forKey: .bannerTitle)
         try container.encodeIfPresent(iconBasePath, forKey: .iconBasePath)
+        try container.encodeIfPresent(overlayicon, forKey: .overlayicon)
         try container.encodeIfPresent(rotatingImages, forKey: .rotatingImages)
         try container.encodeIfPresent(imageRotationInterval, forKey: .imageRotationInterval)
         try container.encodeIfPresent(imageShape, forKey: .imageShape)
@@ -734,6 +736,7 @@ struct InspectConfig: Codable {
 
         // Preset6 specific properties
         iconBasePath = try container.decodeIfPresent(String.self, forKey: .iconBasePath)
+        overlayicon = try container.decodeIfPresent(String.self, forKey: .overlayicon)
         rotatingImages = try container.decodeIfPresent([String].self, forKey: .rotatingImages)
         imageRotationInterval = try container.decodeIfPresent(Double.self, forKey: .imageRotationInterval)
         imageShape = try container.decodeIfPresent(String.self, forKey: .imageShape)
@@ -772,7 +775,7 @@ struct InspectConfig: Codable {
         case buttonStyle
         case autoEnableButton, autoEnableButtonText, hideSystemDetails, observeOnly, colorThresholds, plistSources, categoryHelp, uiLabels, complianceLabels, pickerConfig, instructionBanner, pickerLabels, items
         // Preset6 specific properties
-        case iconBasePath, rotatingImages, imageRotationInterval, imageShape, imageSyncMode, stepStyle, listIndicatorStyle
+        case iconBasePath, overlayicon, rotatingImages, imageRotationInterval, imageShape, imageSyncMode, stepStyle, listIndicatorStyle
         // Extra button configuration
         case extraButton
         // Progress bar configuration
