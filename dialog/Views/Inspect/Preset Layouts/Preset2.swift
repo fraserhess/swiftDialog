@@ -48,14 +48,14 @@ struct Preset2View: View, InspectLayoutProtocol {
 
                 // Title below banner
                 Text(inspectState.uiConfiguration.windowTitle)
-                    .font(.largeTitle)
+                    .font(.title)
                     .fontWeight(.bold)
                     .multilineTextAlignment(.center)
                     .padding(.top, 20 * scaleFactor)
                     .padding(.bottom, 20 * scaleFactor)
             } else {
                 // Original icon display (when no banner is set)
-                VStack(spacing: 20 * scaleFactor) {
+                VStack(spacing: 24 * scaleFactor) {
                     // Main icon - larger for Setup Manager style
                     IconView(
                         image: getMainIconPath(),
@@ -63,28 +63,28 @@ struct Preset2View: View, InspectLayoutProtocol {
                         defaultImage: "briefcase.fill",
                         defaultColour: "accent"
                     )
-                    .frame(maxHeight: 120 * scaleFactor)
+                    .frame(maxHeight: 200 * scaleFactor)
                     .onAppear { iconCache.cacheMainIcon(for: inspectState) }
 
                     // Welcome title
                     Text(inspectState.uiConfiguration.windowTitle)
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
+                        .font(.title2)
+                        .fontWeight(.semibold)
                         .multilineTextAlignment(.center)
                 }
-                .padding(.top, 40 * scaleFactor)
-                .padding(.bottom, 20 * scaleFactor)
+                .padding(.top, 50 * scaleFactor)
+                .padding(.bottom, 16 * scaleFactor)
             }
 
             // Rotating side messages - always visible
             if let currentMessage = inspectState.getCurrentSideMessage() {
                 Text(currentMessage)
-                    .font(.system(size: 14 * scaleFactor))
+                    .font(.system(size: 11 * scaleFactor))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(4)
                     .padding(.horizontal, 60 * scaleFactor)
-                    .frame(minHeight: 60 * scaleFactor)
+                    .frame(minHeight: 55 * scaleFactor)
                     .animation(.easeInOut(duration: InspectConstants.standardAnimationDuration), value: inspectState.uiConfiguration.currentSideMessageIndex)
             }
 
