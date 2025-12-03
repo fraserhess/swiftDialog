@@ -55,25 +55,33 @@ struct Preset2View: View, InspectLayoutProtocol {
                     .padding(.bottom, 20 * scaleFactor)
             } else {
                 // Original icon display (when no banner is set)
-                VStack(spacing: 24 * scaleFactor) {
-                    // Main icon - larger for Setup Manager style
+                VStack(spacing: 0) {
+                    Spacer()
+                        .frame(height: 40 * scaleFactor)
+
+                    // Main icon - DOMINANT visual element
                     IconView(
                         image: getMainIconPath(),
                         overlay: iconCache.getOverlayIconPath(for: inspectState),
                         defaultImage: "briefcase.fill",
                         defaultColour: "accent"
                     )
-                    .frame(maxHeight: 200 * scaleFactor)
+                    .frame(maxHeight: 240 * scaleFactor)
                     .onAppear { iconCache.cacheMainIcon(for: inspectState) }
 
-                    // Welcome title
+                    Spacer()
+                        .frame(height: 28 * scaleFactor)
+
+                    // Title - positioned below icon, centered
                     Text(inspectState.uiConfiguration.windowTitle)
                         .font(.title2)
                         .fontWeight(.semibold)
                         .multilineTextAlignment(.center)
+
+                    Spacer()
+                        .frame(height: 12 * scaleFactor)
                 }
-                .padding(.top, 50 * scaleFactor)
-                .padding(.bottom, 16 * scaleFactor)
+                .frame(maxWidth: .infinity)
             }
 
             // Rotating side messages - always visible
