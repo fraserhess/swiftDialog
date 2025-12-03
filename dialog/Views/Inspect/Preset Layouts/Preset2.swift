@@ -202,12 +202,16 @@ struct Preset2View: View, InspectLayoutProtocol {
                         .opacity((inspectState.configurationSource == .testData || inspectState.completedItems.count == inspectState.items.count) ? 1.0 : 0.0)
                     }
 
-                    // Main action button
+                    // Main action button - uses finalButtonText with fallback chain
+                    let finalButtonText = inspectState.config?.finalButtonText ??
+                                         inspectState.config?.button1Text ??
+                                         (inspectState.buttonConfiguration.button1Text.isEmpty ? "Continue" : inspectState.buttonConfiguration.button1Text)
+
                     Button(action: {
-                        writeLog("Preset2LayoutServiceBased: User clicked button1", logLevel: .info)
+                        writeLog("Preset2LayoutServiceBased: User clicked button1 (\(finalButtonText))", logLevel: .info)
                         exit(0)
                     }) {
-                        Text(inspectState.buttonConfiguration.button1Text)
+                        Text(finalButtonText)
                     }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)

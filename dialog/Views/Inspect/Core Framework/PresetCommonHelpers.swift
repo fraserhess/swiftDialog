@@ -228,7 +228,12 @@ struct PresetCommonViews {
         spacing: CGFloat = 12,
         controlSize: ControlSize = .large
     ) -> some View {
-        HStack(spacing: spacing) {
+        // Determine final button text with proper fallback chain
+        let finalButtonText = state.config?.finalButtonText ??
+                             state.config?.button1Text ??
+                             (state.buttonConfiguration.button1Text.isEmpty ? "Continue" : state.buttonConfiguration.button1Text)
+
+        return HStack(spacing: spacing) {
             // Button 2 (Secondary) - show in demo mode or when all complete
             if (state.configurationSource == .testData || state.completedItems.count == state.items.count) &&
                state.buttonConfiguration.button2Visible &&
@@ -247,9 +252,9 @@ struct PresetCommonViews {
                 .controlSize(controlSize)
             }
 
-            // Button 1 (Primary)
-            Button(state.buttonConfiguration.button1Text) {
-                writeLog("Preset: User clicked button1 - exiting with code 0", logLevel: .info)
+            // Button 1 (Primary) - uses finalButtonText with fallback chain
+            Button(finalButtonText) {
+                writeLog("Preset: User clicked button1 (\(finalButtonText)) - exiting with code 0", logLevel: .info)
                 exit(0)
             }
             .keyboardShortcut(.defaultAction)
