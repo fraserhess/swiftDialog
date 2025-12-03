@@ -1129,6 +1129,8 @@ struct GuidanceContentView: View {
             let progressStyle = block.style ?? "indeterminate"
             let progressValue = block.progress ?? 0.0
             let progressLabel = block.label ?? block.content
+            // Auto-detect determinate mode: if progress value is set (non-zero), use determinate style
+            let isDeterminate = progressStyle == "determinate" || (block.progress != nil && progressValue > 0)
 
             VStack(alignment: .leading, spacing: 6 * scaleFactor) {
                 if let label = progressLabel, !label.isEmpty {
@@ -1137,7 +1139,7 @@ struct GuidanceContentView: View {
                         .foregroundColor(.secondary)
                 }
 
-                if progressStyle == "determinate" {
+                if isDeterminate {
                     // Determinate progress with value
                     ProgressView(value: progressValue)
                         .progressViewStyle(.linear)

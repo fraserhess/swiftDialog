@@ -1311,7 +1311,10 @@ struct Preset6View: View, InspectLayoutProtocol {
 
             // Final continue button when all complete
             if allStepsComplete {
-                let finalButtonText = inspectState.config?.finalButtonText ??
+                // Check for item-level finalButtonText first (e.g., last completion step), then fall back to config level
+                let lastItem = inspectState.items[safe: currentStep]
+                let finalButtonText = lastItem?.finalButtonText ??
+                                     inspectState.config?.finalButtonText ??
                                      inspectState.config?.button1Text ??
                                      (inspectState.buttonConfiguration.button1Text.isEmpty ? "Continue" : inspectState.buttonConfiguration.button1Text)
 

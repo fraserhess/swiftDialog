@@ -198,6 +198,7 @@ struct InspectConfig: Codable {
         let guidanceContent: [GuidanceContent]? // Rich content blocks for the step
         let stepType: String?           // "info" | "confirmation" | "processing" | "completion"
         let actionButtonText: String?   // Custom button text for this step for "confirmation" steps
+        let finalButtonText: String?    // Custom button text when this step is complete (e.g., "Finish" for completion step)
         let processingDuration: Int?    // For processing steps: duration in seconds
         let processingMessage: String?  // Message shown during processing
 
