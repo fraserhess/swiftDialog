@@ -86,8 +86,15 @@ struct Preset3View: View, InspectLayoutProtocol {
 
                 // Company icon section - more compact
                 HStack(spacing: 16) {
-                    IconView(image: iconCache.getMainIconPath(for: inspectState), sfPaddingEnabled: false, corners: false, defaultImage: "building.2.fill", defaultColour: "accent")
-                        .frame(width: 100 * scaleFactor, height: 100 * scaleFactor)
+                    IconView(
+                        image: iconCache.getMainIconPath(for: inspectState),
+                        overlay: iconCache.getOverlayIconPath(for: inspectState),
+                        sfPaddingEnabled: false,
+                        corners: false,
+                        defaultImage: "building.2.fill",
+                        defaultColour: "accent"
+                    )
+                    .frame(width: 100 * scaleFactor, height: 100 * scaleFactor)
                         // Border removed
                         .onAppear {
                             iconCache.cacheMainIcon(for: inspectState)

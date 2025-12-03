@@ -32,8 +32,13 @@ struct Preset5View: View, InspectLayoutProtocol {
             VStack(spacing: 20 * scale) {
                 // Icon and Title - Larger and more prominent
                 HStack(spacing: 20 * scale) {
-                    IconView(image: iconCache.getMainIconPath(for: inspectState), defaultImage: "shield.checkered", defaultColour: "accent")
-                        .frame(width: 64 * scale, height: 64 * scale)
+                    IconView(
+                        image: iconCache.getMainIconPath(for: inspectState),
+                        overlay: iconCache.getOverlayIconPath(for: inspectState),
+                        defaultImage: "shield.checkered",
+                        defaultColour: "accent"
+                    )
+                    .frame(width: 64 * scale, height: 64 * scale)
                         .onAppear { iconCache.cacheMainIcon(for: inspectState) }
                     
                     VStack(alignment: .leading, spacing: 4 * scale) {
