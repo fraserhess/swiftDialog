@@ -347,14 +347,17 @@ struct Preset6View: View, InspectLayoutProtocol {
             VStack(spacing: 12 * scaleFactor) {
                 // Larger logo section for better brand visibility
                 let iconPath = iconCache.getMainIconPath(for: inspectState)
+                let overlayPath = iconCache.getOverlayIconPath(for: inspectState)
 
                 // Debug: Check what we're getting
                 let _ = writeLog("Preset6: Icon path from cache: '\(iconPath)'", logLevel: .debug)
+                let _ = writeLog("Preset6: Overlay path from cache: '\(overlayPath)'", logLevel: .debug)
                 let _ = writeLog("Preset6: Config iconPath: '\(inspectState.uiConfiguration.iconPath ?? "nil")'", logLevel: .debug)
                 let _ = writeLog("Preset6: Config iconBasePath: '\(inspectState.uiConfiguration.iconBasePath ?? "nil")'", logLevel: .debug)
 
                 IconView(
                     image: !iconPath.isEmpty ? iconPath : (inspectState.uiConfiguration.iconPath ?? ""),
+                    overlay: overlayPath,
                     defaultImage: "gearshape.2.fill",
                     defaultColour: "blue"
                 )

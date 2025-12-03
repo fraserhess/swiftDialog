@@ -336,11 +336,16 @@ struct Preset7View: View, InspectLayoutProtocol {
                 // Icon/Logo centered at top (option-click to reset progress)
                 // Smart sizing: respects iconSize config and adapts to aspect ratio
                 GeometryReader { _ in
-                    IconView(image: getMainIconPath(), defaultImage: "tray.fill", defaultColour: "accent")
-                        .frame(maxWidth: getIconMaxWidth(), maxHeight: CGFloat(inspectState.uiConfiguration.iconSize) * scaleFactor)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 16 * scaleFactor)
-                        .padding(.bottom, 8 * scaleFactor)
+                    IconView(
+                        image: getMainIconPath(),
+                        overlay: iconCache.getOverlayIconPath(for: inspectState),
+                        defaultImage: "tray.fill",
+                        defaultColour: "accent"
+                    )
+                    .frame(maxWidth: getIconMaxWidth(), maxHeight: CGFloat(inspectState.uiConfiguration.iconSize) * scaleFactor)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 16 * scaleFactor)
+                    .padding(.bottom, 8 * scaleFactor)
                 }
                 .frame(height: CGFloat(inspectState.uiConfiguration.iconSize + 20) * scaleFactor)
             }

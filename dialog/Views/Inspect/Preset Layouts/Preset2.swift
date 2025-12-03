@@ -57,9 +57,14 @@ struct Preset2View: View, InspectLayoutProtocol {
                 // Original icon display (when no banner is set)
                 VStack(spacing: 20 * scaleFactor) {
                     // Main icon - larger for Setup Manager style
-                    IconView(image: getMainIconPath(), defaultImage: "briefcase.fill", defaultColour: "accent")
-                        .frame(maxHeight: 120 * scaleFactor)
-                        .onAppear { iconCache.cacheMainIcon(for: inspectState) }
+                    IconView(
+                        image: getMainIconPath(),
+                        overlay: iconCache.getOverlayIconPath(for: inspectState),
+                        defaultImage: "briefcase.fill",
+                        defaultColour: "accent"
+                    )
+                    .frame(maxHeight: 120 * scaleFactor)
+                    .onAppear { iconCache.cacheMainIcon(for: inspectState) }
 
                     // Welcome title
                     Text(inspectState.uiConfiguration.windowTitle)

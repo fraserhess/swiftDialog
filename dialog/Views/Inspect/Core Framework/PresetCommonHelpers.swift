@@ -134,6 +134,26 @@ class PresetIconCache: ObservableObject {
         return mainIcon ?? ""
     }
 
+    func getOverlayIconPath(for state: InspectState) -> String {
+        guard let overlayIcon = state.uiConfiguration.overlayIcon, !overlayIcon.isEmpty else {
+            return ""
+        }
+
+        // Don't resolve SF Symbols or special keywords - pass them through directly
+        if iconPathHasIgnoredPrefixKeywords(for: overlayIcon) {
+            return overlayIcon
+        }
+
+        // Resolve path using iconBasePath
+        let resolvedPath = resolver.resolveImagePath(
+            overlayIcon,
+            basePath: state.uiConfiguration.iconBasePath,
+            fallbackIcon: nil
+        )
+
+        return resolvedPath ?? ""
+    }
+
     func getItemIconPath(for item: InspectConfig.ItemConfig, state: InspectState) -> String {
         if let cached = itemIcons[item.id] { return cached }
 
