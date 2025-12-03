@@ -197,7 +197,8 @@ struct InspectConfig: Codable {
         let guidanceTitle: String?      // Main title for the step by step workflow
         let guidanceContent: [GuidanceContent]? // Rich content blocks for the step
         let stepType: String?           // "info" | "confirmation" | "processing" | "completion"
-        let actionButtonText: String?   // Custom button text for this step for "confirmation" steps
+        let actionButtonText: String?   // Custom button text for this step's action (e.g., "Start", "Confirm", "Install")
+        let continueButtonText: String? // Custom button text after step completes to navigate to next step (e.g., "Next", "Proceed")
         let finalButtonText: String?    // Custom button text when this step is complete (e.g., "Finish" for completion step)
         let processingDuration: Int?    // For processing steps: duration in seconds
         let processingMessage: String?  // Message shown during processing

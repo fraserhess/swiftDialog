@@ -1298,8 +1298,12 @@ struct Preset6View: View, InspectLayoutProtocol {
                     .disabled(!isFormValid || isObserveOnly || shouldBlockNavigation || isProcessing)
                 } else if !allStepsComplete {
                     // Step completed - show Continue to next step (blocked if any step is processing)
-                    Button(inspectState.config?.button1Text ??
-                           (inspectState.buttonConfiguration.button1Text.isEmpty ? "Continue" : inspectState.buttonConfiguration.button1Text)) {
+                    // Check for per-step continueButtonText first, then fall back to config level
+                    let continueText = currentItem.continueButtonText ??
+                                      inspectState.config?.button1Text ??
+                                      (inspectState.buttonConfiguration.button1Text.isEmpty ? "Continue" : inspectState.buttonConfiguration.button1Text)
+
+                    Button(continueText) {
                         navigateToNextStep()
                     }
                     .buttonStyle(.borderedProminent)
