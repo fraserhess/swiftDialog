@@ -90,23 +90,21 @@ class Validation: ObservableObject {
             var currentIndex = 0
             
             // Start initial batch of tasks
-            for _ in 0..<min(maxConcurrency, items.count) {
-                if currentIndex < items.count {
-                    let item = items[currentIndex]
-                    currentIndex += 1
-                    
-                    group.addTask(priority: .userInitiated) { [weak self] in
-                        guard let self = self else { return (item.id, false) }
-                        
-                        // Add timeout protection for individual validations
-                        let result = await withTimeout(seconds: 10.0) { [weak self] in
-                            guard let self = self else { return ValidationResult(itemId: item.id, isValid: false, validationType: .fileExistence, details: nil) }
-                            let request = ValidationRequest(item: item, plistSources: plistSources)
-                            return await self.validateItemCachedAsync(request)
-                        }
-                        
-                        return (item.id, result?.isValid ?? false)
+            for _ in 0..<min(maxConcurrency, items.count) where currentIndex < items.count {
+                let item = items[currentIndex]
+                currentIndex += 1
+
+                group.addTask(priority: .userInitiated) { [weak self] in
+                    guard let self = self else { return (item.id, false) }
+
+                    // Add timeout protection for individual validations
+                    let result = await withTimeout(seconds: 10.0) { [weak self] in
+                        guard let self = self else { return ValidationResult(itemId: item.id, isValid: false, validationType: .fileExistence, details: nil) }
+                        let request = ValidationRequest(item: item, plistSources: plistSources)
+                        return await self.validateItemCachedAsync(request)
                     }
+
+                    return (item.id, result?.isValid ?? false)
                 }
             }
             
