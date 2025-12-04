@@ -432,30 +432,6 @@ struct InspectConfig: Codable {
         // Fallback messages
         let imageNotAvailable: String?      // Image error message (default: "Image not available")
 
-        // MARK: - DEPRECATED: Compliance Labels
-        // These fields are maintained for backward compatibility with Presets 1-4 configurations.
-        // Use the dedicated `complianceLabels` struct instead.
-
-        @available(*, deprecated, message: "Use complianceLabels.complianceStatus instead. Will be removed in v3.0.0")
-        let complianceStatus: String?
-
-        @available(*, deprecated, message: "Use complianceLabels.recommendedActions instead. Will be removed in v3.0.0")
-        let recommendedActions: String?
-
-        @available(*, deprecated, message: "Use complianceLabels.securityDetails instead. Will be removed in v3.0.0")
-        let securityDetails: String?
-
-        @available(*, deprecated, message: "Use complianceLabels.lastCheck instead. Will be removed in v3.0.0")
-        let lastCheck: String?
-
-        @available(*, deprecated, message: "Use complianceLabels.passed instead. Will be removed in v3.0.0")
-        let passed: String?
-
-        @available(*, deprecated, message: "Use complianceLabels.failed instead. Will be removed in v3.0.0")
-        let failed: String?
-
-        @available(*, deprecated, message: "Use complianceLabels.checksPassed instead. Will be removed in v3.0.0")
-        let checksPassed: String?
     }
 
     /// Compliance dashboard labels (Preset5 specific)

@@ -233,7 +233,7 @@ struct PresetCommonViews {
                              state.config?.button1Text ??
                              (state.buttonConfiguration.button1Text.isEmpty ? "Continue" : state.buttonConfiguration.button1Text)
 
-        return HStack(spacing: spacing) {
+        HStack(spacing: spacing) {
             // Button 2 (Secondary) - show in demo mode or when all complete
             if (state.configurationSource == .testData || state.completedItems.count == state.items.count) &&
                state.buttonConfiguration.button2Visible &&
@@ -668,9 +668,9 @@ struct GuidanceContentView: View {
             let (labelColor, valueFontSize, showBullet): (Color, CGFloat, Bool) = {
                 switch style {
                 case "success":
-                    return (Color(hex: "#34C759") ?? .green, 15, true)  // Green labels, larger values, with bullet
+                    return (Color(hex: "#34C759"), 15, true)  // Green labels, larger values, with bullet
                 case "table":
-                    return (Color(hex: "#34C759") ?? .green, 15, false)  // Green labels, larger values, no bullet
+                    return (Color(hex: "#34C759"), 15, false)  // Green labels, larger values, no bullet
                 default:
                     return (.secondary, 13, true)  // Default: grey labels, normal size, with bullet
                 }
@@ -1742,11 +1742,11 @@ struct StatusBadgeView: View {
         let lowercaseState = state.lowercased()
         switch lowercaseState {
         case "enabled", "active", "pass", "success", "valid", "enrolled", "connected", "on", "true", "yes":
-            return Color(hex: "#34C759") ?? .green
+            return Color(hex: "#34C759")
         case "disabled", "inactive", "fail", "failure", "invalid", "unenrolled", "disconnected", "off", "false", "no":
-            return Color(hex: "#FF3B30") ?? .red
+            return Color(hex: "#FF3B30")
         case "pending", "in-progress", "waiting", "unknown", "partial":
-            return Color(hex: "#FF9F0A") ?? .orange
+            return Color(hex: "#FF9F0A")
         default:
             return .secondary
         }
@@ -1871,7 +1871,7 @@ struct ComparisonTableView: View {
             return .secondary
         }
 
-        return isMatch ? (Color(hex: "#34C759") ?? .green) : (Color(hex: "#FF3B30") ?? .red)
+        return isMatch ? Color(hex: "#34C759") : Color(hex: "#FF3B30")
     }
 
     /// Effective color for expected column (with override support)
@@ -2232,8 +2232,8 @@ struct PhaseTrackerView: View {
                     // Phase circle
                     ZStack {
                         Circle()
-                            .fill(isCompleted ? Color(hex: "#34C759") ?? .green :
-                                  isActive ? Color(hex: "#FF9F0A") ?? .orange :
+                            .fill(isCompleted ? Color(hex: "#34C759") :
+                                  isActive ? Color(hex: "#FF9F0A") :
                                   Color.secondary.opacity(0.3))
                             .frame(width: 28 * scaleFactor, height: 28 * scaleFactor)
 
@@ -2256,7 +2256,7 @@ struct PhaseTrackerView: View {
                     // Connector line (except for last item)
                     if index < phaseLabels.count - 1 {
                         Rectangle()
-                            .fill(phaseNum < currentPhase ? (Color(hex: "#34C759") ?? .green) : Color.secondary.opacity(0.3))
+                            .fill(phaseNum < currentPhase ? Color(hex: "#34C759") : Color.secondary.opacity(0.3))
                             .frame(width: 20 * scaleFactor, height: 2 * scaleFactor)
                     }
                 }
@@ -2282,7 +2282,7 @@ struct PhaseTrackerView: View {
 
             ProgressView(value: Double(currentPhase), total: Double(phaseLabels.count))
                 .progressViewStyle(LinearProgressViewStyle())
-                .tint(Color(hex: "#FF9F0A") ?? .orange)
+                .tint(Color(hex: "#FF9F0A"))
         }
         .padding(12 * scaleFactor)
     }
@@ -2300,8 +2300,8 @@ struct PhaseTrackerView: View {
                           isActive ? "square.fill" :
                           "square")
                         .font(.system(size: 16 * scaleFactor))
-                        .foregroundColor(isCompleted ? (Color(hex: "#34C759") ?? .green) :
-                                       isActive ? (Color(hex: "#FF9F0A") ?? .orange) :
+                        .foregroundColor(isCompleted ? Color(hex: "#34C759") :
+                                       isActive ? Color(hex: "#FF9F0A") :
                                        .secondary)
 
                     Text(phaseLabels[index])
@@ -2727,9 +2727,9 @@ struct ImageCarouselView: View {
 
 // Helper for type-erased shapes
 private struct AnyShape: Shape {
-    private let _path: (CGRect) -> Path
+    private let _path: @Sendable (CGRect) -> Path
 
-    init<S: Shape>(_ shape: S) {
+    init<S: Shape>(_ shape: S) where S: Sendable {
         _path = { rect in
             shape.path(in: rect)
         }
