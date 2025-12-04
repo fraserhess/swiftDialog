@@ -607,8 +607,8 @@ struct GuidanceContentView: View {
                             .font(.system(size: 13 * scaleFactor))
                             .foregroundColor(iconColor)
 
-                        // Native SwiftUI markdown support
-                        Text(try! AttributedString(markdown: resolvedContent, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
+                        // Native SwiftUI markdown support with fallback to plain text
+                        Text((try? AttributedString(markdown: resolvedContent, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(resolvedContent))
                             .font(.system(size: 13 * scaleFactor))
                             .foregroundColor(.primary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -619,8 +619,8 @@ struct GuidanceContentView: View {
                             .fill(backgroundColor)
                     )
                 } else {
-                    // Plain style without box
-                    Text(try! AttributedString(markdown: resolvedContent, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
+                    // Plain style without box, with fallback to plain text
+                    Text((try? AttributedString(markdown: resolvedContent, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(resolvedContent))
                         .font(.system(size: 13 * scaleFactor))
                         .foregroundColor(.primary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1850,11 +1850,8 @@ struct ComparisonTableView: View {
 
         // Remove common URL protocols
         let protocols = ["https://", "http://", "ftp://", "ftps://"]
-        for proto in protocols {
-            if normalized.hasPrefix(proto) {
-                normalized = String(normalized.dropFirst(proto.count))
-                break
-            }
+        if let proto = protocols.first(where: { normalized.hasPrefix($0) }) {
+            normalized = String(normalized.dropFirst(proto.count))
         }
 
         // Remove trailing slashes
