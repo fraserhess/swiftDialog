@@ -29,6 +29,9 @@ struct Preset7View: View, InspectLayoutProtocol {
     @State private var completedSteps: Set<String> = []
     @State private var failedSteps: Set<String> = []  // Track failed items
     @State private var currentStep: Int = 0
+    @State private var showDetailOverlay = false
+    @State private var showItemDetailOverlay = false
+    @State private var selectedItemForDetail: InspectConfig.ItemConfig?
     @StateObject private var iconCache = PresetIconCache()
     @State private var showSuccess: Bool = false
     @State private var currentPage: Int = 0  // Track which page of cards we're viewing
@@ -251,7 +254,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                                 if inspectState.items.count > 1 {
                                     Text(getStepCounterText())
                                         .font(.system(size: 12 * scaleFactor, weight: .medium))
-                                        .foregroundColor(primaryTextColor.opacity(0.9))
+                                        .foregroundStyle(primaryTextColor.opacity(0.9))
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 6)
                                         .background(
@@ -284,7 +287,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                             Text(bannerTitle)
                                 .font(.largeTitle)
                                 .fontWeight(.bold)
-                                .foregroundColor(primaryTextColor)
+                                .foregroundStyle(primaryTextColor)
                                 .shadow(color: cardShadowColor, radius: 3, x: 2, y: 2)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 40)  // Add horizontal padding to prevent text from going under step indicator
@@ -305,7 +308,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                         if inspectState.items.count > 1 {
                             Text(getStepCounterText())
                                 .font(.system(size: 12 * scaleFactor, weight: .medium))
-                                .foregroundColor(primaryTextColor.opacity(0.9))
+                                .foregroundStyle(primaryTextColor.opacity(0.9))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
                                 .background(
@@ -367,7 +370,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 // No banner title - show main title
                 Text(inspectState.uiConfiguration.windowTitle)
                     .font(.system(size: 32 * scaleFactor, weight: .bold))
-                    .foregroundColor(primaryTextColor)
+                    .foregroundStyle(primaryTextColor)
                     .multilineTextAlignment(.center)
                     .padding(.top, 12 * scaleFactor)
                     .padding(.bottom, 4 * scaleFactor)
@@ -379,7 +382,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 if !inspectState.uiConfiguration.statusMessage.isEmpty {
                     Text(inspectState.uiConfiguration.statusMessage)
                         .font(.system(size: 17 * scaleFactor))
-                        .foregroundColor(secondaryTextColor)
+                        .foregroundStyle(secondaryTextColor)
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
                         .padding(.horizontal, 40)
@@ -391,7 +394,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 if let currentMessage = inspectState.getCurrentSideMessage() {
                     Text(currentMessage)
                         .font(.system(size: 15 * scaleFactor))
-                        .foregroundColor(secondaryTextColor)
+                        .foregroundStyle(secondaryTextColor)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .padding(.horizontal, 40)
@@ -513,6 +516,27 @@ struct Preset7View: View, InspectLayoutProtocol {
             handleCompletedItemsChange(oldValue, newValue)
         }
         .onDisappear(perform: handleViewDisappear)
+        .overlay {
+            // Help button (positioned according to config)
+            if let helpButtonConfig = inspectState.config?.helpButton,
+               helpButtonConfig.enabled ?? true {
+                PositionedHelpButton(
+                    config: helpButtonConfig,
+                    action: { showDetailOverlay = true },
+                    padding: 16
+                )
+            }
+        }
+        .detailOverlay(
+            inspectState: inspectState,
+            isPresented: $showDetailOverlay,
+            config: inspectState.config?.detailOverlay
+        )
+        .itemDetailOverlay(
+            inspectState: inspectState,
+            isPresented: $showItemDetailOverlay,
+            item: selectedItemForDetail
+        )
     }
 
     // MARK: - Standard Card Grid Layout (Original)
@@ -636,7 +660,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                         // Chevron icon
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16 * scaleFactor, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -780,7 +804,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 // Title
                 Text(currentItem.displayName)
                     .font(.system(size: 32 * scaleFactor, weight: .bold))
-                    .foregroundColor(primaryTextColor)
+                    .foregroundStyle(primaryTextColor)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 60 * scaleFactor)
 
@@ -788,7 +812,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 if let subtitle = currentItem.subtitle, !subtitle.isEmpty {
                     Text(subtitle)
                         .font(.system(size: 17 * scaleFactor))
-                        .foregroundColor(secondaryTextColor)
+                        .foregroundStyle(secondaryTextColor)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 80 * scaleFactor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -843,7 +867,7 @@ struct Preset7View: View, InspectLayoutProtocol {
             // Category text
             Text(category)
                 .font(.system(size: 12 * scaleFactor, weight: .semibold))
-                .foregroundColor(Color.white.opacity(0.9))
+                .foregroundStyle(Color.white.opacity(0.9))
                 .textCase(.uppercase)
                 .tracking(0.5)
         }
@@ -882,7 +906,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 if let title = currentItem?.guidanceTitle ?? currentItem?.displayName {
                     Text(title)
                         .font(.system(size: 32 * scaleFactor, weight: .bold))
-                        .foregroundColor(primaryTextColor)
+                        .foregroundStyle(primaryTextColor)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
@@ -892,7 +916,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 if let subtitle = currentItem?.subtitle {
                     Text(subtitle)
                         .font(.system(size: 17 * scaleFactor))
-                        .foregroundColor(secondaryTextColor)
+                        .foregroundStyle(secondaryTextColor)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
@@ -938,7 +962,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 if let title = currentItem?.guidanceTitle ?? currentItem?.displayName {
                     Text(title)
                         .font(.system(size: 32 * scaleFactor, weight: .bold))
-                        .foregroundColor(primaryTextColor)
+                        .foregroundStyle(primaryTextColor)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
@@ -948,7 +972,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 if let subtitle = currentItem?.subtitle {
                     Text(subtitle)
                         .font(.system(size: 17 * scaleFactor))
-                        .foregroundColor(secondaryTextColor)
+                        .foregroundStyle(secondaryTextColor)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
@@ -1007,7 +1031,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                                     }
                                     Text(category)
                                         .font(.system(size: 11 * scaleFactor, weight: .semibold))
-                                        .foregroundColor(Color.white.opacity(0.9))
+                                        .foregroundStyle(Color.white.opacity(0.9))
                                         .textCase(.uppercase)
                                         .tracking(0.5)
                                 }
@@ -1018,14 +1042,14 @@ struct Preset7View: View, InspectLayoutProtocol {
 
                             Text(currentItem?.guidanceTitle ?? currentItem?.displayName ?? "")
                                 .font(.system(size: 24 * scaleFactor, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundStyle(.white)
                                 .multilineTextAlignment(.center)
                                 .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
 
                             if let subtitle = currentItem?.subtitle {
                                 Text(subtitle)
                                     .font(.system(size: 15 * scaleFactor))
-                                    .foregroundColor(.white.opacity(0.9))
+                                    .foregroundStyle(.white.opacity(0.9))
                                     .multilineTextAlignment(.center)
                                     .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
                             }
@@ -1065,7 +1089,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                             // Title
                             Text(item.displayName)
                                 .font(.system(size: 20 * scaleFactor, weight: .semibold))
-                                .foregroundColor(primaryTextColor)
+                                .foregroundStyle(primaryTextColor)
                                 .multilineTextAlignment(.center)
                                 .fixedSize(horizontal: false, vertical: true)
 
@@ -1073,7 +1097,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                             if !hasSubtitle, let subtitle = item.subtitle, !subtitle.isEmpty {
                                 Text(subtitle)
                                     .font(.system(size: 14 * scaleFactor))
-                                    .foregroundColor(secondaryTextColor)
+                                    .foregroundStyle(secondaryTextColor)
                                     .multilineTextAlignment(.center)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -1134,14 +1158,14 @@ struct Preset7View: View, InspectLayoutProtocol {
                         // Default green checkmark shield
                         Image(systemName: "checkmark.shield.fill")
                             .font(.system(size: 72 * scaleFactor, weight: .regular))
-                            .foregroundColor(Color(hex: "#34C759"))
+                            .foregroundStyle(Color(hex: "#34C759"))
                     }
                 }
 
                 // Title
                 Text(currentItem.displayName)
                     .font(.system(size: 34 * scaleFactor, weight: .bold))
-                    .foregroundColor(primaryTextColor)
+                    .foregroundStyle(primaryTextColor)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 60 * scaleFactor)
 
@@ -1149,7 +1173,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 if let subtitle = currentItem.subtitle, !subtitle.isEmpty {
                     Text(subtitle)
                         .font(.system(size: 17 * scaleFactor))
-                        .foregroundColor(secondaryTextColor)
+                        .foregroundStyle(secondaryTextColor)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 80 * scaleFactor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1179,7 +1203,7 @@ struct Preset7View: View, InspectLayoutProtocol {
         } else {
             Image(systemName: "app.fill")
                 .font(.system(size: 80 * scaleFactor, weight: .thin))
-                .foregroundColor(secondaryTextColor)
+                .foregroundStyle(secondaryTextColor)
         }
     }
 
@@ -1190,7 +1214,7 @@ struct Preset7View: View, InspectLayoutProtocol {
         case "text":
             Text(block.content ?? "")
                 .font(.system(size: block.bold == true ? 15 * scaleFactor : 14 * scaleFactor, weight: block.bold == true ? .semibold : .regular))
-                .foregroundColor(primaryTextColor)
+                .foregroundStyle(primaryTextColor)
                 .multilineTextAlignment(.center)
 
         case "bullets":
@@ -1199,10 +1223,10 @@ struct Preset7View: View, InspectLayoutProtocol {
                     ForEach(content.components(separatedBy: "\n"), id: \.self) { line in
                         HStack(alignment: .top, spacing: 8) {
                             Text("•")
-                                .foregroundColor(secondaryTextColor)
+                                .foregroundStyle(secondaryTextColor)
                             Text(line)
                                 .font(.system(size: 14 * scaleFactor))
-                                .foregroundColor(primaryTextColor)
+                                .foregroundStyle(primaryTextColor)
                         }
                     }
                 }
@@ -1226,7 +1250,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 }) {
                     Text(inspectState.buttonConfiguration.button2Text.isEmpty ? "Back" : inspectState.buttonConfiguration.button2Text)
                         .font(.system(size: 14 * scaleFactor, weight: .regular))
-                        .foregroundColor(getConfigurableHighlightColor())
+                        .foregroundStyle(getConfigurableHighlightColor())
                         .padding(.horizontal, 16 * scaleFactor)
                         .padding(.vertical, 4 * scaleFactor)
                 }
@@ -1235,7 +1259,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 // Invisible placeholder to maintain consistent primary button position
                 Text("Back")
                     .font(.system(size: 14 * scaleFactor, weight: .regular))
-                    .foregroundColor(.clear)
+                    .foregroundStyle(.clear)
                     .padding(.horizontal, 16 * scaleFactor)
                     .padding(.vertical, 4 * scaleFactor)
             }
@@ -1274,7 +1298,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                     // White text on top
                     Text(buttonText)
                         .font(.system(size: 12 * scaleFactor, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .padding(.horizontal, 18 * scaleFactor)
                         .padding(.vertical, 4 * scaleFactor)
                 }
@@ -1439,7 +1463,7 @@ struct Preset7View: View, InspectLayoutProtocol {
             if !allComplete && !inspectState.uiConfiguration.statusMessage.isEmpty {
                 Text(inspectState.uiConfiguration.statusMessage)
                     .font(.system(size: 14 * scaleFactor))
-                    .foregroundColor(secondaryTextColor)
+                    .foregroundStyle(secondaryTextColor)
                     .multilineTextAlignment(.center)
                     .transition(.opacity)
             }
@@ -1449,12 +1473,12 @@ struct Preset7View: View, InspectLayoutProtocol {
                 HStack(spacing: 12) {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.system(size: 26 * scaleFactor, weight: .semibold))
-                        .foregroundColor(.green)
+                        .foregroundStyle(.green)
                         .symbolEffect(.bounce, value: showSuccess)
 
                     Text(inspectState.config?.uiLabels?.completionMessage ?? "All Complete!")
                         .font(.system(size: 22 * scaleFactor, weight: .semibold))
-                        .foregroundColor(primaryTextColor)
+                        .foregroundStyle(primaryTextColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                 }
@@ -1676,7 +1700,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 }) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 20 * scaleFactor, weight: .bold))
-                        .foregroundColor(currentPage > 0 && !isNavigationDisabled
+                        .foregroundStyle(currentPage > 0 && !isNavigationDisabled
                             ? highlightColor
                             : Color.gray.opacity(0.5))
                         .padding(12)
@@ -1709,7 +1733,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 }) {
                     Text(inspectState.buttonConfiguration.button2Text)
                         .font(.system(size: 15 * scaleFactor, weight: .medium))
-                        .foregroundColor(highlightColor)
+                        .foregroundStyle(highlightColor)
                         .padding(.horizontal, 32)
                         .padding(.vertical, 12)
                         .background(
@@ -1736,7 +1760,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                     Image(systemName: "arrow.right")
                         .font(.system(size: 13 * scaleFactor, weight: .semibold))
                 }
-                .foregroundColor(allStepsComplete ? contrastingTextColor(for: highlightColor) : primaryTextColor.opacity(0.5))
+                .foregroundStyle(allStepsComplete ? contrastingTextColor(for: highlightColor) : primaryTextColor.opacity(0.5))
                 .padding(.horizontal, 40)
                 .padding(.vertical, 12)
                 .background(
@@ -1762,7 +1786,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 }) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 20 * scaleFactor, weight: .bold))
-                        .foregroundColor(currentPage < totalPages - 1 && !isNavigationDisabled
+                        .foregroundStyle(currentPage < totalPages - 1 && !isNavigationDisabled
                             ? highlightColor
                             : Color.gray.opacity(0.5))
                         .padding(12)
@@ -2317,7 +2341,7 @@ struct StepCard: View {
                         // SF Symbol fallback
                         Image(systemName: getPlaceholderIcon())
                             .font(.system(size: 48 * scaleFactor))
-                            .foregroundColor(iconTintColor)
+                            .foregroundStyle(iconTintColor)
                     }
 
                     // Completion indicator (top-right corner of icon)
@@ -2327,7 +2351,7 @@ struct StepCard: View {
                                 Spacer()
                                 Image(systemName: "checkmark.circle.fill")
                                     .font(.system(size: 20 * scaleFactor))
-                                    .foregroundColor(.green)
+                                    .foregroundStyle(.green)
                                     .background(Circle().fill(cardBackgroundColor).padding(-2))
                             }
                             Spacer()
@@ -2340,7 +2364,7 @@ struct StepCard: View {
                 // Title
                 Text(item.displayName)
                     .font(.system(size: 16 * scaleFactor, weight: .semibold))
-                    .foregroundColor(primaryTextColor)
+                    .foregroundStyle(primaryTextColor)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2349,7 +2373,7 @@ struct StepCard: View {
                 if let subtitle = item.subtitle {
                     Text(subtitle)
                         .font(.system(size: 13 * scaleFactor))
-                        .foregroundColor(secondaryTextColor)
+                        .foregroundStyle(secondaryTextColor)
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2366,7 +2390,7 @@ struct StepCard: View {
                             Text("More info")
                                 .font(.system(size: 13 * scaleFactor))
                         }
-                        .foregroundColor(accentColor.opacity(0.8))
+                        .foregroundStyle(accentColor.opacity(0.8))
                     }
                     .buttonStyle(.plain)
                     .padding(.bottom, 8 * scaleFactor)
@@ -2408,7 +2432,7 @@ struct StepCard: View {
                 .frame(minWidth: 300, maxWidth: 500, maxHeight: 400)
             } else {
                 Text("No guidance available")
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .padding()
             }
         }
@@ -2485,7 +2509,7 @@ struct LinkButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 14))
-            .foregroundColor(accentColor)
+            .foregroundStyle(accentColor)
             .underline()
             .opacity(configuration.isPressed ? 0.6 : 1.0)
     }

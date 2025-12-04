@@ -13,7 +13,10 @@ import SwiftUI
 struct Preset4View: View, InspectLayoutProtocol {
     @ObservedObject var inspectState: InspectState
     @State private var showingDetailPopover = false
+    @State private var showDetailOverlay = false
+    @State private var showItemDetailOverlay = false
     @State private var selectedItem: InspectConfig.ItemConfig?
+    @State private var selectedItemForDetail: InspectConfig.ItemConfig?
     @StateObject private var iconCache = PresetIconCache()
 
     // scaleFactor is now provided by InspectLayoutProtocol extension
@@ -50,14 +53,35 @@ struct Preset4View: View, InspectLayoutProtocol {
             // Icons are cached on-demand via lazy loading
             iconCache.cacheMainIcon(for: inspectState)
         }
-        .onChange(of: inspectState.completedItems) {
+        .onChange(of: inspectState.completedItems) { _, _ in
             // Re-validate when items complete
             inspectState.validateAllItems()
         }
-        .onChange(of: inspectState.downloadingItems) {
+        .onChange(of: inspectState.downloadingItems) { _, _ in
             // Re-validate when download states change
             inspectState.validateAllItems()
         }
+        .overlay {
+            // Help button (positioned according to config)
+            if let helpButtonConfig = inspectState.config?.helpButton,
+               helpButtonConfig.enabled ?? true {
+                PositionedHelpButton(
+                    config: helpButtonConfig,
+                    action: { showDetailOverlay = true },
+                    padding: 16
+                )
+            }
+        }
+        .detailOverlay(
+            inspectState: inspectState,
+            isPresented: $showDetailOverlay,
+            config: inspectState.config?.detailOverlay
+        )
+        .itemDetailOverlay(
+            inspectState: inspectState,
+            isPresented: $showItemDetailOverlay,
+            item: selectedItemForDetail
+        )
     }
 
     // MARK: - Icon Resolution Methods
@@ -90,7 +114,7 @@ struct Preset4View: View, InspectLayoutProtocol {
                 // Compact title only
                 Text(inspectState.uiConfiguration.windowTitle)
                     .font(.title2.weight(.semibold))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
                 
                 Spacer()
             }
@@ -99,7 +123,7 @@ struct Preset4View: View, InspectLayoutProtocol {
             if let message = inspectState.uiConfiguration.subtitleMessage, !message.isEmpty {
                 Text(message)
                     .font(.body)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -110,7 +134,7 @@ struct Preset4View: View, InspectLayoutProtocol {
         .overlay(
             Rectangle()
                 .frame(height: 1)
-                .foregroundColor(.secondary.opacity(0.2)),
+                .foregroundStyle(.secondary.opacity(0.2)),
             alignment: .bottom
         )
     }
@@ -128,7 +152,7 @@ struct Preset4View: View, InspectLayoutProtocol {
             HStack(spacing: 12 * scaleFactor) {
                 Text("\(presentItems)/\(totalItems)")
                     .font(.title3.weight(.bold))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
                 
                 ProgressView(value: progress)
                     .progressViewStyle(LinearProgressViewStyle(tint: inspectState.colorThresholds.getColor(for: progress)))
@@ -153,7 +177,7 @@ struct Preset4View: View, InspectLayoutProtocol {
             }
             .buttonStyle(.plain)
             .font(.caption)
-            .foregroundColor(.accentColor)
+            .foregroundStyle(Color.accentColor)
             .popover(isPresented: $showingDetailPopover) {
                 InspectionDetailPopover(
                     items: inspectState.items,
@@ -168,15 +192,16 @@ struct Preset4View: View, InspectLayoutProtocol {
         .padding(.horizontal, 20 * scaleFactor)
         .padding(.vertical, 12 * scaleFactor)
         .background(.thickMaterial)
-        .cornerRadius(8 * scaleFactor)
+        .clipShape(.rect(cornerRadius: 8 * scaleFactor))
     }
     
     // MARK: - Simple Grid
     
     private func simpleInspectionGrid(geometry: GeometryProxy) -> some View {
         let columns = calculateColumns(for: geometry.size.width)
-        
-        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 18 * scaleFactor), count: columns), 
+        let showInfoButtons = inspectState.config?.detailOverlay != nil
+
+        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 18 * scaleFactor), count: columns),
                          spacing: 18 * scaleFactor) {
             ForEach(inspectState.items, id: \.id) { item in
                 SimpleInspectionTile(
@@ -186,7 +211,11 @@ struct Preset4View: View, InspectLayoutProtocol {
                     isChecking: inspectState.downloadingItems.contains(item.id),
                     scaleFactor: scaleFactor,
                     colorThresholds: inspectState.colorThresholds,
-                    item: item
+                    item: item,
+                    onInfoTapped: showInfoButtons || item.itemOverlay != nil ? {
+                        selectedItemForDetail = item
+                        showItemDetailOverlay = true
+                    } : nil
                 )
             }
         }
@@ -339,7 +368,7 @@ struct CompactStatusCount: View {
             
             Text("\(count)")
                 .font(.caption.weight(.bold))
-                .foregroundColor(color)
+                .foregroundStyle(color)
         }
     }
 }
@@ -354,7 +383,8 @@ struct SimpleInspectionTile: View {
     let scaleFactor: CGFloat
     let colorThresholds: InspectConfig.ColorThresholds
     let item: InspectConfig.ItemConfig? // Add item context for plist validation
-    
+    let onInfoTapped: (() -> Void)?
+
     var body: some View {
         HStack(spacing: 15 * scaleFactor) {
             // Item icon (from config)
@@ -363,24 +393,31 @@ struct SimpleInspectionTile: View {
             }
             .frame(width: 48 * scaleFactor, height: 48 * scaleFactor)
             .id("icon-\(item?.id ?? title)") // Stable ID to prevent recreation
-            
+
             // Content with status - fixed height container
             VStack(alignment: .leading, spacing: 4 * scaleFactor) {
-                Text(title)
-                    .font(.body.weight(.medium))
-                    .foregroundColor(.primary)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(2)
-                    .frame(minHeight: 20 * scaleFactor, alignment: .top)
-                
+                HStack(spacing: 4) {
+                    Text(title)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(2)
+
+                    // Info button (only show if callback is provided)
+                    if let onInfoTapped = onInfoTapped, let item = item {
+                        ItemInfoButton(item: item, action: onInfoTapped, size: 12 * scaleFactor)
+                    }
+                }
+                .frame(minHeight: 20 * scaleFactor, alignment: .top)
+
                 // Status text instead of icon overlay
                 Text(getStatusText())
                     .font(.caption.weight(.medium))
-                    .foregroundColor(getStatusColor())
+                    .foregroundStyle(getStatusColor())
                     .frame(minHeight: 14 * scaleFactor, alignment: .top)
             }
             .frame(minHeight: 40 * scaleFactor, alignment: .top)
-            
+
             Spacer()
             
             // Status indicator (smaller, on the right)
@@ -392,11 +429,11 @@ struct SimpleInspectionTile: View {
                 } else if isPresent {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.body)
-                        .foregroundColor(colorThresholds.getColor(for: 1.0))
+                        .foregroundStyle(colorThresholds.getColor(for: 1.0))
                 } else {
                     Image(systemName: "xmark.circle.fill")
                         .font(.body)
-                        .foregroundColor(colorThresholds.getColor(for: 0.0))
+                        .foregroundStyle(colorThresholds.getColor(for: 0.0))
                 }
             }
             .frame(width: 20 * scaleFactor, height: 20 * scaleFactor)
@@ -412,7 +449,7 @@ struct SimpleInspectionTile: View {
                        colorThresholds.getColor(for: 0.0), 
                        lineWidth: 2)
         )
-        .cornerRadius(8 * scaleFactor)
+        .clipShape(.rect(cornerRadius: 8 * scaleFactor))
         .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
     
@@ -494,11 +531,11 @@ struct InspectionDetailPopover: View {
             HStack {
                 Text("Inspection Details")
                     .font(.title2.weight(.semibold))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
                 Spacer()
                 Text("\(validationResults.values.filter { $0 }.count)/\(items.count) Present")
                     .font(.subheadline.weight(.medium))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
             
             Divider()
@@ -549,14 +586,14 @@ struct InspectionDetailItem: View {
                 // Item name
                 Text(item.displayName)
                     .font(.headline.weight(.medium))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
                 
                 Spacer()
                 
                 // Status text
                 Text(getStatusText())
                     .font(.caption.weight(.medium))
-                    .foregroundColor(getStatusColor())
+                    .foregroundStyle(getStatusColor())
             }
             
             // Paths section (conditionally shown)
@@ -565,7 +602,7 @@ struct InspectionDetailItem: View {
                     HStack {
                         Text("Checked Paths:")
                             .font(.subheadline.weight(.medium))
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                         
                         Spacer()
                         
@@ -577,7 +614,7 @@ struct InspectionDetailItem: View {
                             }
                             .buttonStyle(.plain)
                             .font(.caption)
-                            .foregroundColor(.accentColor)
+                            .foregroundStyle(Color.accentColor)
                         }
                     }
                     
@@ -594,7 +631,7 @@ struct InspectionDetailItem: View {
                             // Path text with word wrapping
                             Text(path)
                                 .font(.system(.caption, design: .monospaced))
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                                 .textSelection(.enabled)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .lineLimit(showFullPaths ? nil : 2)
@@ -610,7 +647,7 @@ struct InspectionDetailItem: View {
                             
                             Text("... and \(item.paths.count - 1) more path\(item.paths.count - 1 == 1 ? "" : "s")")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                                 .italic()
                         }
                     }
@@ -621,11 +658,11 @@ struct InspectionDetailItem: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Path Details Hidden")
                         .font(.subheadline.weight(.medium))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                     
                     Text("Checking \(item.paths.count) configured location\(item.paths.count == 1 ? "" : "s")")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .italic()
                 }
                 .padding(.leading, 12)
@@ -636,7 +673,7 @@ struct InspectionDetailItem: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Plist Validation:")
                         .font(.subheadline.weight(.medium))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                     
                     // Plist key
                     HStack(alignment: .top, spacing: 8) {
@@ -648,10 +685,10 @@ struct InspectionDetailItem: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Key:")
                                 .font(.caption.weight(.medium))
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                             Text(plistKey)
                                 .font(.system(.caption, design: .monospaced))
-                                .foregroundColor(.primary)
+                                .foregroundStyle(.primary)
                                 .textSelection(.enabled)
                         }
                     }
@@ -667,10 +704,10 @@ struct InspectionDetailItem: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Expected:")
                                     .font(.caption.weight(.medium))
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(.secondary)
                                 Text(expectedValue)
                                     .font(.system(.caption, design: .monospaced))
-                                    .foregroundColor(.orange)
+                                    .foregroundStyle(.orange)
                                     .textSelection(.enabled)
                             }
                         }
@@ -686,17 +723,17 @@ struct InspectionDetailItem: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Actual:")
                                 .font(.caption.weight(.medium))
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                             
                             if let actualValue = inspectState.getPlistValueForDisplay(item: item) {
                                 Text(actualValue)
                                     .font(.system(.caption, design: .monospaced))
-                                    .foregroundColor(isPresent ? inspectState.colorThresholds.getColor(for: 1.0) : inspectState.colorThresholds.getColor(for: 0.0))
+                                    .foregroundStyle(isPresent ? inspectState.colorThresholds.getColor(for: 1.0) : inspectState.colorThresholds.getColor(for: 0.0))
                                     .textSelection(.enabled)
                             } else {
                                 Text("Key not found or file missing")
                                     .font(.caption)
-                                    .foregroundColor(inspectState.colorThresholds.getColor(for: 0.0))
+                                    .foregroundStyle(inspectState.colorThresholds.getColor(for: 0.0))
                                     .italic()
                             }
                         }

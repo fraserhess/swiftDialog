@@ -114,7 +114,7 @@ private struct CoordinatedLoadingView: View {
 
             Text("Loading configuration...")
                 .font(.headline)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(NSColor.windowBackgroundColor))
@@ -132,7 +132,7 @@ private struct CoordinatedConfigErrorView: View {
         VStack(spacing: 20) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 48))
-                .foregroundColor(.orange)
+                .foregroundStyle(.orange)
 
             Text("Configuration Error")
                 .font(.title2)
@@ -140,7 +140,7 @@ private struct CoordinatedConfigErrorView: View {
 
             Text(errorMessage)
                 .font(.body)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
 

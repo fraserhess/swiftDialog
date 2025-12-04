@@ -11,6 +11,9 @@ import SwiftUI
 
 struct Preset3View: View, InspectLayoutProtocol {
     @ObservedObject var inspectState: InspectState
+    @State private var showDetailOverlay = false
+    @State private var showItemDetailOverlay = false
+    @State private var selectedItemForDetail: InspectConfig.ItemConfig?
     @StateObject private var iconCache = PresetIconCache()
 
     init(inspectState: InspectState) {
@@ -30,7 +33,7 @@ struct Preset3View: View, InspectLayoutProtocol {
                     Text(inspectState.uiConfiguration.windowTitle)
                         .font(.title)
                         .fontWeight(.semibold)
-                        .foregroundColor(textColor)
+                        .foregroundStyle(textColor)
                     Spacer()
                     
                     HStack(spacing: 12) {
@@ -79,7 +82,7 @@ struct Preset3View: View, InspectLayoutProtocol {
                                 Text(bannerTitle)
                                     .font(.title2)
                                     .fontWeight(.bold)
-                                    .foregroundColor(.white)
+                                    .foregroundStyle(.white)
                                     .shadow(radius: 2)
                                     .padding()
                             }
@@ -111,13 +114,13 @@ struct Preset3View: View, InspectLayoutProtocol {
                             Text(subtitle)
                                 .font(.headline)
                                 .fontWeight(.medium)
-                                .foregroundColor(textColor)
+                                .foregroundStyle(textColor)
                         }
 
                         if let currentMessage = inspectState.getCurrentSideMessage() {
                             Text(currentMessage)
                                 .font(.subheadline)
-                                .foregroundColor(textColor.opacity(0.9))
+                                .foregroundStyle(textColor.opacity(0.9))
                                 .lineLimit(2)
                         }
                     }
@@ -145,24 +148,34 @@ struct Preset3View: View, InspectLayoutProtocol {
                                         .frame(width: 24 * scaleFactor, height: 24 * scaleFactor)
                                         .id("icon-\(item.id)") // Stable ID to prevent recreation
 
-                                    // Item name
-                                    Text(item.displayName)
-                                        .font(.body)
-                                        .foregroundColor(textColor)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                    
+                                    // Item name with info button
+                                    HStack(spacing: 4) {
+                                        Text(item.displayName)
+                                            .font(.body)
+                                            .foregroundStyle(textColor)
+
+                                        // Info button (only show if detailOverlay is configured)
+                                        if inspectState.config?.detailOverlay != nil || item.itemOverlay != nil {
+                                            ItemInfoButton(item: item, action: {
+                                                selectedItemForDetail = item
+                                                showItemDetailOverlay = true
+                                            }, size: 12 * scaleFactor)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
                                     // Status indicator with validation support
                                     statusIndicatorWithValidation(for: item, textColor: textColor)
                                 }
                                 .padding(.vertical, 3)
                                 .padding(.horizontal, 8)
                                 .background(Color.primary.opacity(0.05))
-                                .cornerRadius(6)
+                                .clipShape(.rect(cornerRadius: 6))
                             }
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 4)
-                        .onChange(of: inspectState.completedItems.count) {
+                        .onChange(of: inspectState.completedItems.count) { _, _ in
                             // Auto-scroll to top when new item completes
                             let sortedItems = getSortedItemsByStatus()
                             if let firstItem = sortedItems.first {
@@ -192,7 +205,7 @@ struct Preset3View: View, InspectLayoutProtocol {
                                 }
                             }
                         }
-                        .onChange(of: inspectState.downloadingItems.count) {
+                        .onChange(of: inspectState.downloadingItems.count) { _, _ in
                             // Auto-scroll when installing status changes
                             let sortedItems = getSortedItemsByStatus()
                             if let firstInstalling = sortedItems.first(where: { inspectState.downloadingItems.contains($0.id) }) {
@@ -204,7 +217,7 @@ struct Preset3View: View, InspectLayoutProtocol {
                             // Check button state when downloading status changes
                             inspectState.checkAndUpdateButtonState()
                         }
-                        .onChange(of: inspectState.plistValidationResults) {
+                        .onChange(of: inspectState.plistValidationResults) { _, _ in
                             print("DEBUG Preset3: plistValidationResults changed: \(inspectState.plistValidationResults)")
                             // Force UI update when validation results change
                         }
@@ -221,17 +234,17 @@ struct Preset3View: View, InspectLayoutProtocol {
                         HStack {
                             Text(isComplete ? (inspectState.config?.uiLabels?.completionMessage ?? "Installation Complete!") : "Installation Progress")
                                 .font(.headline)
-                                .foregroundColor(textColor)
+                                .foregroundStyle(textColor)
                             Spacer()
                             if isComplete {
                                 Text(inspectState.config?.uiLabels?.completionSubtitle ?? "All installations completed successfully")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
-                                    .foregroundColor(textColor)
+                                    .foregroundStyle(textColor)
                             } else {
                                 Text(PresetCommonViews.getProgressText(state: inspectState))
                                     .font(.subheadline)
-                                    .foregroundColor(textColor.opacity(0.8))
+                                    .foregroundStyle(textColor.opacity(0.8))
                             }
                         }
                         
@@ -241,7 +254,7 @@ struct Preset3View: View, InspectLayoutProtocol {
                     }
                     .padding()
                     .background(Color.primary.opacity(0.05))
-                    .cornerRadius(8)
+                    .clipShape(.rect(cornerRadius: 8))
                     .padding(.horizontal)
                     .padding(.top, 8)
                     .padding(.bottom, 12) // Bottom spacing
@@ -249,6 +262,27 @@ struct Preset3View: View, InspectLayoutProtocol {
             }
         }
         .frame(width: windowSize.width, height: windowSize.height)
+        .overlay {
+            // Help button (positioned according to config)
+            if let helpButtonConfig = inspectState.config?.helpButton,
+               helpButtonConfig.enabled ?? true {
+                PositionedHelpButton(
+                    config: helpButtonConfig,
+                    action: { showDetailOverlay = true },
+                    padding: 16
+                )
+            }
+        }
+        .detailOverlay(
+            inspectState: inspectState,
+            isPresented: $showDetailOverlay,
+            config: inspectState.config?.detailOverlay
+        )
+        .itemDetailOverlay(
+            inspectState: inspectState,
+            isPresented: $showItemDetailOverlay,
+            item: selectedItemForDetail
+        )
         .onAppear {
             // Main icon caching is already handled in the icon's .onAppear
             // LazyVGrid handles item icon loading as items become visible
@@ -443,11 +477,11 @@ struct Preset3View: View, InspectLayoutProtocol {
                 let _ = print("DEBUG Preset3 UI: Showing 'Check Config' for '\(item.id)'")
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.circle.fill")
-                        .foregroundColor(.yellow)
+                        .foregroundStyle(.yellow)
                         .font(.caption)
                     Text("Check Config")
                         .font(.caption)
-                        .foregroundColor(.yellow)
+                        .foregroundStyle(.yellow)
                         .fontWeight(.medium)
                 }
                 .help("Configuration validation failed - check plist settings")
@@ -455,11 +489,11 @@ struct Preset3View: View, InspectLayoutProtocol {
                 let _ = print("DEBUG Preset3 UI: Showing '\(getStatusText(for: item))' for '\(item.id)'")
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
+                        .foregroundStyle(.green)
                         .font(.caption)
                     Text(getStatusText(for: item))
                         .font(.caption)
-                        .foregroundColor(.green)
+                        .foregroundStyle(.green)
                         .fontWeight(.medium)
                 }
                 .help("\(getStatusText(for: item)) and validated")
@@ -472,18 +506,18 @@ struct Preset3View: View, InspectLayoutProtocol {
                     .frame(width: 12, height: 12)
                 Text(getStatusText(for: item))
                     .font(.caption)
-                    .foregroundColor(textColor.opacity(0.7))
+                    .foregroundStyle(textColor.opacity(0.7))
                     .fontWeight(.medium)
             }
         } else {
             let _ = print("DEBUG Preset3 UI: Showing '\(getStatusText(for: item))' for '\(item.id)'")
             HStack(spacing: 4) {
                 Image(systemName: "clock.fill")
-                    .foregroundColor(textColor.opacity(0.5))
+                    .foregroundStyle(textColor.opacity(0.5))
                     .font(.caption)
                 Text(getStatusText(for: item))
                     .font(.caption)
-                    .foregroundColor(textColor.opacity(0.7))
+                    .foregroundStyle(textColor.opacity(0.7))
                     .fontWeight(.medium)
             }
         }

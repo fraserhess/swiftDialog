@@ -153,7 +153,7 @@ class Validation: ObservableObject {
             // Add timeout task
             group.addTask {
                 do {
-                    try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                    try await Task.sleep(for: .seconds(seconds))
                     return nil // Timeout
                 } catch {
                     return nil // Task was cancelled (good)

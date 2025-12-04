@@ -36,6 +36,9 @@ struct Preset9View: View, InspectLayoutProtocol {
     @ObservedObject var inspectState: InspectState
     @State private var currentPage: Int = 0
     @State private var completedPages: Set<Int> = []
+    @State private var showDetailOverlay = false
+    @State private var showItemDetailOverlay = false
+    @State private var selectedItemForDetail: InspectConfig.ItemConfig?
     @StateObject private var iconCache = PresetIconCache()
     @State private var showSuccess: Bool = false
     @State private var showResetFeedback: Bool = false
@@ -265,7 +268,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                                 Button(action: navigateBack) {
                                     Image(systemName: "chevron.left")
                                         .font(.system(size: 18, weight: .medium))
-                                        .foregroundColor(.white)
+                                        .foregroundStyle(.white)
                                         .frame(width: 36, height: 36)
                                         .background(
                                             Circle()
@@ -311,7 +314,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                                 }) {
                                     Image(systemName: "arrow.up.left.and.arrow.down.right")
                                         .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(.white)
+                                        .foregroundStyle(.white)
                                         .padding(8)
                                         .background(
                                             Circle()
@@ -371,6 +374,27 @@ struct Preset9View: View, InspectLayoutProtocol {
         .ignoresSafeArea()
         .onAppear(perform: handleViewAppear)
         .onDisappear(perform: handleViewDisappear)
+        .overlay {
+            // Help button (positioned according to config)
+            if let helpButtonConfig = inspectState.config?.helpButton,
+               helpButtonConfig.enabled ?? true {
+                PositionedHelpButton(
+                    config: helpButtonConfig,
+                    action: { showDetailOverlay = true },
+                    padding: 16
+                )
+            }
+        }
+        .detailOverlay(
+            inspectState: inspectState,
+            isPresented: $showDetailOverlay,
+            config: inspectState.config?.detailOverlay
+        )
+        .itemDetailOverlay(
+            inspectState: inspectState,
+            isPresented: $showItemDetailOverlay,
+            item: selectedItemForDetail
+        )
     }
 
     // MARK: - Modern Two-Panel Layout Components
@@ -428,7 +452,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                                 Text(buttonText)
                                     .font(.system(size: 17, weight: .semibold))
                             }
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .padding(.horizontal, 24)
                             .padding(.vertical, 14)
                             .background(
@@ -659,11 +683,11 @@ struct Preset9View: View, InspectLayoutProtocol {
                         VStack(alignment: .leading, spacing: 0) {
                             Text("Step \(currentPage + 1)")
                                 .font(.system(size: 20, weight: .bold))  // Made larger and more prominent
-                                .foregroundColor(.white)
+                                .foregroundStyle(.white)
                             
                             Text(inspectState.config?.uiLabels?.guideInformationLabel ?? "Guide Information")
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundStyle(.white.opacity(0.7))
                         }
                     }
                 }
@@ -674,11 +698,11 @@ struct Preset9View: View, InspectLayoutProtocol {
                 VStack(alignment: .trailing, spacing: 0) {
                     Text("\(currentPage + 1)/\(totalPages)")
                         .font(.system(size: 14, weight: .bold, design: .rounded))  
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                     
                     Text(inspectState.config?.uiLabels?.sectionsLabel ?? "SECTIONS")
                         .font(.system(size: 8, weight: .medium))
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundStyle(.white.opacity(0.6))
                         .textCase(.uppercase)
                         .tracking(0.3)
                 }
@@ -733,7 +757,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                                     if totalPages <= 8 {
                                         Text("\(index + 1)")
                                             .font(.system(size: dotSize * 0.5, weight: .bold))
-                                            .foregroundColor(index == currentPage ? .white : .white.opacity(0.8))
+                                            .foregroundStyle(index == currentPage ? .white : .white.opacity(0.8))
                                     }
                                 }
                             )
@@ -818,7 +842,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                             .font(.system(size: 12, weight: .bold))  // Smaller icon
                     }
                 }
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 36)  // Much smaller height - Apple style
                 .background(
@@ -844,7 +868,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                     handleButton2Action()
                 }
                 .font(.system(size: 12, weight: .medium))  // Smaller font
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundStyle(.white.opacity(0.8))
                 .frame(maxWidth: .infinity)
                 .frame(height: 32)  // Smaller height
                 .background(
@@ -880,7 +904,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                     VStack(alignment: .leading, spacing: 10) {  // Increased header spacing
                         Text(item.displayName)
                             .font(.system(size: 22, weight: .bold))  // Optimized size for 35% panel
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .lineLimit(3)  // Allow more lines in wider sidebar
                             .fixedSize(horizontal: false, vertical: true)
                             .lineSpacing(2)  // Better line spacing for multi-line titles
@@ -889,7 +913,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                         if let stepType = item.stepType {
                             Text(stepType.uppercased())
                                 .font(.system(size: 10, weight: .semibold))  // Made more prominent
-                                .foregroundColor(getConfigurableAccentColor())
+                                .foregroundStyle(getConfigurableAccentColor())
                                 .textCase(.uppercase)
                                 .tracking(1.0)
                                 .padding(.horizontal, 8)
@@ -909,7 +933,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                     if let subtitle = item.subtitle {
                         Text(subtitle)
                             .font(.system(size: 15, weight: .regular))  // Optimized for wider sidebar
-                            .foregroundColor(.white.opacity(0.95))  
+                            .foregroundStyle(.white.opacity(0.95))  
                             .lineLimit(nil) // Allow unlimited lines for guide content
                             .fixedSize(horizontal: false, vertical: true)
                             .lineSpacing(5)  // Improved line spacing for better readability
@@ -921,11 +945,11 @@ struct Preset9View: View, InspectLayoutProtocol {
                             HStack(alignment: .center, spacing: 8) {
                                 Image(systemName: "lightbulb.fill")
                                     .font(.system(size: 14, weight: .medium))  // Slightly larger
-                                    .foregroundColor(getConfigurableAccentColor())
+                                    .foregroundStyle(getConfigurableAccentColor())
                                 
                                 Text(inspectState.config?.uiLabels?.keyPointsLabel ?? "Key Points")
                                     .font(.system(size: 12, weight: .bold))  // Made bolder
-                                    .foregroundColor(getConfigurableAccentColor())
+                                    .foregroundStyle(getConfigurableAccentColor())
                                     .textCase(.uppercase)
                                     .tracking(0.8)
                             }
@@ -933,7 +957,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                             // Enhanced text formatting for bullet points and multiple paragraphs
                             Text(additionalInfo)
                                 .font(.system(size: 13, weight: .regular))  // Optimized for wider space
-                                .foregroundColor(.white.opacity(0.9))  
+                                .foregroundStyle(.white.opacity(0.9))  
                                 .lineLimit(nil)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .lineSpacing(4)  // Better line spacing for multiple paragraphs
@@ -954,7 +978,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                                     
                                     Text(bulletPoints[index])
                                         .font(.system(size: 13, weight: .regular))  // Consistent with other text
-                                        .foregroundColor(.white.opacity(0.9))
+                                        .foregroundStyle(.white.opacity(0.9))
                                         .lineLimit(nil)
                                         .fixedSize(horizontal: false, vertical: true)
                                         .lineSpacing(3)  // Improved line spacing within bullets
@@ -972,11 +996,11 @@ struct Preset9View: View, InspectLayoutProtocol {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(inspectState.config?.uiLabels?.welcomeTitle ?? "Welcome")
                             .font(.system(size: 22, weight: .bold))  // Consistent with items
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
 
                         Text(inspectState.config?.uiLabels?.welcomeBadge ?? "GETTING STARTED")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(getConfigurableAccentColor())
+                            .foregroundStyle(getConfigurableAccentColor())
                             .textCase(.uppercase)
                             .tracking(1.0)
                             .padding(.horizontal, 8)
@@ -995,14 +1019,14 @@ struct Preset9View: View, InspectLayoutProtocol {
                     VStack(alignment: .leading, spacing: 14) {  // Increased spacing
                         Text(inspectState.config?.uiLabels?.welcomeParagraph1 ?? "This comprehensive guide will walk you through all the important information, settings, and steps you need to know.")
                             .font(.system(size: 15, weight: .regular))
-                            .foregroundColor(.white.opacity(0.95))
+                            .foregroundStyle(.white.opacity(0.95))
                             .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
                             .lineSpacing(5)  // Better line spacing
 
                         Text(inspectState.config?.uiLabels?.welcomeParagraph2 ?? "Take your time to read through each section carefully. Each step contains detailed information to help you understand the process.")
                             .font(.system(size: 13, weight: .regular))
-                            .foregroundColor(.white.opacity(0.85))
+                            .foregroundStyle(.white.opacity(0.85))
                             .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
                             .lineSpacing(4)  // Improved spacing
@@ -1080,7 +1104,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                             .font(.system(size: 14, weight: .bold))
                     }
                 }
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
                 .background(
@@ -1110,7 +1134,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                         Text(inspectState.config?.pickerLabels?.backButton ?? "Previous")
                             .font(.system(size: 14, weight: .medium))
                     }
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundStyle(.white.opacity(0.8))
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .background(
@@ -1128,7 +1152,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                     handleButton2Action()
                 }
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundStyle(.white.opacity(0.8))
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
                 .background(
@@ -1294,7 +1318,7 @@ struct Preset9View: View, InspectLayoutProtocol {
             } else {
                 Image(systemName: symbolName)
                     .font(.system(size: 140, weight: weight))
-                    .foregroundColor(color1)
+                    .foregroundStyle(color1)
             }
         }
     }
@@ -1323,11 +1347,11 @@ struct Preset9View: View, InspectLayoutProtocol {
             VStack(spacing: 20) {
                 Image(systemName: getMinimalIcon(for: currentPage))
                     .font(.system(size: 60, weight: .light))
-                    .foregroundColor(getConfigurableTextColor().opacity(0.6))
+                    .foregroundStyle(getConfigurableTextColor().opacity(0.6))
                 
                 Text("Step \(currentPage + 1)")
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(getConfigurableTextColor().opacity(0.8))
+                    .foregroundStyle(getConfigurableTextColor().opacity(0.8))
             }
         }
         .frame(width: size.width, height: size.height)  // Use the provided size which already accounts for borders
@@ -1337,7 +1361,7 @@ struct Preset9View: View, InspectLayoutProtocol {
     private func compactStatusBadge() -> some View {
         Image(systemName: getStatusIcon())
             .font(.system(size: 16, weight: .bold))
-            .foregroundColor(.white)
+            .foregroundStyle(.white)
             .frame(width: 32, height: 32)
             .background(
                 Circle()
@@ -1405,11 +1429,11 @@ struct Preset9View: View, InspectLayoutProtocol {
                     VStack(spacing: 30) {
                         Image(systemName: "sparkles")
                             .font(.system(size: 120, weight: .thin))
-                            .foregroundColor(getConfigurableTextColor())
+                            .foregroundStyle(getConfigurableTextColor())
                         
                         Text("Welcome")
                             .font(.system(size: 48, weight: .thin))
-                            .foregroundColor(getConfigurableTextColor())
+                            .foregroundStyle(getConfigurableTextColor())
                     }
                 }
                 .frame(width: geometry.size.width, height: geometry.size.height)
@@ -1428,18 +1452,18 @@ struct Preset9View: View, InspectLayoutProtocol {
                 // Large background icon
                 Image(systemName: getMinimalIcon(for: currentPage))
                     .font(.system(size: min(width, height) * 0.3, weight: .ultraLight))
-                    .foregroundColor(getConfigurableTextColor().opacity(0.1))
+                    .foregroundStyle(getConfigurableTextColor().opacity(0.1))
                     .offset(x: width * 0.2, y: -height * 0.1)
                 
                 // Content
                 VStack(spacing: 24) {
                     Image(systemName: getMinimalIcon(for: currentPage))
                         .font(.system(size: 80, weight: .light))
-                        .foregroundColor(getConfigurableTextColor())
+                        .foregroundStyle(getConfigurableTextColor())
                     
                     Text("Step \(currentPage + 1)")
                         .font(.system(size: 32, weight: .light))
-                        .foregroundColor(getConfigurableTextColor())
+                        .foregroundStyle(getConfigurableTextColor())
                 }
             }
         }
@@ -1452,12 +1476,12 @@ struct Preset9View: View, InspectLayoutProtocol {
             // Status icon
             Image(systemName: getStatusIcon())
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
 
             // Status text
             Text(getStatusText())
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
 
             // Subtle step type badge (if specified)
             if let item = currentPageItem, let stepType = item.stepType {
@@ -1506,11 +1530,11 @@ struct Preset9View: View, InspectLayoutProtocol {
                     VStack(spacing: 20) {
                         Image(systemName: getMinimalIcon(for: currentPage))
                             .font(.system(size: 60, weight: .ultraLight))
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundStyle(.white.opacity(0.7))
                         
                         Text("Step \(currentPage + 1)")
                             .font(.system(size: 24, weight: .light))
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundStyle(.white.opacity(0.8))
                     }
                 )
                 .overlay(
@@ -1630,14 +1654,14 @@ struct Preset9View: View, InspectLayoutProtocol {
             if let item = currentPageItem {
                 Text(item.displayName)
                     .font(.system(size: 28, weight: .light))
-                    .foregroundColor(getConfigurableTextColor())
+                    .foregroundStyle(getConfigurableTextColor())
                     .multilineTextAlignment(.center)
                     .animation(.easeInOut(duration: 0.3), value: currentPage)
 
                 if let subtitle = item.subtitle {
                     Text(subtitle)
                         .font(.system(size: 17, weight: .regular))
-                        .foregroundColor(getConfigurableTextColor().opacity(0.7))
+                        .foregroundStyle(getConfigurableTextColor().opacity(0.7))
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
                         .animation(.easeInOut(duration: 0.3), value: currentPage)
@@ -1645,12 +1669,12 @@ struct Preset9View: View, InspectLayoutProtocol {
             } else {
                 Text("Get Started")
                     .font(.system(size: 28, weight: .light))
-                    .foregroundColor(getConfigurableTextColor())
+                    .foregroundStyle(getConfigurableTextColor())
                     .multilineTextAlignment(.center)
 
                 Text("Follow the steps to complete setup")
                     .font(.system(size: 17, weight: .regular))
-                    .foregroundColor(getConfigurableTextColor().opacity(0.7))
+                    .foregroundStyle(getConfigurableTextColor().opacity(0.7))
                     .multilineTextAlignment(.center)
             }
         }
@@ -1668,7 +1692,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                     handleButton2Action()
                 }
                 .font(.system(size: 17, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundStyle(.white.opacity(0.8))
                 .frame(height: 50)
                 .padding(.horizontal, 24)
                 .background(Color.white.opacity(0.15))
@@ -1682,7 +1706,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                     navigateForward()
                 }
                 .font(.system(size: 17, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundStyle(.white.opacity(0.8))
                 .frame(height: 50)
                 .padding(.horizontal, 24)
                 .background(Color.white.opacity(0.15))
@@ -1753,7 +1777,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                             .font(.system(size: 15, weight: .medium))
                     }
                 }
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
                 .frame(height: 50)
                 .padding(.horizontal, 32)
                 .background(
@@ -1827,7 +1851,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                 // Single color symbol
                 Image(systemName: symbolName)
                     .font(.system(size: 100, weight: weight))
-                    .foregroundColor(color1)
+                    .foregroundStyle(color1)
             }
         }
     }
@@ -1863,7 +1887,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                         VStack {
                             Image(systemName: getPlaceholderIcon(for: currentPage))
                                 .font(.system(size: 60))
-                                .foregroundColor(.blue.opacity(0.6))
+                                .foregroundStyle(.blue.opacity(0.6))
                             
                             Text("Step \(currentPage + 1)")
                                 .font(.title2)
@@ -1912,11 +1936,11 @@ struct Preset9View: View, InspectLayoutProtocol {
                                 Text("Step \(currentPage + 1)")
                                     .font(.title2)
                                     .fontWeight(.semibold)
-                                    .foregroundColor(.primary)
+                                    .foregroundStyle(.primary)
                                 
                                 Text(getStepDescription(for: currentPage, itemName: item.displayName))
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(.secondary)
                                     .multilineTextAlignment(.center)
                             }
                         }
@@ -2619,11 +2643,11 @@ private struct FullscreenImageView: View {
                     VStack(spacing: 20) {
                         Image(systemName: "photo")
                             .font(.system(size: 60, weight: .light))
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundStyle(.white.opacity(0.6))
                         
                         Text("Image not available")
                             .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundStyle(.white.opacity(0.8))
                     }
                 }
             )
@@ -2636,7 +2660,7 @@ private struct FullscreenImageView: View {
             }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .frame(width: 40, height: 40)
                     .background(
                         Circle()
@@ -2676,11 +2700,11 @@ private struct LeftPanelFullscreenImageView: View {
                     VStack(spacing: 20) {
                         Image(systemName: "photo")
                             .font(.system(size: 60, weight: .light))
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundStyle(.white.opacity(0.6))
                         
                         Text("Image not available")
                             .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundStyle(.white.opacity(0.8))
                     }
                 }
             )
@@ -2696,7 +2720,7 @@ private struct LeftPanelFullscreenImageView: View {
             }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .frame(width: 32, height: 32)
                     .background(
                         Circle()
