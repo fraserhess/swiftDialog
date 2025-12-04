@@ -1257,7 +1257,6 @@ struct Preset9View: View, InspectLayoutProtocol {
         modernActionButtons()
     }
 
-    @ViewBuilder
     private func sfSymbolMainDisplay(from iconPath: String) -> some View {
         // Parse SF Symbol for main display
         let components = iconPath.components(separatedBy: ",")
@@ -1300,7 +1299,7 @@ struct Preset9View: View, InspectLayoutProtocol {
         }
     }
 
-    @ViewBuilder
+    // swiftlint:disable:next function_body_length
     private func modernImagePlaceholder(for item: InspectConfig.ItemConfig, size: CGSize) -> some View {
         ZStack {
             // Background with proper sizing that accounts for the border

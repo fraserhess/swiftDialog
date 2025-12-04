@@ -48,7 +48,7 @@ struct Preset2View: View, InspectLayoutProtocol {
 
                 // Title below banner
                 Text(inspectState.uiConfiguration.windowTitle)
-                    .font(.largeTitle)
+                    .font(.title)
                     .fontWeight(.bold)
                     .multilineTextAlignment(.center)
                     .padding(.top, 20 * scaleFactor)
@@ -56,42 +56,47 @@ struct Preset2View: View, InspectLayoutProtocol {
             } else {
                 // Original icon display (when no banner is set)
                 VStack(spacing: 20 * scaleFactor) {
-                    // Main icon - larger for Setup Manager style
-                    IconView(image: getMainIconPath(), defaultImage: "briefcase.fill", defaultColour: "accent")
-                        .frame(maxHeight: 120 * scaleFactor)
-                        .onAppear { iconCache.cacheMainIcon(for: inspectState) }
+                    // Main icon - DOMINANT visual element with FIXED height
+                    IconView(
+                        image: getMainIconPath(),
+                        overlay: iconCache.getOverlayIconPath(for: inspectState),
+                        defaultImage: "briefcase.fill",
+                        defaultColour: "accent"
+                    )
+                    .frame(height: 120 * scaleFactor)
+                    .onAppear { iconCache.cacheMainIcon(for: inspectState) }
 
-                    // Welcome title
+                    // Title - positioned below icon, centered
                     Text(inspectState.uiConfiguration.windowTitle)
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
+                        .font(.title2)
+                        .fontWeight(.semibold)
                         .multilineTextAlignment(.center)
                 }
+                .frame(maxWidth: .infinity)
                 .padding(.top, 40 * scaleFactor)
-                .padding(.bottom, 20 * scaleFactor)
             }
 
             // Rotating side messages - always visible
             if let currentMessage = inspectState.getCurrentSideMessage() {
                 Text(currentMessage)
-                    .font(.system(size: 14 * scaleFactor))
+                    .font(.system(size: 11 * scaleFactor))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(4)
-                    .padding(.horizontal, 60 * scaleFactor)
-                    .frame(minHeight: 60 * scaleFactor)
+                    .padding(.horizontal, 50 * scaleFactor)
+                    .frame(minHeight: 45 * scaleFactor)
                     .animation(.easeInOut(duration: InspectConstants.standardAnimationDuration), value: inspectState.uiConfiguration.currentSideMessageIndex)
             }
 
             // App cards with navigation arrows
-            VStack(spacing: 8 * scaleFactor) {
-                HStack(spacing: 20 * scaleFactor) {
+            VStack(spacing: 6 * scaleFactor) {
+                HStack(spacing: 16 * scaleFactor) {
                     // Left arrow
                     Button(action: {
                         scrollLeft()
                     }) {
                         Image(systemName: "chevron.left.circle.fill")
-                            .font(.system(size: 32 * scaleFactor))
+                            .font(.system(size: 28 * scaleFactor))
                             .foregroundColor(canScrollLeft() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
                     }
                     .disabled(!canScrollLeft())
@@ -132,7 +137,7 @@ struct Preset2View: View, InspectLayoutProtocol {
                         scrollRight()
                     }) {
                         Image(systemName: "chevron.right.circle.fill")
-                            .font(.system(size: 32 * scaleFactor))
+                            .font(.system(size: 28 * scaleFactor))
                             .foregroundColor(canScrollRight() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
                     }
                     .disabled(!canScrollRight())
@@ -142,6 +147,7 @@ struct Preset2View: View, InspectLayoutProtocol {
             }
 
             Spacer()
+                .frame(maxHeight: 30 * scaleFactor)
 
             // Bottom progress section
             VStack(spacing: 12) {
@@ -156,7 +162,7 @@ struct Preset2View: View, InspectLayoutProtocol {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-            .padding(.vertical, 20 * scaleFactor)
+            .padding(.vertical, 16 * scaleFactor)
 
             // Bottom buttons
             HStack {
@@ -196,12 +202,16 @@ struct Preset2View: View, InspectLayoutProtocol {
                         .opacity((inspectState.configurationSource == .testData || inspectState.completedItems.count == inspectState.items.count) ? 1.0 : 0.0)
                     }
 
-                    // Main action button
+                    // Main action button - uses finalButtonText with fallback chain
+                    let finalButtonText = inspectState.config?.finalButtonText ??
+                                         inspectState.config?.button1Text ??
+                                         (inspectState.buttonConfiguration.button1Text.isEmpty ? "Continue" : inspectState.buttonConfiguration.button1Text)
+
                     Button(action: {
-                        writeLog("Preset2LayoutServiceBased: User clicked button1", logLevel: .info)
+                        writeLog("Preset2LayoutServiceBased: User clicked button1 (\(finalButtonText))", logLevel: .info)
                         exit(0)
                     }) {
-                        Text(inspectState.buttonConfiguration.button1Text)
+                        Text(finalButtonText)
                     }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
@@ -211,7 +221,7 @@ struct Preset2View: View, InspectLayoutProtocol {
                 }
             }
             .padding(.horizontal, 40 * scaleFactor)
-            .padding(.bottom, 30 * scaleFactor)
+            .padding(.bottom, 24 * scaleFactor)
         }
         .frame(width: windowSize.width, height: windowSize.height)
         .background(Color(NSColor.windowBackgroundColor))

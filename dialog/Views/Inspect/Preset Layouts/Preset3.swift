@@ -46,9 +46,13 @@ struct Preset3View: View, InspectLayoutProtocol {
                             // Note: button2 is always enabled when visible
                         }
                         
-                        // Button 1 (Primary) - Exit code 0
-                        Button(inspectState.buttonConfiguration.button1Text) {
-                            writeLog("Preset3LayoutServiceBased: User clicked button1 (\(inspectState.buttonConfiguration.button1Text)) - exiting with code 0", logLevel: .info)
+                        // Button 1 (Primary) - Exit code 0 - uses finalButtonText with fallback chain
+                        let finalButtonText = inspectState.config?.finalButtonText ??
+                                             inspectState.config?.button1Text ??
+                                             (inspectState.buttonConfiguration.button1Text.isEmpty ? "Continue" : inspectState.buttonConfiguration.button1Text)
+
+                        Button(finalButtonText) {
+                            writeLog("Preset3LayoutServiceBased: User clicked button1 (\(finalButtonText)) - exiting with code 0", logLevel: .info)
                             exit(0)
                         }
                         .keyboardShortcut(.defaultAction)
@@ -86,8 +90,15 @@ struct Preset3View: View, InspectLayoutProtocol {
 
                 // Company icon section - more compact
                 HStack(spacing: 16) {
-                    IconView(image: iconCache.getMainIconPath(for: inspectState), sfPaddingEnabled: false, corners: false, defaultImage: "building.2.fill", defaultColour: "accent")
-                        .frame(width: 100 * scaleFactor, height: 100 * scaleFactor)
+                    IconView(
+                        image: iconCache.getMainIconPath(for: inspectState),
+                        overlay: iconCache.getOverlayIconPath(for: inspectState),
+                        sfPaddingEnabled: false,
+                        corners: false,
+                        defaultImage: "building.2.fill",
+                        defaultColour: "accent"
+                    )
+                    .frame(width: 100 * scaleFactor, height: 100 * scaleFactor)
                         // Border removed
                         .onAppear {
                             iconCache.cacheMainIcon(for: inspectState)

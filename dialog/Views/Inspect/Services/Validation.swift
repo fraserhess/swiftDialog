@@ -93,17 +93,28 @@ class Validation: ObservableObject {
             for _ in 0..<min(maxConcurrency, items.count) where currentIndex < items.count {
                 let item = items[currentIndex]
                 currentIndex += 1
+<<<<<<< HEAD
                 
                 group.addTask(priority: .userInitiated) { [weak self] in
                     guard let self = self else { return (item.id, false) }
                     
+=======
+
+                group.addTask(priority: .userInitiated) { [weak self] in
+                    guard let self = self else { return (item.id, false) }
+
+>>>>>>> 9f7841e995376e14f4dcab596c3b54076b0d9cfe
                     // Add timeout protection for individual validations
                     let result = await withTimeout(seconds: 10.0) { [weak self] in
                         guard let self = self else { return ValidationResult(itemId: item.id, isValid: false, validationType: .fileExistence, details: nil) }
                         let request = ValidationRequest(item: item, plistSources: plistSources)
                         return await self.validateItemCachedAsync(request)
                     }
+<<<<<<< HEAD
                     
+=======
+
+>>>>>>> 9f7841e995376e14f4dcab596c3b54076b0d9cfe
                     return (item.id, result?.isValid ?? false)
                 }
             }

@@ -32,8 +32,13 @@ struct Preset5View: View, InspectLayoutProtocol {
             VStack(spacing: 20 * scale) {
                 // Icon and Title - Larger and more prominent
                 HStack(spacing: 20 * scale) {
-                    IconView(image: iconCache.getMainIconPath(for: inspectState), defaultImage: "shield.checkered", defaultColour: "accent")
-                        .frame(width: 64 * scale, height: 64 * scale)
+                    IconView(
+                        image: iconCache.getMainIconPath(for: inspectState),
+                        overlay: iconCache.getOverlayIconPath(for: inspectState),
+                        defaultImage: "shield.checkered",
+                        defaultColour: "accent"
+                    )
+                    .frame(width: 64 * scale, height: 64 * scale)
                         .onAppear { iconCache.cacheMainIcon(for: inspectState) }
                     
                     VStack(alignment: .leading, spacing: 4 * scale) {
@@ -1601,16 +1606,9 @@ struct CategoryHelpPopover: View {
             }
         }
         
-        // Then check compliance labels (new location)
+        // Then check compliance labels
         if let complianceLabels = inspectState.config?.complianceLabels {
             if let complianceStatus = complianceLabels.complianceStatus {
-                return complianceStatus
-            }
-        }
-
-        // Legacy: Check old uiLabels location for backward compatibility
-        if let uiLabels = inspectState.config?.uiLabels {
-            if let complianceStatus = uiLabels.complianceStatus {
                 return complianceStatus
             }
         }
@@ -1629,16 +1627,9 @@ struct CategoryHelpPopover: View {
             }
         }
         
-        // Then check compliance labels (new location)
+        // Then check compliance labels
         if let complianceLabels = inspectState.config?.complianceLabels {
             if let recommendedActions = complianceLabels.recommendedActions {
-                return recommendedActions
-            }
-        }
-
-        // Legacy: Check old uiLabels location for backward compatibility
-        if let uiLabels = inspectState.config?.uiLabels {
-            if let recommendedActions = uiLabels.recommendedActions {
                 return recommendedActions
             }
         }
@@ -1648,7 +1639,7 @@ struct CategoryHelpPopover: View {
     }
     
     private func getChecksPassedText() -> String {
-        // Check for custom format in compliance labels (new location)
+        // Check for custom format in compliance labels
         if let complianceLabels = inspectState.config?.complianceLabels {
             if let checksPassed = complianceLabels.checksPassed {
                 // Replace placeholders with actual values
@@ -1658,16 +1649,6 @@ struct CategoryHelpPopover: View {
             }
         }
 
-        // Legacy: Check old uiLabels location for backward compatibility
-        if let uiLabels = inspectState.config?.uiLabels {
-            if let checksPassed = uiLabels.checksPassed {
-                // Replace placeholders with actual values
-                return checksPassed
-                    .replacingOccurrences(of: "{passed}", with: "\(category.passed)")
-                    .replacingOccurrences(of: "{total}", with: "\(category.total)")
-            }
-        }
-        
         // Default format
         return "\(category.passed) of \(category.total) checks passed"
     }

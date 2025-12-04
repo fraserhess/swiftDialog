@@ -109,6 +109,7 @@ struct InspectConfig: Codable {
     let pickerLabels: PickerLabels?         // Optional picker mode text customization (Preset8, Preset9, etc.)
 
     let iconBasePath: String?                // Icon base path for relative loading icon paths
+    let overlayicon: String?                  // Overlay icon for brand identity badges
     let rotatingImages: [String]?            // Array of image paths for image rotation
     let imageRotationInterval: Double?      // set interval for auto-rotation
     let imageShape: String?                  // rectangle, square, circle - used in preset6
@@ -196,7 +197,9 @@ struct InspectConfig: Codable {
         let guidanceTitle: String?      // Main title for the step by step workflow
         let guidanceContent: [GuidanceContent]? // Rich content blocks for the step
         let stepType: String?           // "info" | "confirmation" | "processing" | "completion"
-        let actionButtonText: String?   // Custom button text for this step for "confirmation" steps
+        let actionButtonText: String?   // Custom button text for this step's action (e.g., "Start", "Confirm", "Install")
+        let continueButtonText: String? // Custom button text after step completes to navigate to next step (e.g., "Next", "Proceed")
+        let finalButtonText: String?    // Custom button text when this step is complete (e.g., "Finish" for completion step)
         let processingDuration: Int?    // For processing steps: duration in seconds
         let processingMessage: String?  // Message shown during processing
 
@@ -285,6 +288,7 @@ struct InspectConfig: Codable {
         let content: String?            // The actual text content (or button label for type="button") - optional for status monitoring types
         let color: String?              // Optional color override (hex format)
         let bold: Bool?                 // Whether to display in bold
+        let visible: Bool?              // Show/hide this block dynamically (default: true) - can be updated via plistMonitor or update_guidance command
 
         // Image-specific fields (for type="image")
         let imageShape: String?         // "rectangle" | "square" | "circle" - shape/clipping for the image
@@ -428,30 +432,6 @@ struct InspectConfig: Codable {
         // Fallback messages
         let imageNotAvailable: String?      // Image error message (default: "Image not available")
 
-        // MARK: - DEPRECATED: Compliance Labels
-        // These fields are maintained for backward compatibility with Presets 1-4 configurations.
-        // Use the dedicated `complianceLabels` struct instead.
-
-        @available(*, deprecated, message: "Use complianceLabels.complianceStatus instead. Will be removed in v3.0.0")
-        let complianceStatus: String?
-
-        @available(*, deprecated, message: "Use complianceLabels.recommendedActions instead. Will be removed in v3.0.0")
-        let recommendedActions: String?
-
-        @available(*, deprecated, message: "Use complianceLabels.securityDetails instead. Will be removed in v3.0.0")
-        let securityDetails: String?
-
-        @available(*, deprecated, message: "Use complianceLabels.lastCheck instead. Will be removed in v3.0.0")
-        let lastCheck: String?
-
-        @available(*, deprecated, message: "Use complianceLabels.passed instead. Will be removed in v3.0.0")
-        let passed: String?
-
-        @available(*, deprecated, message: "Use complianceLabels.failed instead. Will be removed in v3.0.0")
-        let failed: String?
-
-        @available(*, deprecated, message: "Use complianceLabels.checksPassed instead. Will be removed in v3.0.0")
-        let checksPassed: String?
     }
 
     /// Compliance dashboard labels (Preset5 specific)
@@ -651,6 +631,7 @@ struct InspectConfig: Codable {
         try container.encodeIfPresent(bannerHeight, forKey: .bannerHeight)
         try container.encodeIfPresent(bannerTitle, forKey: .bannerTitle)
         try container.encodeIfPresent(iconBasePath, forKey: .iconBasePath)
+        try container.encodeIfPresent(overlayicon, forKey: .overlayicon)
         try container.encodeIfPresent(rotatingImages, forKey: .rotatingImages)
         try container.encodeIfPresent(imageRotationInterval, forKey: .imageRotationInterval)
         try container.encodeIfPresent(imageShape, forKey: .imageShape)
@@ -734,6 +715,7 @@ struct InspectConfig: Codable {
 
         // Preset6 specific properties
         iconBasePath = try container.decodeIfPresent(String.self, forKey: .iconBasePath)
+        overlayicon = try container.decodeIfPresent(String.self, forKey: .overlayicon)
         rotatingImages = try container.decodeIfPresent([String].self, forKey: .rotatingImages)
         imageRotationInterval = try container.decodeIfPresent(Double.self, forKey: .imageRotationInterval)
         imageShape = try container.decodeIfPresent(String.self, forKey: .imageShape)
@@ -772,7 +754,7 @@ struct InspectConfig: Codable {
         case buttonStyle
         case autoEnableButton, autoEnableButtonText, hideSystemDetails, observeOnly, colorThresholds, plistSources, categoryHelp, uiLabels, complianceLabels, pickerConfig, instructionBanner, pickerLabels, items
         // Preset6 specific properties
-        case iconBasePath, rotatingImages, imageRotationInterval, imageShape, imageSyncMode, stepStyle, listIndicatorStyle
+        case iconBasePath, overlayicon, rotatingImages, imageRotationInterval, imageShape, imageSyncMode, stepStyle, listIndicatorStyle
         // Extra button configuration
         case extraButton
         // Progress bar configuration
