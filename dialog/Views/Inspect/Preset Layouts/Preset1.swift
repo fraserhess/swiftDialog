@@ -28,9 +28,14 @@ struct Preset1View: View, InspectLayoutProtocol {
                 Spacer()
                     .frame(height: 80)  // Push icon down to center it better
 
-                IconView(image: iconCache.getMainIconPath(for: inspectState), defaultImage: "apps.iphone.badge.plus", defaultColour: "accent")
-                    .frame(width: 220 * scaleFactor, height: 220 * scaleFactor)
-                    .onAppear { iconCache.cacheMainIcon(for: inspectState) }
+                IconView(
+                    image: iconCache.getMainIconPath(for: inspectState),
+                    overlay: iconCache.getOverlayIconPath(for: inspectState),
+                    defaultImage: "apps.iphone.badge.plus",
+                    defaultColour: "accent"
+                )
+                .frame(width: 220 * scaleFactor, height: 220 * scaleFactor)
+                .onAppear { iconCache.cacheMainIcon(for: inspectState) }
 
                 // Progress bar
                 if !inspectState.items.isEmpty {

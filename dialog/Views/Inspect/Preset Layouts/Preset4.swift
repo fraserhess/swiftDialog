@@ -78,9 +78,14 @@ struct Preset4View: View, InspectLayoutProtocol {
         VStack(spacing: 8 * scaleFactor) {
             HStack(spacing: 15 * scaleFactor) {
                 // Compact logo
-                IconView(image: getMainIconPath(), defaultImage: "apps.iphone.badge.plus", defaultColour: "accent")
-                    .frame(width: 40 * scaleFactor, height: 40 * scaleFactor)
-                    .onAppear { iconCache.cacheMainIcon(for: inspectState) }
+                IconView(
+                    image: getMainIconPath(),
+                    overlay: iconCache.getOverlayIconPath(for: inspectState),
+                    defaultImage: "apps.iphone.badge.plus",
+                    defaultColour: "accent"
+                )
+                .frame(width: 40 * scaleFactor, height: 40 * scaleFactor)
+                .onAppear { iconCache.cacheMainIcon(for: inspectState) }
 
                 // Compact title only
                 Text(inspectState.uiConfiguration.windowTitle)

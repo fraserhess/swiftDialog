@@ -39,6 +39,7 @@ struct UIConfiguration {
     var statusMessage: String = "Inspection active - Items will appear as they are detected"
     var iconPath: String?
     var iconBasePath: String?  // Base path for relative icon paths
+    var overlayIcon: String?   // Overlay icon for brand identity badges
     var sideMessages: [String] = []
     var currentSideMessageIndex: Int = 0
     var popupButtonText: String = "Install details..."
@@ -1225,6 +1226,18 @@ class InspectState: ObservableObject, FileMonitorDelegate {
                 onUpdate(itemId, monitor.guidanceBlockIndex, monitor.targetProperty, mappedInitialValue)
                 writeLog("InspectState: Monitor \(monitorIndex) set initial value for '\(itemId)': \(mappedInitialValue)", logLevel: .info)
 
+                // If there's a completion trigger, also update the 'state' property based on initial evaluation
+                if let trigger = monitor.completionTrigger {
+                    let conditionMet = self.evaluateTriggerCondition(
+                        condition: trigger.condition,
+                        currentValue: initialValue,
+                        expectedValue: trigger.value
+                    )
+                    let stateValue = conditionMet ? "pass" : "fail"
+                    onUpdate(itemId, monitor.guidanceBlockIndex, "state", stateValue)
+                    writeLog("InspectState: Monitor \(monitorIndex) set initial state for '\(itemId)': \(stateValue) (condition: \(trigger.condition))", logLevel: .info)
+                }
+
                 // Start periodic timer
                 let timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(monitor.recheckInterval), repeats: true) { [weak self] _ in
                     guard let self = self else { return }
@@ -1246,13 +1259,18 @@ class InspectState: ObservableObject, FileMonitorDelegate {
                             // Trigger callback with update info
                             onUpdate(itemId, monitor.guidanceBlockIndex, monitor.targetProperty, mappedValue)
 
-                            // Check for completion trigger
+                            // Check for completion trigger and update state
                             if let trigger = monitor.completionTrigger {
                                 let conditionMet = self.evaluateTriggerCondition(
                                     condition: trigger.condition,
                                     currentValue: currentValue,
                                     expectedValue: trigger.value
                                 )
+
+                                // Always update state based on condition result
+                                let stateValue = conditionMet ? "pass" : "fail"
+                                onUpdate(itemId, monitor.guidanceBlockIndex, "state", stateValue)
+                                writeLog("InspectState: Monitor updated state for '\(itemId)': \(stateValue)", logLevel: .debug)
 
                                 if conditionMet {
                                     writeLog("InspectState: Completion trigger met for '\(itemId)' - condition: \(trigger.condition), result: \(trigger.result)", logLevel: .info)
@@ -1318,6 +1336,18 @@ class InspectState: ObservableObject, FileMonitorDelegate {
             }
         }
 
+        // Handle "notExists" evaluation - pass when file/path does NOT exist
+        if let evaluation = monitor.evaluation?.lowercased(), evaluation == "notexists" || evaluation == "not_exists" {
+            let expandedPath = (monitor.path as NSString).expandingTildeInPath
+            let fileExists = FileManager.default.fileExists(atPath: expandedPath)
+
+            if fileExists {
+                return "Present"  // File exists = fail condition for notExists
+            } else {
+                return "Not detected"  // File doesn't exist = pass condition for notExists
+            }
+        }
+
         // Standard value reading for other evaluation types
         if useUserDefaults {
             // Use full path support - pathOrDomain detects if it's a full path or domain
@@ -1349,6 +1379,74 @@ class InspectState: ObservableObject, FileMonitorDelegate {
         case "exists":
             // Value exists if it's not empty and not the "(not set)" placeholder
             return !currentValue.isEmpty && currentValue != "(not set)" && currentValue != "Not detected"
+
+        case "notexists", "not_exists":
+            // Pass when file/path does NOT exist (value is "Not detected")
+            return currentValue == "Not detected"
+
+        case "withinseconds", "within_seconds", "recentseconds", "recent":
+            // Check if timestamp is within X seconds of now
+            // expectedValue = number of seconds (e.g., "300" for 5 minutes)
+            guard let expected = expectedValue, let maxSeconds = Double(expected) else {
+                writeLog("InspectState: withinSeconds requires numeric expectedValue (seconds)", logLevel: .error)
+                return false
+            }
+
+            // Try to parse the current value as a date
+            // Supports: ISO8601, plist date format, or Unix timestamp
+            let now = Date()
+            var parsedDate: Date?
+
+            // Try Unix timestamp first (seconds since 1970)
+            if let timestamp = Double(currentValue) {
+                parsedDate = Date(timeIntervalSince1970: timestamp)
+            }
+
+            // Try ISO8601 format
+            if parsedDate == nil {
+                let iso8601Formatter = ISO8601DateFormatter()
+                iso8601Formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                parsedDate = iso8601Formatter.date(from: currentValue)
+
+                // Try without fractional seconds
+                if parsedDate == nil {
+                    iso8601Formatter.formatOptions = [.withInternetDateTime]
+                    parsedDate = iso8601Formatter.date(from: currentValue)
+                }
+            }
+
+            // Try common plist date formats
+            if parsedDate == nil {
+                let dateFormatter = DateFormatter()
+                dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+
+                // Try various formats
+                let formats = [
+                    "yyyy-MM-dd'T'HH:mm:ssZ",
+                    "yyyy-MM-dd HH:mm:ss Z",
+                    "yyyy-MM-dd HH:mm:ss",
+                    "MMM d, yyyy 'at' h:mm:ss a",
+                    "MMM d, yyyy, h:mm:ss a"
+                ]
+
+                for format in formats {
+                    dateFormatter.dateFormat = format
+                    if let date = dateFormatter.date(from: currentValue) {
+                        parsedDate = date
+                        break
+                    }
+                }
+            }
+
+            guard let date = parsedDate else {
+                writeLog("InspectState: withinSeconds could not parse date from '\(currentValue)'", logLevel: .error)
+                return false
+            }
+
+            let secondsAgo = now.timeIntervalSince(date)
+            let isWithin = secondsAgo >= 0 && secondsAgo <= maxSeconds
+            writeLog("InspectState: withinSeconds check - date=\(date), secondsAgo=\(secondsAgo), maxSeconds=\(maxSeconds), pass=\(isWithin)", logLevel: .debug)
+            return isWithin
 
         case "match", "contains":
             guard let expected = expectedValue else { return false }
@@ -1424,6 +1522,18 @@ class InspectState: ObservableObject, FileMonitorDelegate {
                 onUpdate(itemId, monitor.guidanceBlockIndex, monitor.targetProperty, mappedInitialValue)
                 writeLog("InspectState: JSON monitor \(monitorIndex) set initial value for '\(itemId)': \(mappedInitialValue)", logLevel: .info)
 
+                // If there's a completion trigger, also update the 'state' property based on initial evaluation
+                if let trigger = monitor.completionTrigger {
+                    let conditionMet = self.evaluateTriggerCondition(
+                        condition: trigger.condition,
+                        currentValue: initialValue,
+                        expectedValue: trigger.value
+                    )
+                    let stateValue = conditionMet ? "pass" : "fail"
+                    onUpdate(itemId, monitor.guidanceBlockIndex, "state", stateValue)
+                    writeLog("InspectState: JSON monitor \(monitorIndex) set initial state for '\(itemId)': \(stateValue) (condition: \(trigger.condition))", logLevel: .info)
+                }
+
                 // Start periodic timer
                 let timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(monitor.recheckInterval), repeats: true) { [weak self] _ in
                     guard let self = self else { return }
@@ -1445,13 +1555,18 @@ class InspectState: ObservableObject, FileMonitorDelegate {
                             // Trigger callback with update info
                             onUpdate(itemId, monitor.guidanceBlockIndex, monitor.targetProperty, mappedValue)
 
-                            // Check for completion trigger
+                            // Check for completion trigger and update state
                             if let trigger = monitor.completionTrigger {
                                 let conditionMet = self.evaluateTriggerCondition(
                                     condition: trigger.condition,
                                     currentValue: currentValue,
                                     expectedValue: trigger.value
                                 )
+
+                                // Always update state based on condition result
+                                let stateValue = conditionMet ? "pass" : "fail"
+                                onUpdate(itemId, monitor.guidanceBlockIndex, "state", stateValue)
+                                writeLog("InspectState: JSON Monitor updated state for '\(itemId)': \(stateValue)", logLevel: .debug)
 
                                 if conditionMet {
                                     writeLog("InspectState: JSON completion trigger met for '\(itemId)' - condition: \(trigger.condition), result: \(trigger.result)", logLevel: .info)
@@ -1507,6 +1622,18 @@ class InspectState: ObservableObject, FileMonitorDelegate {
                 return Validation.shared.getJsonValue(path: monitor.path, key: monitor.key) ?? "Present"
             } else {
                 return "Not detected"
+            }
+        }
+
+        // Handle "notExists" evaluation - pass when file/path does NOT exist
+        if let evaluation = monitor.evaluation?.lowercased(), evaluation == "notexists" || evaluation == "not_exists" {
+            let expandedPath = (monitor.path as NSString).expandingTildeInPath
+            let fileExists = FileManager.default.fileExists(atPath: expandedPath)
+
+            if fileExists {
+                return "Present"  // File exists = fail condition for notExists
+            } else {
+                return "Not detected"  // File doesn't exist = pass condition for notExists
             }
         }
 

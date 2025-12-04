@@ -134,6 +134,26 @@ class PresetIconCache: ObservableObject {
         return mainIcon ?? ""
     }
 
+    func getOverlayIconPath(for state: InspectState) -> String {
+        guard let overlayIcon = state.uiConfiguration.overlayIcon, !overlayIcon.isEmpty else {
+            return ""
+        }
+
+        // Don't resolve SF Symbols or special keywords - pass them through directly
+        if iconPathHasIgnoredPrefixKeywords(for: overlayIcon) {
+            return overlayIcon
+        }
+
+        // Resolve path using iconBasePath
+        let resolvedPath = resolver.resolveImagePath(
+            overlayIcon,
+            basePath: state.uiConfiguration.iconBasePath,
+            fallbackIcon: nil
+        )
+
+        return resolvedPath ?? ""
+    }
+
     func getItemIconPath(for item: InspectConfig.ItemConfig, state: InspectState) -> String {
         if let cached = itemIcons[item.id] { return cached }
 
@@ -208,6 +228,11 @@ struct PresetCommonViews {
         spacing: CGFloat = 12,
         controlSize: ControlSize = .large
     ) -> some View {
+        // Determine final button text with proper fallback chain
+        let finalButtonText = state.config?.finalButtonText ??
+                             state.config?.button1Text ??
+                             (state.buttonConfiguration.button1Text.isEmpty ? "Continue" : state.buttonConfiguration.button1Text)
+
         HStack(spacing: spacing) {
             // Button 2 (Secondary) - show in demo mode or when all complete
             if (state.configurationSource == .testData || state.completedItems.count == state.items.count) &&
@@ -227,9 +252,9 @@ struct PresetCommonViews {
                 .controlSize(controlSize)
             }
 
-            // Button 1 (Primary)
-            Button(state.buttonConfiguration.button1Text) {
-                writeLog("Preset: User clicked button1 - exiting with code 0", logLevel: .info)
+            // Button 1 (Primary) - uses finalButtonText with fallback chain
+            Button(finalButtonText) {
+                writeLog("Preset: User clicked button1 (\(finalButtonText)) - exiting with code 0", logLevel: .info)
                 exit(0)
             }
             .keyboardShortcut(.defaultAction)
@@ -408,12 +433,16 @@ struct GuidanceContentView: View {
     }
 
     /// Group comparison-table blocks by category for collapsible rendering
+    /// Filters out blocks where visible == false
     private var groupedBlocks: [(category: String?, items: [InspectConfig.GuidanceContent])] {
         var groups: [(String?, [InspectConfig.GuidanceContent])] = []
         var currentCategory: String?
         var currentItems: [InspectConfig.GuidanceContent] = []
 
-        for block in contentBlocks {
+        // Filter out hidden blocks (visible == false)
+        let visibleBlocks = contentBlocks.filter { $0.visible != false }
+
+        for block in visibleBlocks {
             if block.type == "comparison-table" && block.category != nil {
                 // Comparison table with category
                 if block.category != currentCategory {
@@ -578,8 +607,8 @@ struct GuidanceContentView: View {
                             .font(.system(size: 13 * scaleFactor))
                             .foregroundColor(iconColor)
 
-                        // Native SwiftUI markdown support
-                        Text(try! AttributedString(markdown: resolvedContent, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
+                        // Native SwiftUI markdown support with fallback to plain text
+                        Text((try? AttributedString(markdown: resolvedContent, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(resolvedContent))
                             .font(.system(size: 13 * scaleFactor))
                             .foregroundColor(.primary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -590,8 +619,8 @@ struct GuidanceContentView: View {
                             .fill(backgroundColor)
                     )
                 } else {
-                    // Plain style without box
-                    Text(try! AttributedString(markdown: resolvedContent, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
+                    // Plain style without box, with fallback to plain text
+                    Text((try? AttributedString(markdown: resolvedContent, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(resolvedContent))
                         .font(.system(size: 13 * scaleFactor))
                         .foregroundColor(.primary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -639,9 +668,9 @@ struct GuidanceContentView: View {
             let (labelColor, valueFontSize, showBullet): (Color, CGFloat, Bool) = {
                 switch style {
                 case "success":
-                    return (Color(hex: "#34C759") ?? .green, 15, true)  // Green labels, larger values, with bullet
+                    return (Color(hex: "#34C759"), 15, true)  // Green labels, larger values, with bullet
                 case "table":
-                    return (Color(hex: "#34C759") ?? .green, 15, false)  // Green labels, larger values, no bullet
+                    return (Color(hex: "#34C759"), 15, false)  // Green labels, larger values, no bullet
                 default:
                     return (.secondary, 13, true)  // Default: grey labels, normal size, with bullet
                 }
@@ -1071,9 +1100,10 @@ struct GuidanceContentView: View {
                     customColor: customColor,
                     expectedColor: block.expectedColor.flatMap { Color(hex: $0) },
                     actualColor: block.actualColor.flatMap { Color(hex: $0) },
-                    scaleFactor: scaleFactor
+                    scaleFactor: scaleFactor,
+                    stateOverride: block.state
                 )
-                .id("comparison-\(label)-\(actual)-\(block.comparisonStyle ?? "stacked")")
+                .id("comparison-\(label)-\(actual)-\(block.state ?? "")-\(block.comparisonStyle ?? "stacked")")
             } else if appvars.debugMode {
                 Text("comparison-table requires 'expected' and 'actual' properties")
                     .font(.system(size: 11 * scaleFactor))
@@ -1104,6 +1134,8 @@ struct GuidanceContentView: View {
             let progressStyle = block.style ?? "indeterminate"
             let progressValue = block.progress ?? 0.0
             let progressLabel = block.label ?? block.content
+            // Auto-detect determinate mode: if progress value is set (non-zero), use determinate style
+            let isDeterminate = progressStyle == "determinate" || (block.progress != nil && progressValue > 0)
 
             VStack(alignment: .leading, spacing: 6 * scaleFactor) {
                 if let label = progressLabel, !label.isEmpty {
@@ -1112,7 +1144,7 @@ struct GuidanceContentView: View {
                         .foregroundColor(.secondary)
                 }
 
-                if progressStyle == "determinate" {
+                if isDeterminate {
                     // Determinate progress with value
                     ProgressView(value: progressValue)
                         .progressViewStyle(.linear)
@@ -1710,11 +1742,11 @@ struct StatusBadgeView: View {
         let lowercaseState = state.lowercased()
         switch lowercaseState {
         case "enabled", "active", "pass", "success", "valid", "enrolled", "connected", "on", "true", "yes":
-            return Color(hex: "#34C759") ?? .green
+            return Color(hex: "#34C759")
         case "disabled", "inactive", "fail", "failure", "invalid", "unenrolled", "disconnected", "off", "false", "no":
-            return Color(hex: "#FF3B30") ?? .red
+            return Color(hex: "#FF3B30")
         case "pending", "in-progress", "waiting", "unknown", "partial":
-            return Color(hex: "#FF9F0A") ?? .orange
+            return Color(hex: "#FF9F0A")
         default:
             return .secondary
         }
@@ -1788,9 +1820,24 @@ struct ComparisonTableView: View {
     let expectedColor: Color?
     let actualColor: Color?
     let scaleFactor: CGFloat
+    let stateOverride: String?  // Optional: "pass", "fail", "pending" to override auto-match
 
     /// Smart comparison that handles common edge cases
+    /// Can be overridden by stateOverride for evaluation types like withinSeconds, notExists
     private var isMatch: Bool {
+        // Check for explicit state override first
+        if let state = stateOverride?.lowercased() {
+            switch state {
+            case "pass", "passed", "success", "true", "yes", "enabled", "enrolled", "detected":
+                return true
+            case "fail", "failed", "failure", "false", "no", "disabled", "error", "not detected":
+                return false
+            default:
+                break  // Fall through to auto-detect
+            }
+        }
+
+        // Auto-detect based on string comparison
         let expectedNorm = normalizeForComparison(expected)
         let actualNorm = normalizeForComparison(actual)
         return expectedNorm == actualNorm
@@ -1803,11 +1850,8 @@ struct ComparisonTableView: View {
 
         // Remove common URL protocols
         let protocols = ["https://", "http://", "ftp://", "ftps://"]
-        for proto in protocols {
-            if normalized.hasPrefix(proto) {
-                normalized = String(normalized.dropFirst(proto.count))
-                break
-            }
+        if let proto = protocols.first(where: { normalized.hasPrefix($0) }) {
+            normalized = String(normalized.dropFirst(proto.count))
         }
 
         // Remove trailing slashes
@@ -1827,7 +1871,7 @@ struct ComparisonTableView: View {
             return .secondary
         }
 
-        return isMatch ? (Color(hex: "#34C759") ?? .green) : (Color(hex: "#FF3B30") ?? .red)
+        return isMatch ? Color(hex: "#34C759") : Color(hex: "#FF3B30")
     }
 
     /// Effective color for expected column (with override support)
@@ -2136,9 +2180,10 @@ struct ComparisonGroupView: View {
                                 customColor: customColor,
                                 expectedColor: comparison.expectedColor.flatMap { Color(hex: $0) },
                                 actualColor: comparison.actualColor.flatMap { Color(hex: $0) },
-                                scaleFactor: scaleFactor
+                                scaleFactor: scaleFactor,
+                                stateOverride: comparison.state
                             )
-                            .id("comparison-group-\(category)-\(index)-\(actual)")
+                            .id("comparison-group-\(category)-\(index)-\(actual)-\(comparison.state ?? "")")
                         }
                     }
                 }
@@ -2187,8 +2232,8 @@ struct PhaseTrackerView: View {
                     // Phase circle
                     ZStack {
                         Circle()
-                            .fill(isCompleted ? Color(hex: "#34C759") ?? .green :
-                                  isActive ? Color(hex: "#FF9F0A") ?? .orange :
+                            .fill(isCompleted ? Color(hex: "#34C759") :
+                                  isActive ? Color(hex: "#FF9F0A") :
                                   Color.secondary.opacity(0.3))
                             .frame(width: 28 * scaleFactor, height: 28 * scaleFactor)
 
@@ -2211,7 +2256,7 @@ struct PhaseTrackerView: View {
                     // Connector line (except for last item)
                     if index < phaseLabels.count - 1 {
                         Rectangle()
-                            .fill(phaseNum < currentPhase ? (Color(hex: "#34C759") ?? .green) : Color.secondary.opacity(0.3))
+                            .fill(phaseNum < currentPhase ? Color(hex: "#34C759") : Color.secondary.opacity(0.3))
                             .frame(width: 20 * scaleFactor, height: 2 * scaleFactor)
                     }
                 }
@@ -2237,7 +2282,7 @@ struct PhaseTrackerView: View {
 
             ProgressView(value: Double(currentPhase), total: Double(phaseLabels.count))
                 .progressViewStyle(LinearProgressViewStyle())
-                .tint(Color(hex: "#FF9F0A") ?? .orange)
+                .tint(Color(hex: "#FF9F0A"))
         }
         .padding(12 * scaleFactor)
     }
@@ -2255,8 +2300,8 @@ struct PhaseTrackerView: View {
                           isActive ? "square.fill" :
                           "square")
                         .font(.system(size: 16 * scaleFactor))
-                        .foregroundColor(isCompleted ? (Color(hex: "#34C759") ?? .green) :
-                                       isActive ? (Color(hex: "#FF9F0A") ?? .orange) :
+                        .foregroundColor(isCompleted ? Color(hex: "#34C759") :
+                                       isActive ? Color(hex: "#FF9F0A") :
                                        .secondary)
 
                     Text(phaseLabels[index])
@@ -2682,9 +2727,9 @@ struct ImageCarouselView: View {
 
 // Helper for type-erased shapes
 private struct AnyShape: Shape {
-    private let _path: (CGRect) -> Path
+    private let _path: @Sendable (CGRect) -> Path
 
-    init<S: Shape>(_ shape: S) {
+    init<S: Shape>(_ shape: S) where S: Sendable {
         _path = { rect in
             shape.path(in: rect)
         }

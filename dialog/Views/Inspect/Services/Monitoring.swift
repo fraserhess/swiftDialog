@@ -362,13 +362,9 @@ class Monitoring {
             }
         } else {
             // Fallback to simple parsing if index-based parsing fails
-            if line.contains("success") || line.contains("installed") {
-                for item in items {
-                    if line.lowercased().contains(item.id.lowercased()) {
-                        delegate?.monitoringService(self, didDetectInstallation: item.id)
-                        break
-                    }
-                }
+            if line.contains("success") || line.contains("installed"),
+               let matchedItem = items.first(where: { line.lowercased().contains($0.id.lowercased()) }) {
+                delegate?.monitoringService(self, didDetectInstallation: matchedItem.id)
             }
         }
     }

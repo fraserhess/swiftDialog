@@ -347,14 +347,17 @@ struct Preset6View: View, InspectLayoutProtocol {
             VStack(spacing: 12 * scaleFactor) {
                 // Larger logo section for better brand visibility
                 let iconPath = iconCache.getMainIconPath(for: inspectState)
+                let overlayPath = iconCache.getOverlayIconPath(for: inspectState)
 
                 // Debug: Check what we're getting
                 let _ = writeLog("Preset6: Icon path from cache: '\(iconPath)'", logLevel: .debug)
+                let _ = writeLog("Preset6: Overlay path from cache: '\(overlayPath)'", logLevel: .debug)
                 let _ = writeLog("Preset6: Config iconPath: '\(inspectState.uiConfiguration.iconPath ?? "nil")'", logLevel: .debug)
                 let _ = writeLog("Preset6: Config iconBasePath: '\(inspectState.uiConfiguration.iconBasePath ?? "nil")'", logLevel: .debug)
 
                 IconView(
                     image: !iconPath.isEmpty ? iconPath : (inspectState.uiConfiguration.iconPath ?? ""),
+                    overlay: overlayPath,
                     defaultImage: "gearshape.2.fill",
                     defaultColour: "blue"
                 )
@@ -554,9 +557,6 @@ struct Preset6View: View, InspectLayoutProtocol {
             // Help button integrated into banner (top-right)
             if let extraButton = inspectState.config?.extraButton,
                extraButton.visible ?? true {
-                let iconName = (extraButton.icon ?? "questionmark.circle.fill")
-                    .replacingOccurrences(of: "sf=", with: "")
-
                 Button(action: {
                     handleExtraButtonAction(extraButton)
                 }) {
@@ -569,7 +569,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                         // Text fallback with highlight color (works where SF Symbols don't)
                         Text("?")
                             .font(.system(size: 22 * scaleFactor, weight: .bold))
-                            .foregroundColor(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor) ?? .blue)
+                            .foregroundColor(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor))
                     }
                     .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
@@ -627,9 +627,6 @@ struct Preset6View: View, InspectLayoutProtocol {
             if !hasBanner,
                let extraButton = inspectState.config?.extraButton,
                extraButton.visible ?? true {
-                let iconName = (extraButton.icon ?? "questionmark.circle.fill")
-                    .replacingOccurrences(of: "sf=", with: "")
-
                 Button(action: {
                     handleExtraButtonAction(extraButton)
                 }) {
@@ -642,7 +639,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                         // Text fallback with highlight color (works where SF Symbols don't)
                         Text("?")
                             .font(.system(size: 22 * scaleFactor, weight: .bold))
-                            .foregroundColor(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor) ?? .blue)
+                            .foregroundColor(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor))
                     }
                     .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
@@ -930,6 +927,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                 content: block.content,
                 color: block.color,
                 bold: block.bold,
+                visible: block.visible,
                 imageShape: block.imageShape,
                 imageWidth: block.imageWidth,
                 imageBorder: block.imageBorder,
@@ -1002,8 +1000,9 @@ struct Preset6View: View, InspectLayoutProtocol {
         return InspectConfig.GuidanceContent(
             type: block.type,
             content: dynamicState.dynamicGuidanceContent[itemId]?[index] ?? block.content,
-            color: block.color,
-            bold: block.bold,
+            color: props["color"] ?? block.color,
+            bold: props["bold"].flatMap { Bool($0) } ?? block.bold,
+            visible: props["visible"].flatMap { Bool($0) } ?? block.visible,
             imageShape: block.imageShape,
             imageWidth: block.imageWidth,
             imageBorder: block.imageBorder,
@@ -1295,8 +1294,12 @@ struct Preset6View: View, InspectLayoutProtocol {
                     .disabled(!isFormValid || isObserveOnly || shouldBlockNavigation || isProcessing)
                 } else if !allStepsComplete {
                     // Step completed - show Continue to next step (blocked if any step is processing)
-                    Button(inspectState.config?.button1Text ??
-                           (inspectState.buttonConfiguration.button1Text.isEmpty ? "Continue" : inspectState.buttonConfiguration.button1Text)) {
+                    // Check for per-step continueButtonText first, then fall back to config level
+                    let continueText = currentItem.continueButtonText ??
+                                      inspectState.config?.button1Text ??
+                                      (inspectState.buttonConfiguration.button1Text.isEmpty ? "Continue" : inspectState.buttonConfiguration.button1Text)
+
+                    Button(continueText) {
                         navigateToNextStep()
                     }
                     .buttonStyle(.borderedProminent)
@@ -1308,7 +1311,10 @@ struct Preset6View: View, InspectLayoutProtocol {
 
             // Final continue button when all complete
             if allStepsComplete {
-                let finalButtonText = inspectState.config?.finalButtonText ??
+                // Check for item-level finalButtonText first (e.g., last completion step), then fall back to config level
+                let lastItem = inspectState.items[safe: currentStep]
+                let finalButtonText = lastItem?.finalButtonText ??
+                                     inspectState.config?.finalButtonText ??
                                      inspectState.config?.button1Text ??
                                      (inspectState.buttonConfiguration.button1Text.isEmpty ? "Continue" : inspectState.buttonConfiguration.button1Text)
 
@@ -2179,7 +2185,7 @@ struct Preset6View: View, InspectLayoutProtocol {
 
                 // Check if the last segment (after last ":") is a color (starts with #)
                 var value = valueAndColor
-                var color: String? = nil
+                var color: String?
 
                 if let lastColonIndex = valueAndColor.lastIndex(of: ":") {
                     let potentialColor = String(valueAndColor[valueAndColor.index(after: lastColonIndex)...])
