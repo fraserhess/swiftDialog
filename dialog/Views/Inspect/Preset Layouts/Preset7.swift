@@ -759,7 +759,7 @@ struct Preset7View: View, InspectLayoutProtocol {
         } else if let backgroundColor = globalBackgroundColor,
                   !backgroundColor.isEmpty {
             // Render solid color background
-            Color(hex: backgroundColor) ?? Color.black
+            Color(hex: backgroundColor)
         } else {
             // Default dark background (black)
             Color.black
@@ -1124,17 +1124,17 @@ struct Preset7View: View, InspectLayoutProtocol {
                 // Large success icon (green checkmark shield)
                 ZStack {
                     Circle()
-                        .fill((Color(hex: "#34C759") ?? Color.green).opacity(0.15))
+                        .fill(Color(hex: "#34C759").opacity(0.15))
                         .frame(width: 140 * scaleFactor, height: 140 * scaleFactor)
 
-                    if let iconPath = currentItem.icon {
+                    if currentItem.icon != nil {
                         setupAssistantIcon(for: currentItem)
                             .frame(width: 80 * scaleFactor, height: 80 * scaleFactor)
                     } else {
                         // Default green checkmark shield
                         Image(systemName: "checkmark.shield.fill")
                             .font(.system(size: 72 * scaleFactor, weight: .regular))
-                            .foregroundColor(Color(hex: "#34C759") ?? .green)
+                            .foregroundColor(Color(hex: "#34C759"))
                     }
                 }
 
