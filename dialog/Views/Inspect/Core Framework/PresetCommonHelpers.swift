@@ -621,7 +621,6 @@ struct GuidanceContentView: View {
                             .font(.system(size: 13 * scaleFactor))
                             .foregroundColor(iconColor)
 
-<<<<<<< HEAD
                         // Native SwiftUI markdown support
                         Text(attributedMarkdown(resolvedContent))
                             .font(.system(size: 13 * scaleFactor))
@@ -629,10 +628,6 @@ struct GuidanceContentView: View {
                             .fixedSize(horizontal: false, vertical: true)
                         /*
                         Text(try! AttributedString(markdown: resolvedContent, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
-=======
-                        // Native SwiftUI markdown support with fallback to plain text
-                        Text((try? AttributedString(markdown: resolvedContent, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(resolvedContent))
->>>>>>> 9f7841e995376e14f4dcab596c3b54076b0d9cfe
                             .font(.system(size: 13 * scaleFactor))
                             .foregroundColor(.primary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -644,13 +639,8 @@ struct GuidanceContentView: View {
                             .fill(backgroundColor)
                     )
                 } else {
-<<<<<<< HEAD
                     // Plain style without box
                     Text(attributedMarkdown(resolvedContent))
-=======
-                    // Plain style without box, with fallback to plain text
-                    Text((try? AttributedString(markdown: resolvedContent, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(resolvedContent))
->>>>>>> 9f7841e995376e14f4dcab596c3b54076b0d9cfe
                         .font(.system(size: 13 * scaleFactor))
                         .foregroundColor(.primary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1880,14 +1870,9 @@ struct ComparisonTableView: View {
 
         // Remove common URL protocols
         let protocols = ["https://", "http://", "ftp://", "ftps://"]
-<<<<<<< HEAD
         for proto in protocols where normalized.hasPrefix(proto) {
             normalized = String(normalized.dropFirst(proto.count))
             break
-=======
-        if let proto = protocols.first(where: { normalized.hasPrefix($0) }) {
-            normalized = String(normalized.dropFirst(proto.count))
->>>>>>> 9f7841e995376e14f4dcab596c3b54076b0d9cfe
         }
 
         // Remove trailing slashes
@@ -1907,11 +1892,7 @@ struct ComparisonTableView: View {
             return .secondary
         }
 
-<<<<<<< HEAD
         return isMatch ? (Color(hex: "#34C759")) : (Color(hex: "#FF3B30"))
-=======
-        return isMatch ? Color(hex: "#34C759") : Color(hex: "#FF3B30")
->>>>>>> 9f7841e995376e14f4dcab596c3b54076b0d9cfe
     }
 
     /// Effective color for expected column (with override support)
@@ -2273,11 +2254,7 @@ struct PhaseTrackerView: View {
                     ZStack {
                         Circle()
                             .fill(isCompleted ? Color(hex: "#34C759") :
-<<<<<<< HEAD
                                     isActive ? Color(hex: "#FF9F0A") :
-=======
-                                  isActive ? Color(hex: "#FF9F0A") :
->>>>>>> 9f7841e995376e14f4dcab596c3b54076b0d9cfe
                                   Color.secondary.opacity(0.3))
                             .frame(width: 28 * scaleFactor, height: 28 * scaleFactor)
 
@@ -2300,11 +2277,7 @@ struct PhaseTrackerView: View {
                     // Connector line (except for last item)
                     if index < phaseLabels.count - 1 {
                         Rectangle()
-<<<<<<< HEAD
                             .fill(phaseNum < currentPhase ? (Color(hex: "#34C759")) : Color.secondary.opacity(0.3))
-=======
-                            .fill(phaseNum < currentPhase ? Color(hex: "#34C759") : Color.secondary.opacity(0.3))
->>>>>>> 9f7841e995376e14f4dcab596c3b54076b0d9cfe
                             .frame(width: 20 * scaleFactor, height: 2 * scaleFactor)
                     }
                 }
@@ -2348,13 +2321,8 @@ struct PhaseTrackerView: View {
                           isActive ? "square.fill" :
                           "square")
                         .font(.system(size: 16 * scaleFactor))
-<<<<<<< HEAD
                         .foregroundColor(isCompleted ? (Color(hex: "#34C759")) :
                                             isActive ? (Color(hex: "#FF9F0A")) :
-=======
-                        .foregroundColor(isCompleted ? Color(hex: "#34C759") :
-                                       isActive ? Color(hex: "#FF9F0A") :
->>>>>>> 9f7841e995376e14f4dcab596c3b54076b0d9cfe
                                        .secondary)
 
                     Text(phaseLabels[index])
