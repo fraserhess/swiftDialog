@@ -36,6 +36,9 @@ struct Preset9View: View, InspectLayoutProtocol {
     @ObservedObject var inspectState: InspectState
     @State private var currentPage: Int = 0
     @State private var completedPages: Set<Int> = []
+    @State private var showDetailOverlay = false
+    @State private var showItemDetailOverlay = false
+    @State private var selectedItemForDetail: InspectConfig.ItemConfig?
     @StateObject private var iconCache = PresetIconCache()
     @State private var showSuccess: Bool = false
     @State private var showResetFeedback: Bool = false
@@ -249,8 +252,8 @@ struct Preset9View: View, InspectLayoutProtocol {
             HStack(spacing: 0) {
                 // Left Panel - Main Content Area with Layered Images
                 ZStack {
-                    // Background gradient
-                    createConfigurableGradient()
+                    // Background gradient - per-item color if available
+                    createConfigurableGradient(for: currentPageItem)
                         .ignoresSafeArea()
                     
                     // Layered content display
@@ -265,7 +268,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                                 Button(action: navigateBack) {
                                     Image(systemName: "chevron.left")
                                         .font(.system(size: 18, weight: .medium))
-                                        .foregroundColor(.white)
+                                        .foregroundStyle(.white)
                                         .frame(width: 36, height: 36)
                                         .background(
                                             Circle()
@@ -311,7 +314,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                                 }) {
                                     Image(systemName: "arrow.up.left.and.arrow.down.right")
                                         .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(.white)
+                                        .foregroundStyle(.white)
                                         .padding(8)
                                         .background(
                                             Circle()
@@ -371,6 +374,27 @@ struct Preset9View: View, InspectLayoutProtocol {
         .ignoresSafeArea()
         .onAppear(perform: handleViewAppear)
         .onDisappear(perform: handleViewDisappear)
+        .overlay {
+            // Help button (positioned according to config)
+            if let helpButtonConfig = inspectState.config?.helpButton,
+               helpButtonConfig.enabled ?? true {
+                PositionedHelpButton(
+                    config: helpButtonConfig,
+                    action: { showDetailOverlay = true },
+                    padding: 16
+                )
+            }
+        }
+        .detailOverlay(
+            inspectState: inspectState,
+            isPresented: $showDetailOverlay,
+            config: inspectState.config?.detailOverlay
+        )
+        .itemDetailOverlay(
+            inspectState: inspectState,
+            isPresented: $showItemDetailOverlay,
+            item: selectedItemForDetail
+        )
     }
 
     // MARK: - Modern Two-Panel Layout Components
@@ -428,7 +452,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                                 Text(buttonText)
                                     .font(.system(size: 17, weight: .semibold))
                             }
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .padding(.horizontal, 24)
                             .padding(.vertical, 14)
                             .background(
@@ -647,10 +671,10 @@ struct Preset9View: View, InspectLayoutProtocol {
                             .frame(width: 28, height: 28)
                             .background(
                                 Circle()
-                                    .fill(getConfigurableAccentColor().opacity(0.15))
+                                    .fill(getConfigurableAccentColor(for: currentPageItem).opacity(0.15))
                                     .overlay(
                                         Circle()
-                                            .stroke(getConfigurableAccentColor().opacity(0.3), lineWidth: 1.5)
+                                            .stroke(getConfigurableAccentColor(for: currentPageItem).opacity(0.3), lineWidth: 1.5)
                                     )
                             )
                             .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
@@ -659,11 +683,11 @@ struct Preset9View: View, InspectLayoutProtocol {
                         VStack(alignment: .leading, spacing: 0) {
                             Text("Step \(currentPage + 1)")
                                 .font(.system(size: 20, weight: .bold))  // Made larger and more prominent
-                                .foregroundColor(.white)
+                                .foregroundStyle(.white)
                             
                             Text(inspectState.config?.uiLabels?.guideInformationLabel ?? "Guide Information")
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundStyle(.white.opacity(0.7))
                         }
                     }
                 }
@@ -674,11 +698,11 @@ struct Preset9View: View, InspectLayoutProtocol {
                 VStack(alignment: .trailing, spacing: 0) {
                     Text("\(currentPage + 1)/\(totalPages)")
                         .font(.system(size: 14, weight: .bold, design: .rounded))  
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                     
                     Text(inspectState.config?.uiLabels?.sectionsLabel ?? "SECTIONS")
                         .font(.system(size: 8, weight: .medium))
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundStyle(.white.opacity(0.6))
                         .textCase(.uppercase)
                         .tracking(0.3)
                 }
@@ -708,7 +732,7 @@ struct Preset9View: View, InspectLayoutProtocol {
 
                     // Current position indicator
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(getConfigurableAccentColor())
+                        .fill(getConfigurableAccentColor(for: currentPageItem))
                         .frame(width: geometry.size.width * (CGFloat(currentPage + 1) / CGFloat(totalPages)), height: 4)
                         .animation(.easeInOut(duration: 0.5), value: currentPage)
                 }
@@ -733,7 +757,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                                     if totalPages <= 8 {
                                         Text("\(index + 1)")
                                             .font(.system(size: dotSize * 0.5, weight: .bold))
-                                            .foregroundColor(index == currentPage ? .white : .white.opacity(0.8))
+                                            .foregroundStyle(index == currentPage ? .white : .white.opacity(0.8))
                                     }
                                 }
                             )
@@ -818,13 +842,13 @@ struct Preset9View: View, InspectLayoutProtocol {
                             .font(.system(size: 12, weight: .bold))  // Smaller icon
                     }
                 }
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 36)  // Much smaller height - Apple style
                 .background(
                     RoundedRectangle(cornerRadius: 8)  // Smaller corner radius
                         .fill(LinearGradient(
-                            colors: [getConfigurableAccentColor(), getConfigurableAccentColor().opacity(0.8)],
+                            colors: getItemGradient(for: currentPageItem),
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ))
@@ -833,7 +857,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                                 .stroke(Color.white.opacity(0.2), lineWidth: 0.5)  // Thinner stroke
                         )
                 )
-                .shadow(color: getConfigurableAccentColor().opacity(0.2), radius: 4, x: 0, y: 2)  // Smaller shadow
+                .shadow(color: getConfigurableAccentColor(for: currentPageItem).opacity(0.2), radius: 4, x: 0, y: 2)  // Smaller shadow
             }
             .buttonStyle(.plain)
             .animation(.easeInOut(duration: 0.1), value: isLastPage)
@@ -844,7 +868,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                     handleButton2Action()
                 }
                 .font(.system(size: 12, weight: .medium))  // Smaller font
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundStyle(.white.opacity(0.8))
                 .frame(maxWidth: .infinity)
                 .frame(height: 32)  // Smaller height
                 .background(
@@ -861,13 +885,18 @@ struct Preset9View: View, InspectLayoutProtocol {
     }
 
     // Helper function for section indicator colors (navigation-focused)
+    // Now uses per-item highlightColor for colored step dots
     private func getSectionIndicatorColor(for index: Int) -> Color {
+        let item = inspectState.items.indices.contains(index) ? inspectState.items[index] : nil
+        let itemColor = getConfigurableAccentColor(for: item)
+
         if index == currentPage {
-            return getConfigurableAccentColor()
+            return itemColor
         } else if index < currentPage {
-            return getConfigurableAccentColor().opacity(0.4)
+            return itemColor.opacity(0.6)
         } else {
-            return Color.white.opacity(0.3)
+            // Future items: show their color at low opacity
+            return itemColor.opacity(0.3)
         }
     }
 
@@ -878,54 +907,70 @@ struct Preset9View: View, InspectLayoutProtocol {
                 VStack(alignment: .leading, spacing: 20) {  // Increased spacing for better readability
                     // Guide header with enhanced typography for prominent display
                     VStack(alignment: .leading, spacing: 10) {  // Increased header spacing
-                        Text(item.displayName)
-                            .font(.system(size: 22, weight: .bold))  // Optimized size for 35% panel
-                            .foregroundColor(.white)
-                            .lineLimit(3)  // Allow more lines in wider sidebar
-                            .fixedSize(horizontal: false, vertical: true)
-                            .lineSpacing(2)  // Better line spacing for multi-line titles
-                        
+                        HStack(alignment: .top, spacing: 8) {
+                            Text(item.displayName)
+                                .font(.system(size: 22, weight: .bold))  // Optimized size for 35% panel
+                                .foregroundStyle(.white)
+                                .lineLimit(3)  // Allow more lines in wider sidebar
+                                .fixedSize(horizontal: false, vertical: true)
+                                .lineSpacing(2)  // Better line spacing for multi-line titles
+
+                            // Info button for itemOverlay
+                            if item.itemOverlay != nil {
+                                Button(action: {
+                                    selectedItemForDetail = item
+                                    showItemDetailOverlay = true
+                                }) {
+                                    Image(systemName: "info.circle.fill")
+                                        .font(.system(size: 16))
+                                        .foregroundStyle(getConfigurableAccentColor(for: item))
+                                }
+                                .buttonStyle(.plain)
+                                .help("More information")
+                            }
+                        }
+
                         // Category or type indicator if available
                         if let stepType = item.stepType {
                             Text(stepType.uppercased())
                                 .font(.system(size: 10, weight: .semibold))  // Made more prominent
-                                .foregroundColor(getConfigurableAccentColor())
+                                .foregroundStyle(getConfigurableAccentColor(for: item))
                                 .textCase(.uppercase)
                                 .tracking(1.0)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 3)
                                 .background(
                                     RoundedRectangle(cornerRadius: 4)
-                                        .fill(getConfigurableAccentColor().opacity(0.15))
+                                        .fill(getConfigurableAccentColor(for: item).opacity(0.15))
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 4)
-                                                .stroke(getConfigurableAccentColor().opacity(0.3), lineWidth: 0.5)
+                                                .stroke(getConfigurableAccentColor(for: item).opacity(0.3), lineWidth: 0.5)
                                         )
                                 )
                         }
                     }
-                    
+
                     // Main description/information with optimized spacing for readability
                     if let subtitle = item.subtitle {
                         Text(subtitle)
                             .font(.system(size: 15, weight: .regular))  // Optimized for wider sidebar
-                            .foregroundColor(.white.opacity(0.95))  
+                            .foregroundStyle(.white.opacity(0.95))
                             .lineLimit(nil) // Allow unlimited lines for guide content
                             .fixedSize(horizontal: false, vertical: true)
                             .lineSpacing(5)  // Improved line spacing for better readability
                     }
-                    
+
                     // Additional information with bullet points or structured content
                     if let additionalInfo = getGuideInformation(for: item) {
-                        VStack(alignment: .leading, spacing: 12) {  
+                        VStack(alignment: .leading, spacing: 12) {
                             HStack(alignment: .center, spacing: 8) {
                                 Image(systemName: "lightbulb.fill")
                                     .font(.system(size: 14, weight: .medium))  // Slightly larger
-                                    .foregroundColor(getConfigurableAccentColor())
-                                
+                                    .foregroundStyle(getConfigurableAccentColor(for: item))
+
                                 Text(inspectState.config?.uiLabels?.keyPointsLabel ?? "Key Points")
                                     .font(.system(size: 12, weight: .bold))  // Made bolder
-                                    .foregroundColor(getConfigurableAccentColor())
+                                    .foregroundStyle(getConfigurableAccentColor(for: item))
                                     .textCase(.uppercase)
                                     .tracking(0.8)
                             }
@@ -933,7 +978,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                             // Enhanced text formatting for bullet points and multiple paragraphs
                             Text(additionalInfo)
                                 .font(.system(size: 13, weight: .regular))  // Optimized for wider space
-                                .foregroundColor(.white.opacity(0.9))  
+                                .foregroundStyle(.white.opacity(0.9))  
                                 .lineLimit(nil)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .lineSpacing(4)  // Better line spacing for multiple paragraphs
@@ -948,13 +993,13 @@ struct Preset9View: View, InspectLayoutProtocol {
                                 HStack(alignment: .top, spacing: 10) {  // Increased spacing
                                     // Enhanced bullet point indicator
                                     Circle()
-                                        .fill(getConfigurableAccentColor())
+                                        .fill(getConfigurableAccentColor(for: item))
                                         .frame(width: 5, height: 5)  // Slightly larger
                                         .padding(.top, 7)  // Adjusted alignment
-                                    
+
                                     Text(bulletPoints[index])
                                         .font(.system(size: 13, weight: .regular))  // Consistent with other text
-                                        .foregroundColor(.white.opacity(0.9))
+                                        .foregroundStyle(.white.opacity(0.9))
                                         .lineLimit(nil)
                                         .fixedSize(horizontal: false, vertical: true)
                                         .lineSpacing(3)  // Improved line spacing within bullets
@@ -972,11 +1017,11 @@ struct Preset9View: View, InspectLayoutProtocol {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(inspectState.config?.uiLabels?.welcomeTitle ?? "Welcome")
                             .font(.system(size: 22, weight: .bold))  // Consistent with items
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
 
                         Text(inspectState.config?.uiLabels?.welcomeBadge ?? "GETTING STARTED")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(getConfigurableAccentColor())
+                            .foregroundStyle(getConfigurableAccentColor())
                             .textCase(.uppercase)
                             .tracking(1.0)
                             .padding(.horizontal, 8)
@@ -995,14 +1040,14 @@ struct Preset9View: View, InspectLayoutProtocol {
                     VStack(alignment: .leading, spacing: 14) {  // Increased spacing
                         Text(inspectState.config?.uiLabels?.welcomeParagraph1 ?? "This comprehensive guide will walk you through all the important information, settings, and steps you need to know.")
                             .font(.system(size: 15, weight: .regular))
-                            .foregroundColor(.white.opacity(0.95))
+                            .foregroundStyle(.white.opacity(0.95))
                             .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
                             .lineSpacing(5)  // Better line spacing
 
                         Text(inspectState.config?.uiLabels?.welcomeParagraph2 ?? "Take your time to read through each section carefully. Each step contains detailed information to help you understand the process.")
                             .font(.system(size: 13, weight: .regular))
-                            .foregroundColor(.white.opacity(0.85))
+                            .foregroundStyle(.white.opacity(0.85))
                             .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
                             .lineSpacing(4)  // Improved spacing
@@ -1080,13 +1125,13 @@ struct Preset9View: View, InspectLayoutProtocol {
                             .font(.system(size: 14, weight: .bold))
                     }
                 }
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
                         .fill(LinearGradient(
-                            colors: [getConfigurableAccentColor(), getConfigurableAccentColor().opacity(0.8)],
+                            colors: getItemGradient(for: currentPageItem),
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ))
@@ -1095,7 +1140,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                                 .stroke(Color.white.opacity(0.2), lineWidth: 1)
                         )
                 )
-                .shadow(color: getConfigurableAccentColor().opacity(0.3), radius: 8, x: 0, y: 4)
+                .shadow(color: getConfigurableAccentColor(for: currentPageItem).opacity(0.3), radius: 8, x: 0, y: 4)
             }
             .buttonStyle(.plain)
             .animation(.easeInOut(duration: 0.1), value: isLastPage)
@@ -1110,7 +1155,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                         Text(inspectState.config?.pickerLabels?.backButton ?? "Previous")
                             .font(.system(size: 14, weight: .medium))
                     }
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundStyle(.white.opacity(0.8))
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .background(
@@ -1128,7 +1173,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                     handleButton2Action()
                 }
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundStyle(.white.opacity(0.8))
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
                 .background(
@@ -1154,22 +1199,11 @@ struct Preset9View: View, InspectLayoutProtocol {
             return customText
         }
 
-        // Generate contextual placeholder content based on page position
+        // Return configuration instructions as placeholder
         let totalPages = inspectState.items.count
         let pageNumber = currentPage + 1
-        let isFirst = currentPage == 0
-        let isLast = currentPage == totalPages - 1
-        let progress = totalPages > 1 ? Int((Double(currentPage) / Double(totalPages - 1)) * 100) : 0
 
-        // Template-based generation with contextual awareness
-        if isFirst {
-            return "This is section \(pageNumber) of \(totalPages). Review the overview and familiarize yourself with the key concepts before proceeding.\n\nTake note of any prerequisites or system requirements that may apply to your situation."
-        } else if isLast {
-            return "You've reached the final section (\(pageNumber) of \(totalPages)). Review the summary information and next steps provided here.\n\nConsider setting up follow-up actions or reminders as needed to complete the workflow."
-        } else {
-            let midProgress = progress < 50 ? "early" : "later"
-            return "Section \(pageNumber) of \(totalPages) (\(progress)% through). This \(midProgress) section covers important details about the topic.\n\nReview the information carefully and refer back to this section as needed during implementation."
-        }
+        return "Section \(pageNumber) of \(totalPages)\n\nTo customize this text, add \"keyPointsText\" to your item config:\n\n\"keyPointsText\": \"Your description text here. Supports multiple sentences and paragraphs.\""
     }
     
     // Helper function to generate enhanced bullet point content
@@ -1179,70 +1213,13 @@ struct Preset9View: View, InspectLayoutProtocol {
             return customInfo
         }
 
-        // Fall back to default generated content for onboarding mode
-        // Generate contextual placeholder bullets based on page position
-        let totalPages = inspectState.items.count
-        let isFirst = currentPage == 0
-        let isLast = currentPage == totalPages - 1
-
-        // Template-based bullet generation with contextual awareness
-        if isFirst {
-            return [
-                "Review system requirements and compatibility",
-                "Check for any prerequisites or dependencies",
-                "Ensure you have proper access permissions",
-                "Backup important data before proceeding",
-                "Have documentation readily available"
-            ]
-        } else if isLast {
-            return [
-                "Review all completed steps and configurations",
-                "Test the complete workflow end-to-end",
-                "Document the final setup for future reference",
-                "Plan for ongoing maintenance and updates",
-                "Set up monitoring and alerting as needed"
-            ]
-        } else {
-            // Generate contextual middle-section bullets
-            let templates: [[String]] = [
-                [
-                    "Configure primary settings according to your needs",
-                    "Test configuration changes in a safe environment",
-                    "Document any custom modifications made",
-                    "Verify settings work with your existing setup",
-                    "Set up monitoring for configuration changes",
-                    "Create backup copies of working configurations"
-                ],
-                [
-                    "Follow established best practices and guidelines",
-                    "Implement recommended security measures",
-                    "Test thoroughly in development environment first",
-                    "Document all customizations and changes made",
-                    "Plan for regular maintenance and updates",
-                    "Set up proper backup and recovery procedures"
-                ],
-                [
-                    "Install required components and dependencies",
-                    "Verify installation completed successfully",
-                    "Run initial setup and configuration wizards",
-                    "Test basic functionality before proceeding",
-                    "Update to latest versions if available",
-                    "Configure automatic updates if recommended"
-                ],
-                [
-                    "Review and implement security best practices",
-                    "Configure access controls and permissions properly",
-                    "Enable audit logging and monitoring features",
-                    "Set up data encryption where required",
-                    "Plan for regular security updates and patches",
-                    "Create incident response procedures"
-                ]
-            ]
-
-            // Cycle through templates based on page position
-            let templateIndex = (currentPage - 1) % templates.count
-            return templates[templateIndex]
-        }
+        // Return configuration instructions as placeholder bullets
+        return [
+            "Add \"info\" array to your item config:",
+            "\"info\": [\"First bullet point\", \"Second bullet point\"]",
+            "Each string becomes a bullet point",
+            "Supports any number of items"
+        ]
     }
 
     @ViewBuilder
@@ -1294,7 +1271,7 @@ struct Preset9View: View, InspectLayoutProtocol {
             } else {
                 Image(systemName: symbolName)
                     .font(.system(size: 140, weight: weight))
-                    .foregroundColor(color1)
+                    .foregroundStyle(color1)
             }
         }
     }
@@ -1323,11 +1300,11 @@ struct Preset9View: View, InspectLayoutProtocol {
             VStack(spacing: 20) {
                 Image(systemName: getMinimalIcon(for: currentPage))
                     .font(.system(size: 60, weight: .light))
-                    .foregroundColor(getConfigurableTextColor().opacity(0.6))
+                    .foregroundStyle(getConfigurableTextColor().opacity(0.6))
                 
                 Text("Step \(currentPage + 1)")
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(getConfigurableTextColor().opacity(0.8))
+                    .foregroundStyle(getConfigurableTextColor().opacity(0.8))
             }
         }
         .frame(width: size.width, height: size.height)  // Use the provided size which already accounts for borders
@@ -1337,7 +1314,7 @@ struct Preset9View: View, InspectLayoutProtocol {
     private func compactStatusBadge() -> some View {
         Image(systemName: getStatusIcon())
             .font(.system(size: 16, weight: .bold))
-            .foregroundColor(.white)
+            .foregroundStyle(.white)
             .frame(width: 32, height: 32)
             .background(
                 Circle()
@@ -1362,8 +1339,8 @@ struct Preset9View: View, InspectLayoutProtocol {
                     if iconPath.lowercased().hasPrefix("sf=") {
                         // For SF Symbols, create a nice background with the symbol
                         ZStack {
-                            // Gradient background for SF Symbols - use config colors if available
-                            createConfigurableGradient()
+                            // Gradient background for SF Symbols - use per-item colors if available
+                            createConfigurableGradient(for: item)
                             
                             // Large SF Symbol
                             sfSymbolView(from: iconPath)
@@ -1405,11 +1382,11 @@ struct Preset9View: View, InspectLayoutProtocol {
                     VStack(spacing: 30) {
                         Image(systemName: "sparkles")
                             .font(.system(size: 120, weight: .thin))
-                            .foregroundColor(getConfigurableTextColor())
+                            .foregroundStyle(getConfigurableTextColor())
                         
                         Text("Welcome")
                             .font(.system(size: 48, weight: .thin))
-                            .foregroundColor(getConfigurableTextColor())
+                            .foregroundStyle(getConfigurableTextColor())
                     }
                 }
                 .frame(width: geometry.size.width, height: geometry.size.height)
@@ -1420,26 +1397,26 @@ struct Preset9View: View, InspectLayoutProtocol {
     @ViewBuilder
     private func fullSpanPlaceholderContent(for item: InspectConfig.ItemConfig, width: CGFloat, height: CGFloat) -> some View {
         ZStack {
-            // Configurable gradient background
-            createConfigurableGradient()
+            // Configurable gradient background - per-item color
+            createConfigurableGradient(for: item)
             
             // Subtle pattern overlay
             ZStack {
                 // Large background icon
                 Image(systemName: getMinimalIcon(for: currentPage))
                     .font(.system(size: min(width, height) * 0.3, weight: .ultraLight))
-                    .foregroundColor(getConfigurableTextColor().opacity(0.1))
+                    .foregroundStyle(getConfigurableTextColor().opacity(0.1))
                     .offset(x: width * 0.2, y: -height * 0.1)
                 
                 // Content
                 VStack(spacing: 24) {
                     Image(systemName: getMinimalIcon(for: currentPage))
                         .font(.system(size: 80, weight: .light))
-                        .foregroundColor(getConfigurableTextColor())
+                        .foregroundStyle(getConfigurableTextColor())
                     
                     Text("Step \(currentPage + 1)")
                         .font(.system(size: 32, weight: .light))
-                        .foregroundColor(getConfigurableTextColor())
+                        .foregroundStyle(getConfigurableTextColor())
                 }
             }
         }
@@ -1452,12 +1429,12 @@ struct Preset9View: View, InspectLayoutProtocol {
             // Status icon
             Image(systemName: getStatusIcon())
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
 
             // Status text
             Text(getStatusText())
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
 
             // Subtle step type badge (if specified)
             if let item = currentPageItem, let stepType = item.stepType {
@@ -1506,11 +1483,11 @@ struct Preset9View: View, InspectLayoutProtocol {
                     VStack(spacing: 20) {
                         Image(systemName: getMinimalIcon(for: currentPage))
                             .font(.system(size: 60, weight: .ultraLight))
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundStyle(.white.opacity(0.7))
                         
                         Text("Step \(currentPage + 1)")
                             .font(.system(size: 24, weight: .light))
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundStyle(.white.opacity(0.8))
                     }
                 )
                 .overlay(
@@ -1630,14 +1607,14 @@ struct Preset9View: View, InspectLayoutProtocol {
             if let item = currentPageItem {
                 Text(item.displayName)
                     .font(.system(size: 28, weight: .light))
-                    .foregroundColor(getConfigurableTextColor())
+                    .foregroundStyle(getConfigurableTextColor())
                     .multilineTextAlignment(.center)
                     .animation(.easeInOut(duration: 0.3), value: currentPage)
 
                 if let subtitle = item.subtitle {
                     Text(subtitle)
                         .font(.system(size: 17, weight: .regular))
-                        .foregroundColor(getConfigurableTextColor().opacity(0.7))
+                        .foregroundStyle(getConfigurableTextColor().opacity(0.7))
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
                         .animation(.easeInOut(duration: 0.3), value: currentPage)
@@ -1645,12 +1622,12 @@ struct Preset9View: View, InspectLayoutProtocol {
             } else {
                 Text("Get Started")
                     .font(.system(size: 28, weight: .light))
-                    .foregroundColor(getConfigurableTextColor())
+                    .foregroundStyle(getConfigurableTextColor())
                     .multilineTextAlignment(.center)
 
                 Text("Follow the steps to complete setup")
                     .font(.system(size: 17, weight: .regular))
-                    .foregroundColor(getConfigurableTextColor().opacity(0.7))
+                    .foregroundStyle(getConfigurableTextColor().opacity(0.7))
                     .multilineTextAlignment(.center)
             }
         }
@@ -1668,7 +1645,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                     handleButton2Action()
                 }
                 .font(.system(size: 17, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundStyle(.white.opacity(0.8))
                 .frame(height: 50)
                 .padding(.horizontal, 24)
                 .background(Color.white.opacity(0.15))
@@ -1682,7 +1659,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                     navigateForward()
                 }
                 .font(.system(size: 17, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundStyle(.white.opacity(0.8))
                 .frame(height: 50)
                 .padding(.horizontal, 24)
                 .background(Color.white.opacity(0.15))
@@ -1753,12 +1730,12 @@ struct Preset9View: View, InspectLayoutProtocol {
                             .font(.system(size: 15, weight: .medium))
                     }
                 }
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
                 .frame(height: 50)
                 .padding(.horizontal, 32)
                 .background(
                     LinearGradient(
-                        gradient: Gradient(colors: [getConfigurableAccentColor(), getConfigurableAccentColor().opacity(0.8)]),
+                        gradient: Gradient(colors: getItemGradient(for: currentPageItem)),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -1827,7 +1804,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                 // Single color symbol
                 Image(systemName: symbolName)
                     .font(.system(size: 100, weight: weight))
-                    .foregroundColor(color1)
+                    .foregroundStyle(color1)
             }
         }
     }
@@ -1863,7 +1840,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                         VStack {
                             Image(systemName: getPlaceholderIcon(for: currentPage))
                                 .font(.system(size: 60))
-                                .foregroundColor(.blue.opacity(0.6))
+                                .foregroundStyle(.blue.opacity(0.6))
                             
                             Text("Step \(currentPage + 1)")
                                 .font(.title2)
@@ -1912,11 +1889,11 @@ struct Preset9View: View, InspectLayoutProtocol {
                                 Text("Step \(currentPage + 1)")
                                     .font(.title2)
                                     .fontWeight(.semibold)
-                                    .foregroundColor(.primary)
+                                    .foregroundStyle(.primary)
                                 
                                 Text(getStepDescription(for: currentPage, itemName: item.displayName))
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(.secondary)
                                     .multilineTextAlignment(.center)
                             }
                         }
@@ -1944,8 +1921,35 @@ struct Preset9View: View, InspectLayoutProtocol {
     // MARK: - Configuration-based Color & Gradient Helpers
     
     /// Creates a configurable gradient based on JSON config or fallback to defaults
-    private func createConfigurableGradient() -> LinearGradient {
-        // Check if custom gradient colors are provided in config
+    /// - Parameter item: Optional item to get per-item gradient colors from
+    private func createConfigurableGradient(for item: InspectConfig.ItemConfig? = nil) -> LinearGradient {
+        // Priority 1: Check if per-item gradient colors are provided
+        if let item = item, let gradientColors = item.gradientColors, !gradientColors.isEmpty {
+            let colors = gradientColors.compactMap { Color(hex: $0) }
+            if !colors.isEmpty {
+                return LinearGradient(
+                    gradient: Gradient(colors: colors),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
+
+        // Priority 2: Check if per-item highlight color is provided
+        if let item = item, let highlightColor = item.highlightColor {
+            let baseColor = Color(hex: highlightColor)
+            return LinearGradient(
+                gradient: Gradient(colors: [
+                    baseColor.opacity(0.8),
+                    baseColor.opacity(0.6),
+                    baseColor.opacity(0.8)
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+
+        // Priority 3: Check if global gradient colors are provided in config
         if let gradientColors = inspectState.config?.gradientColors, !gradientColors.isEmpty {
             let colors = gradientColors.compactMap { Color(hex: $0) }
             if !colors.isEmpty {
@@ -1956,8 +1960,8 @@ struct Preset9View: View, InspectLayoutProtocol {
                 )
             }
         }
-        
-        // Check if single highlight color is provided
+
+        // Priority 4: Check if global highlight color is provided
         if let highlightColor = inspectState.config?.highlightColor {
             let baseColor = Color(hex: highlightColor)
             return LinearGradient(
@@ -1970,13 +1974,13 @@ struct Preset9View: View, InspectLayoutProtocol {
                 endPoint: .bottomTrailing
             )
         }
-        
-        // Fallback to default gradient
+
+        // Fallback to system accent color based gradient
         return LinearGradient(
             gradient: Gradient(colors: [
-                Color.blue.opacity(0.8),
-                Color.purple.opacity(0.6),
-                Color.indigo.opacity(0.8)
+                Color.accentColor.opacity(0.8),
+                Color.accentColor.opacity(0.6),
+                Color.accentColor.opacity(0.8)
             ]),
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -2020,11 +2024,33 @@ struct Preset9View: View, InspectLayoutProtocol {
     }
     
     /// Gets configurable accent color for status indicators and buttons
-    private func getConfigurableAccentColor() -> Color {
+    /// If item is provided, uses item's highlightColor if set, otherwise falls back to global
+    private func getConfigurableAccentColor(for item: InspectConfig.ItemConfig? = nil) -> Color {
+        // First check per-item highlightColor
+        if let item = item, let itemColor = item.highlightColor {
+            return Color(hex: itemColor)
+        }
+        // Fall back to global highlightColor
         if let highlightColor = inspectState.config?.highlightColor {
             return Color(hex: highlightColor)
         }
-        return Color.blue // Default accent color
+        // Fall back to system accent color
+        return Color.accentColor
+    }
+
+    /// Gets gradient colors for an item, or falls back to accent color gradient
+    private func getItemGradient(for item: InspectConfig.ItemConfig?) -> [Color] {
+        // Check for per-item gradient
+        if let item = item, let gradientColors = item.gradientColors, gradientColors.count >= 2 {
+            return gradientColors.map { Color(hex: $0) }
+        }
+        // Check for global gradient
+        if let gradientColors = inspectState.config?.gradientColors, gradientColors.count >= 2 {
+            return gradientColors.map { Color(hex: $0) }
+        }
+        // Fall back to accent color gradient
+        let accentColor = getConfigurableAccentColor(for: item)
+        return [accentColor, accentColor.opacity(0.8)]
     }
 
     /// Logo overlay view with configurable positioning and styling
@@ -2619,11 +2645,11 @@ private struct FullscreenImageView: View {
                     VStack(spacing: 20) {
                         Image(systemName: "photo")
                             .font(.system(size: 60, weight: .light))
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundStyle(.white.opacity(0.6))
                         
                         Text("Image not available")
                             .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundStyle(.white.opacity(0.8))
                     }
                 }
             )
@@ -2636,7 +2662,7 @@ private struct FullscreenImageView: View {
             }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .frame(width: 40, height: 40)
                     .background(
                         Circle()
@@ -2676,11 +2702,11 @@ private struct LeftPanelFullscreenImageView: View {
                     VStack(spacing: 20) {
                         Image(systemName: "photo")
                             .font(.system(size: 60, weight: .light))
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundStyle(.white.opacity(0.6))
                         
                         Text("Image not available")
                             .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundStyle(.white.opacity(0.8))
                     }
                 }
             )
@@ -2696,7 +2722,7 @@ private struct LeftPanelFullscreenImageView: View {
             }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .frame(width: 32, height: 32)
                     .background(
                         Circle()

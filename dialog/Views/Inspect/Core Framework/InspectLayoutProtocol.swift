@@ -180,7 +180,7 @@ extension InspectLayoutProtocol {
         } else {
             Image(systemName: "app.fill")
                 .font(.system(size: size * 0.75))
-                .foregroundColor(.blue)
+                .foregroundStyle(.blue)
                 .frame(width: size, height: size)
         }
          */
@@ -190,7 +190,7 @@ extension InspectLayoutProtocol {
     func statusIndicator(for item: InspectConfig.ItemConfig) -> some View {
         if inspectState.completedItems.contains(item.id) {
             Image(systemName: "checkmark.circle.fill")
-                .foregroundColor(.green)
+                .foregroundStyle(.green)
                 .font(.system(size: 20 * scaleFactor))
         } else if inspectState.downloadingItems.contains(item.id) {
             ProgressView()
@@ -215,11 +215,11 @@ extension InspectLayoutProtocol {
             VStack(alignment: .leading, spacing: 2 * scaleFactor) {
                 Text(item.displayName)
                     .font(.system(size: 14 * scaleFactor, weight: .medium))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
 
                 Text(getItemStatus(for: item))
                     .font(.system(size: 12 * scaleFactor))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -241,7 +241,7 @@ extension InspectLayoutProtocol {
 
                 Text("\(inspectState.completedItems.count) of \(inspectState.items.count) completed")
                     .font(.system(size: 11 * scaleFactor))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
         }
     }

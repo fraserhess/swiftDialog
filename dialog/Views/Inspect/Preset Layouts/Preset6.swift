@@ -27,6 +27,9 @@ struct Preset6View: View, InspectLayoutProtocol {
     @State private var downloadingItems: Set<String> = []
     @State private var currentStep: Int = 0
     @State private var scrollOffset: CGFloat = 0
+    @State private var showDetailOverlay = false
+    @State private var showItemDetailOverlay = false
+    @State private var selectedItemForDetail: InspectConfig.ItemConfig?
     @StateObject private var iconCache = PresetIconCache()
     @State private var externalMonitoringTimer: Timer?  // Legacy - will be replaced by fileMonitorSource
     @State private var fileMonitorSource: DispatchSourceFileSystemObject?  // Phase 2: Zero-latency file monitoring
@@ -337,6 +340,27 @@ struct Preset6View: View, InspectLayoutProtocol {
             stateTimer?.invalidate()
             stateTimer = nil
         }
+        .overlay {
+            // Help button (positioned according to config)
+            if let helpButtonConfig = inspectState.config?.helpButton,
+               helpButtonConfig.enabled ?? true {
+                PositionedHelpButton(
+                    config: helpButtonConfig,
+                    action: { showDetailOverlay = true },
+                    padding: 16
+                )
+            }
+        }
+        .detailOverlay(
+            inspectState: inspectState,
+            isPresented: $showDetailOverlay,
+            config: inspectState.config?.detailOverlay
+        )
+        .itemDetailOverlay(
+            inspectState: inspectState,
+            isPresented: $showItemDetailOverlay,
+            item: selectedItemForDetail
+        )
     }
 
 
@@ -373,7 +397,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                     Text(inspectState.uiConfiguration.windowTitle)
                         .font(.system(size: 16 * scaleFactor, weight: .semibold))
                         .multilineTextAlignment(.center)
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.primary)
                         .lineLimit(2)
                         .padding(.horizontal, 12)
                 }
@@ -390,7 +414,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                     // Step text - with enhanced spacing before step dots
                     Text(getStepCounterText())
                         .font(.system(size: 12 * scaleFactor, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .monospacedDigit()
                         .padding(.bottom, 12 * scaleFactor)
                         .scaleEffect(showResetFeedbackLeft ? 1.1 : 1.0)
@@ -511,7 +535,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                     if let bannerTitle = inspectState.uiConfiguration.bannerTitle, !bannerTitle.isEmpty {
                         Text(bannerTitle)
                             .font(.system(size: 24 * scaleFactor, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .shadow(color: .black.opacity(0.4), radius: 2, x: 0, y: 1)
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
@@ -523,7 +547,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                             Spacer()
                             Text(getStepCounterText())
                                 .font(.system(size: 12 * scaleFactor, weight: .medium))
-                                .foregroundColor(.white.opacity(0.9))
+                                .foregroundStyle(.white.opacity(0.9))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
                                 .background(
@@ -569,7 +593,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                         // Text fallback with highlight color (works where SF Symbols don't)
                         Text("?")
                             .font(.system(size: 22 * scaleFactor, weight: .bold))
-                            .foregroundColor(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor))
+                            .foregroundStyle(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor))
                     }
                     .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
@@ -639,7 +663,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                         // Text fallback with highlight color (works where SF Symbols don't)
                         Text("?")
                             .font(.system(size: 22 * scaleFactor, weight: .bold))
-                            .foregroundColor(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor))
+                            .foregroundStyle(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor))
                     }
                     .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
@@ -661,7 +685,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                     if let guidanceTitle = item.guidanceTitle {
                         Text(guidanceTitle)
                             .font(.system(size: 20 * scaleFactor, weight: .semibold))
-                            .foregroundColor(.primary)
+                            .foregroundStyle(.primary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -695,18 +719,18 @@ struct Preset6View: View, InspectLayoutProtocol {
                             HStack(spacing: 8 * scaleFactor) {
                                 Text(key + ":")
                                     .font(.system(size: 13 * scaleFactor, weight: .medium))
-                                    .foregroundColor(colorHex != nil ? Color(hex: colorHex!).opacity(0.7) : .secondary)
+                                    .foregroundStyle(colorHex != nil ? Color(hex: colorHex!).opacity(0.7) : .secondary)
 
                                 Text(value)
                                     .font(.system(size: 13 * scaleFactor, weight: .semibold))
-                                    .foregroundColor(colorHex != nil ? Color(hex: colorHex!) : .primary)
+                                    .foregroundStyle(colorHex != nil ? Color(hex: colorHex!) : .primary)
 
                                 Spacer()
                             }
                             .padding(.horizontal, 12 * scaleFactor)
                             .padding(.vertical, 8 * scaleFactor)
                             .background((colorHex != nil ? Color(hex: colorHex!) : Color.secondary).opacity(0.1))
-                            .cornerRadius(6)
+                            .clipShape(.rect(cornerRadius: 6))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke((colorHex != nil ? Color(hex: colorHex!) : Color.clear).opacity(0.3), lineWidth: 1)
@@ -726,16 +750,16 @@ struct Preset6View: View, InspectLayoutProtocol {
                     HStack(spacing: 8 * scaleFactor) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 14 * scaleFactor))
-                            .foregroundColor(.orange)
+                            .foregroundStyle(.orange)
 
                         Text("This step has been waiting for over \(processingState.waitElapsed) seconds. If you're experiencing issues, you can use the override option below.")
                             .font(.system(size: 13 * scaleFactor))
-                            .foregroundColor(.primary)
+                            .foregroundStyle(.primary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(12 * scaleFactor)
                     .background(Color.orange.opacity(0.1))
-                    .cornerRadius(8)
+                    .clipShape(.rect(cornerRadius: 8))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(Color.orange.opacity(0.3), lineWidth: 1)
@@ -763,7 +787,7 @@ struct Preset6View: View, InspectLayoutProtocol {
 
                                 Text("\(percentage)%")
                                     .font(.system(size: 36 * scaleFactor, weight: .bold, design: .rounded))
-                                    .foregroundColor(getConfigurableHighlightColor())
+                                    .foregroundStyle(getConfigurableHighlightColor())
                             }
                             .padding(.vertical, 8 * scaleFactor)
                         } else if case .countdown(_, let remaining, _) = processingState {
@@ -783,7 +807,7 @@ struct Preset6View: View, InspectLayoutProtocol {
 
                                 Text("\(max(0, remaining))")
                                     .font(.system(size: 48 * scaleFactor, weight: .bold, design: .rounded))
-                                    .foregroundColor(getConfigurableHighlightColor())
+                                    .foregroundStyle(getConfigurableHighlightColor())
                             }
                             .padding(.vertical, 8 * scaleFactor)
                         } else if case .waiting = processingState {
@@ -810,14 +834,14 @@ struct Preset6View: View, InspectLayoutProtocol {
 
                                 Text("\(processingCountdown)")
                                     .font(.system(size: 48 * scaleFactor, weight: .bold, design: .rounded))
-                                    .foregroundColor(getConfigurableHighlightColor())
+                                    .foregroundStyle(getConfigurableHighlightColor())
                             }
                             .padding(.vertical, 8 * scaleFactor)
                         } else {
                             // Fallback: Static ellipsis (should not reach here anymore)
                             Image(systemName: "ellipsis.circle")
                                 .font(.system(size: 48 * scaleFactor, weight: .medium))
-                                .foregroundColor(getConfigurableHighlightColor())
+                                .foregroundStyle(getConfigurableHighlightColor())
                                 .padding(.vertical, 24 * scaleFactor)
                         }
 
@@ -839,7 +863,7 @@ struct Preset6View: View, InspectLayoutProtocol {
 
                         Text(displayMessage)
                             .font(.system(size: 14 * scaleFactor, weight: .medium))
-                            .foregroundColor(.primary)
+                            .foregroundStyle(.primary)
                             .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity)
@@ -853,17 +877,17 @@ struct Preset6View: View, InspectLayoutProtocol {
                         HStack(spacing: 12 * scaleFactor) {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 20 * scaleFactor))
-                                .foregroundColor(.red)
+                                .foregroundStyle(.red)
 
                             VStack(alignment: .leading, spacing: 4 * scaleFactor) {
                                 Text(item.failureMessage ?? "Step Failed")
                                     .font(.system(size: 14 * scaleFactor, weight: .semibold))
-                                    .foregroundColor(.primary)
+                                    .foregroundStyle(.primary)
 
                                 if !failureReason.isEmpty {
                                     Text(failureReason)
                                         .font(.system(size: 12 * scaleFactor))
-                                        .foregroundColor(.secondary)
+                                        .foregroundStyle(.secondary)
                                 }
                             }
 
@@ -871,7 +895,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                         }
                         .padding(12 * scaleFactor)
                         .background(Color.red.opacity(0.1))
-                        .cornerRadius(8)
+                        .clipShape(.rect(cornerRadius: 8))
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
                                 .stroke(Color.red.opacity(0.3), lineWidth: 1)
@@ -882,17 +906,17 @@ struct Preset6View: View, InspectLayoutProtocol {
                         HStack(spacing: 12 * scaleFactor) {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 20 * scaleFactor))
-                                .foregroundColor(.green)
+                                .foregroundStyle(.green)
 
                             Text(successMessage)
                                 .font(.system(size: 14 * scaleFactor, weight: .semibold))
-                                .foregroundColor(.primary)
+                                .foregroundStyle(.primary)
 
                             Spacer()
                         }
                         .padding(12 * scaleFactor)
                         .background(Color.green.opacity(0.1))
-                        .cornerRadius(8)
+                        .clipShape(.rect(cornerRadius: 8))
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
                                 .stroke(Color.green.opacity(0.3), lineWidth: 1)
@@ -1082,13 +1106,13 @@ struct Preset6View: View, InspectLayoutProtocol {
                     .font(.system(size: 16 * scaleFactor, weight: .medium))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
 
                 if let description = item.paths.first, !description.isEmpty {
                     Text(description)
                         .font(.system(size: 11 * scaleFactor))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .padding(.horizontal, 16)
@@ -1101,12 +1125,12 @@ struct Preset6View: View, InspectLayoutProtocol {
                 Image(systemName: completedSteps.contains(item.id) ?
                       "checkmark.circle.fill" : "circle.dashed")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(completedSteps.contains(item.id) ?
+                    .foregroundStyle(completedSteps.contains(item.id) ?
                                    .green : getConfigurableHighlightColor())
 
                 Text(completedSteps.contains(item.id) ? "Completed" : "Pending")
                     .font(.system(size: 12 * scaleFactor, weight: .medium))
-                    .foregroundColor(completedSteps.contains(item.id) ?
+                    .foregroundStyle(completedSteps.contains(item.id) ?
                                    .green : .secondary)
             }
             .padding(.horizontal, 12)
@@ -1134,7 +1158,7 @@ struct Preset6View: View, InspectLayoutProtocol {
 
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 48 * scaleFactor, weight: .medium))
-                .foregroundColor(.green)
+                .foregroundStyle(.green)
                 .background(
                     Circle()
                         .fill(.thinMaterial)
@@ -1144,12 +1168,12 @@ struct Preset6View: View, InspectLayoutProtocol {
             VStack(spacing: 6) {
                 Text(inspectState.config?.uiLabels?.completionMessage ?? "All Steps Complete")
                     .font(.system(size: 16 * scaleFactor, weight: .medium))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
 
                 Text(inspectState.config?.uiLabels?.completionSubtitle ?? "Your setup is now complete!")
                     .font(.system(size: 12 * scaleFactor))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
@@ -1166,7 +1190,7 @@ struct Preset6View: View, InspectLayoutProtocol {
             if let currentMessage = inspectState.getCurrentSideMessage() {
                 Text(currentMessage)
                     .font(.system(size: 11 * scaleFactor))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
                     .padding(.top, 12 * scaleFactor)
@@ -1253,7 +1277,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                     }) {
                         Text("Skip this step")
                             .font(.system(size: 12 * scaleFactor))
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                             .underline()
                     }
                     .buttonStyle(.plain)
@@ -2747,7 +2771,7 @@ struct MinimalProgressDot: View {
                 } else if isCompleted {
                     Image(systemName: "checkmark")
                         .font(.system(size: 16 * scaleFactor, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                 } else if isDownloading {
                     // Show spinner for downloading/in-progress items
                     ProgressView()
@@ -2757,7 +2781,7 @@ struct MinimalProgressDot: View {
                     // Clear step numbering
                     Text("\(index + 1)")
                         .font(.system(size: 14 * scaleFactor, weight: .bold, design: .rounded))
-                        .foregroundColor(isActive ? .white : .primary)
+                        .foregroundStyle(isActive ? .white : .primary)
                         .monospacedDigit()
                 }
             }
@@ -2770,14 +2794,14 @@ struct MinimalProgressDot: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.displayName)
                     .font(.system(size: 13 * scaleFactor, weight: isActive ? .medium : .regular))
-                    .foregroundColor(isActive ? .primary : .secondary)
+                    .foregroundStyle(isActive ? .primary : .secondary)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
                 if let subtitle = item.subtitle {
                     Text(subtitle)
                         .font(.system(size: 11 * scaleFactor))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -2828,14 +2852,14 @@ struct OverrideDialogView: View {
             VStack(spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 48))
-                    .foregroundColor(.orange)
+                    .foregroundStyle(.orange)
 
                 Text("Override Step")
                     .font(.system(size: 24, weight: .bold))
 
                 Text("This step has been waiting for an extended period. How would you like to proceed?")
                     .font(.system(size: 14))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
             }
@@ -2855,8 +2879,8 @@ struct OverrideDialogView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Color.green.opacity(0.1))
-                    .foregroundColor(.green)
-                    .cornerRadius(10)
+                    .foregroundStyle(.green)
+                    .clipShape(.rect(cornerRadius: 10))
                 }
                 .buttonStyle(.plain)
 
@@ -2872,8 +2896,8 @@ struct OverrideDialogView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Color.red.opacity(0.1))
-                    .foregroundColor(.red)
-                    .cornerRadius(10)
+                    .foregroundStyle(.red)
+                    .clipShape(.rect(cornerRadius: 10))
                 }
                 .buttonStyle(.plain)
 
@@ -2889,8 +2913,8 @@ struct OverrideDialogView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Color.blue.opacity(0.1))
-                    .foregroundColor(.blue)
-                    .cornerRadius(10)
+                    .foregroundStyle(.blue)
+                    .clipShape(.rect(cornerRadius: 10))
                 }
                 .buttonStyle(.plain)
             }
@@ -2902,12 +2926,12 @@ struct OverrideDialogView: View {
                 isPresented = false
             }
             .buttonStyle(.plain)
-            .foregroundColor(.secondary)
+            .foregroundStyle(.secondary)
             .padding(.bottom, 20)
         }
         .frame(width: 400)
         .background(Color(NSColor.windowBackgroundColor))
-        .cornerRadius(16)
+        .clipShape(.rect(cornerRadius: 16))
         .shadow(radius: 20)
     }
 }

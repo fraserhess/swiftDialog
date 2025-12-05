@@ -119,6 +119,8 @@ struct InspectConfig: Codable {
     let extraButton: ExtraButtonConfig?     // Optional extra button (e.g., Reset, Help, Info)
     let progressBarConfig: ProgressBarConfig? // Optional progress bar visual configuration
     let logoConfig: LogoConfig?             // Optional logo overlay configuration (Preset9, etc.)
+    let detailOverlay: DetailOverlayConfig? // Optional detail flyout overlay configuration
+    let helpButton: HelpButtonConfig?       // Optional help button configuration
 
     let items: [ItemConfig]
 
@@ -222,6 +224,7 @@ struct InspectConfig: Codable {
 
         // Preset9 custom content
         let keyPointsText: String?      // Custom paragraph text for "Key Points" section in Preset9 (appears above bullet points)
+        let highlightColor: String?     // Per-item accent/highlight color (hex string like "#61BB46") - overrides global highlightColor
 
         // Preset6 success/failure handling (Option 3 - Hybrid approach)
         let successMessage: String?     // Message shown when step completes successfully
@@ -246,6 +249,9 @@ struct InspectConfig: Codable {
 
         // Multiple JSON monitors for automatic status component updates
         let jsonMonitors: [JsonMonitor]? // Array of JSON monitors that auto-update guidance components
+
+        // Per-item detail overlay override (overrides global detailOverlay for this item)
+        let itemOverlay: DetailOverlayConfig? // Optional per-item detail overlay content
     }
 
     // Completion trigger - defines automatic step completion when plist condition met
@@ -487,6 +493,35 @@ struct InspectConfig: Codable {
         let multiSelectHint: String?        // Hint for multi-select mode (default: "You can select multiple items")
     }
 
+    /// Detail overlay configuration (Global - all presets)
+    /// Provides a customizable flyout/sheet overlay for help, support info, or detailed content
+    /// Can display rich content using GuidanceContent blocks, system info, and template variables
+    struct DetailOverlayConfig: Codable {
+        let enabled: Bool?                  // Enable overlay (default: true when config present)
+        let size: String?                   // "small" | "medium" | "large" | "full" (default: "medium")
+        let title: String?                  // Overlay title (default: "Help")
+        let subtitle: String?               // Optional subtitle below title
+        let icon: String?                   // SF Symbol or image path for header
+        let overlayIcon: String?            // Overlay icon for header (badge style)
+        let content: [GuidanceContent]?     // Rich content blocks (reuse existing GuidanceContent)
+        let showSystemInfo: Bool?           // Include system info section (default: true)
+        let showProgressInfo: Bool?         // Include progress/installation info (default: false)
+        let closeButtonText: String?        // Close button text (default: "Close")
+        let backgroundColor: String?        // Optional background color override (hex)
+        let showDividers: Bool?             // Show section dividers (default: true)
+    }
+
+    /// Help button configuration (Global - all presets)
+    /// Displays a floating or inline help button that triggers the detail overlay
+    struct HelpButtonConfig: Codable {
+        let enabled: Bool?                  // Show help button (default: true when config present)
+        let icon: String?                   // SF Symbol icon (default: "questionmark.circle")
+        let position: String?               // "topRight" | "topLeft" | "bottomRight" | "bottomLeft" (default: "bottomRight")
+        let label: String?                  // Optional button label text (e.g., "Help")
+        let tooltip: String?                // Hover tooltip text (default: "Get Help")
+        let style: String?                  // "floating" | "inline" | "toolbar" (default: "floating")
+    }
+
     // Generic color threshold system for all presets
     struct ColorThresholds: Codable {
         let excellent: Double              // Default: 90%+ = Green
@@ -641,6 +676,8 @@ struct InspectConfig: Codable {
         try container.encodeIfPresent(extraButton, forKey: .extraButton)
         try container.encodeIfPresent(progressBarConfig, forKey: .progressBarConfig)
         try container.encodeIfPresent(logoConfig, forKey: .logoConfig)
+        try container.encodeIfPresent(detailOverlay, forKey: .detailOverlay)
+        try container.encodeIfPresent(helpButton, forKey: .helpButton)
         try container.encode(items, forKey: .items)
     }
 
@@ -725,6 +762,8 @@ struct InspectConfig: Codable {
         extraButton = try container.decodeIfPresent(ExtraButtonConfig.self, forKey: .extraButton)
         progressBarConfig = try container.decodeIfPresent(ProgressBarConfig.self, forKey: .progressBarConfig)
         logoConfig = try container.decodeIfPresent(LogoConfig.self, forKey: .logoConfig)
+        detailOverlay = try container.decodeIfPresent(DetailOverlayConfig.self, forKey: .detailOverlay)
+        helpButton = try container.decodeIfPresent(HelpButtonConfig.self, forKey: .helpButton)
 
         // Default to empty array if items not provided
         items = try container.decodeIfPresent([ItemConfig].self, forKey: .items) ?? []
@@ -761,5 +800,7 @@ struct InspectConfig: Codable {
         case progressBarConfig
         // Logo overlay configuration
         case logoConfig
+        // Detail overlay and help button configuration
+        case detailOverlay, helpButton
     }
 }

@@ -194,7 +194,7 @@ struct PresetCommonViews {
             if showLabel {
                 Text(getProgressText(state: state))
                     .font(.system(size: labelSize))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -208,7 +208,7 @@ struct PresetCommonViews {
     ) -> some View {
         if state.completedItems.contains(item.id) {
             Image(systemName: "checkmark.circle.fill")
-                .foregroundColor(.green)
+                .foregroundStyle(.green)
                 .font(.system(size: size))
         } else if state.downloadingItems.contains(item.id) {
             ProgressView()
@@ -383,7 +383,7 @@ struct CategoryIconBubble: View {
                 // Fallback to SF Symbol if image not found
                 Image(systemName: getSFSymbolForApp(iconName))
                     .font(.system(size: 16 * scaleFactor, weight: .medium))
-                    .foregroundColor(.blue)
+                    .foregroundStyle(.blue)
             }
         }
     }
@@ -520,7 +520,7 @@ struct GuidanceContentView: View {
             let resolvedContent = resolveTemplateVariables(block.content ?? "", inspectState: inspectState)
             Text(attributedMarkdown(resolvedContent))
                 .font(.system(size: 13 * scaleFactor, weight: isBold ? .semibold : .regular))
-                .foregroundColor(textColor)
+                .foregroundStyle(textColor)
                 .fixedSize(horizontal: false, vertical: true)
 
         case "highlight":
@@ -542,17 +542,17 @@ struct GuidanceContentView: View {
             HStack(spacing: 6 * scaleFactor) {
                 Text(block.content ?? "")
                     .font(.system(size: 13 * scaleFactor, weight: .medium))
-                    .foregroundColor(textColor)
+                    .foregroundStyle(textColor)
             }
 
         case "warning":
             HStack(alignment: .top, spacing: 8 * scaleFactor) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 13 * scaleFactor))
-                    .foregroundColor(.orange)
+                    .foregroundStyle(.orange)
                 Text(block.content ?? "")
                     .font(.system(size: 13 * scaleFactor))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(10 * scaleFactor)
@@ -565,10 +565,10 @@ struct GuidanceContentView: View {
             HStack(alignment: .top, spacing: 8 * scaleFactor) {
                 Image(systemName: "info.circle.fill")
                     .font(.system(size: 13 * scaleFactor))
-                    .foregroundColor(.blue)
+                    .foregroundStyle(.blue)
                 Text(block.content ?? "")
                     .font(.system(size: 13 * scaleFactor))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(10 * scaleFactor)
@@ -581,10 +581,10 @@ struct GuidanceContentView: View {
             HStack(alignment: .top, spacing: 8 * scaleFactor) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 13 * scaleFactor))
-                    .foregroundColor(.green)
+                    .foregroundStyle(.green)
                 Text(block.content ?? "")
                     .font(.system(size: 13 * scaleFactor))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(10 * scaleFactor)
@@ -619,12 +619,12 @@ struct GuidanceContentView: View {
                     HStack(alignment: .top, spacing: 8 * scaleFactor) {
                         Image(systemName: iconName)
                             .font(.system(size: 13 * scaleFactor))
-                            .foregroundColor(iconColor)
+                            .foregroundStyle(iconColor)
 
                         // Native SwiftUI markdown support
                         Text(attributedMarkdown(resolvedContent))
                             .font(.system(size: 13 * scaleFactor))
-                            .foregroundColor(.primary)
+                            .foregroundStyle(.primary)
                             .fixedSize(horizontal: false, vertical: true)
                         /*
                         Text(try! AttributedString(markdown: resolvedContent, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
@@ -642,7 +642,7 @@ struct GuidanceContentView: View {
                     // Plain style without box
                     Text(attributedMarkdown(resolvedContent))
                         .font(.system(size: 13 * scaleFactor))
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -652,10 +652,10 @@ struct GuidanceContentView: View {
             HStack(alignment: .top, spacing: 8 * scaleFactor) {
                 Text("•")
                     .font(.system(size: 13 * scaleFactor, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
                 Text(resolvedContent)
                     .font(.system(size: 13 * scaleFactor))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -701,20 +701,20 @@ struct GuidanceContentView: View {
                 if showBullet {
                     Text("•")
                         .font(.system(size: 13 * scaleFactor, weight: .bold))
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.primary)
                 }
 
                 // Label part (styled based on variant)
                 if !label.isEmpty {
                     Text(label + ":")
                         .font(.system(size: 13 * scaleFactor, weight: .regular))
-                        .foregroundColor(labelColor)
+                        .foregroundStyle(labelColor)
                 }
 
                 // Value part (bold, larger if table/success style)
                 Text(value)
                     .font(.system(size: valueFontSize * scaleFactor, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.leading, showBullet ? 0 : 6 * scaleFactor)  // Add slight indent if no bullet
@@ -743,7 +743,7 @@ struct GuidanceContentView: View {
                         if let caption = block.caption {
                             Text(caption)
                                 .font(.system(size: 11 * scaleFactor))
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                                 .italic()
                                 .multilineTextAlignment(.center)
                                 .padding(.top, 2 * scaleFactor)
@@ -754,10 +754,10 @@ struct GuidanceContentView: View {
                             HStack(spacing: 8 * scaleFactor) {
                                 Image(systemName: "photo")
                                     .font(.system(size: 13 * scaleFactor))
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(.secondary)
                                 Text("Image not found: \(contentPath)")
                                     .font(.system(size: 11 * scaleFactor))
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(.secondary)
                                     .italic()
                             }
                             .padding(10 * scaleFactor)
@@ -797,7 +797,7 @@ struct GuidanceContentView: View {
                         )) {
                             Text(block.content ?? "")
                                 .font(.system(size: 13 * scaleFactor))
-                                .foregroundColor(.primary)
+                                .foregroundStyle(.primary)
                         }
                         .toggleStyle(.checkbox)
                     } else {
@@ -805,7 +805,7 @@ struct GuidanceContentView: View {
                         Toggle(isOn: .constant(false)) {
                             Text(block.content ?? "")
                                 .font(.system(size: 13 * scaleFactor))
-                                .foregroundColor(.primary)
+                                .foregroundStyle(.primary)
                         }
                         .toggleStyle(.checkbox)
                         .disabled(true)
@@ -815,7 +815,7 @@ struct GuidanceContentView: View {
                 if block.required == true {
                     Text("* Required")
                         .font(.system(size: 11 * scaleFactor))
-                        .foregroundColor(.orange)
+                        .foregroundStyle(.orange)
                         .italic()
                 }
             }
@@ -826,7 +826,7 @@ struct GuidanceContentView: View {
                 HStack {
                     Text(block.content ?? "")
                         .font(.system(size: 13 * scaleFactor))
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.primary)
 
                     Spacer()
 
@@ -878,7 +878,7 @@ struct GuidanceContentView: View {
                 if block.required == true {
                     Text("* Required")
                         .font(.system(size: 11 * scaleFactor))
-                        .foregroundColor(.orange)
+                        .foregroundStyle(.orange)
                         .italic()
                 }
             }
@@ -889,7 +889,7 @@ struct GuidanceContentView: View {
                 if let content = block.content, !content.isEmpty {
                     Text(content)
                         .font(.system(size: 13 * scaleFactor, weight: .medium))
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.primary)
                 }
 
                 if let options = block.options, !options.isEmpty, let fieldId = block.id {
@@ -912,11 +912,11 @@ struct GuidanceContentView: View {
                             HStack {
                                 Image(systemName: option == selectedValue.wrappedValue ? "circle.inset.filled" : "circle")
                                     .font(.system(size: 14 * scaleFactor))
-                                    .foregroundColor(option == selectedValue.wrappedValue ? .blue : .secondary)
+                                    .foregroundStyle(option == selectedValue.wrappedValue ? .blue : .secondary)
 
                                 Text(option)
                                     .font(.system(size: 13 * scaleFactor))
-                                    .foregroundColor(.primary)
+                                    .foregroundStyle(.primary)
                             }
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -932,11 +932,11 @@ struct GuidanceContentView: View {
                             HStack {
                                 Image(systemName: option == block.value ? "circle.inset.filled" : "circle")
                                     .font(.system(size: 14 * scaleFactor))
-                                    .foregroundColor(option == block.value ? .blue : .secondary)
+                                    .foregroundStyle(option == block.value ? .blue : .secondary)
 
                                 Text(option)
                                     .font(.system(size: 13 * scaleFactor))
-                                    .foregroundColor(.primary)
+                                    .foregroundStyle(.primary)
                             }
                         }
                     }
@@ -946,7 +946,7 @@ struct GuidanceContentView: View {
                 if block.required == true {
                     Text("* Required")
                         .font(.system(size: 11 * scaleFactor))
-                        .foregroundColor(.orange)
+                        .foregroundStyle(.orange)
                         .italic()
                 }
             }
@@ -957,7 +957,7 @@ struct GuidanceContentView: View {
                 if let content = block.content {
                     Text(content)
                         .font(.system(size: 13 * scaleFactor))
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.primary)
                 }
 
                 if let helpText = block.helpText, !helpText.isEmpty {
@@ -996,7 +996,7 @@ struct GuidanceContentView: View {
                     if let label = block.label {
                         Text(label)
                             .font(.system(size: 13 * scaleFactor, weight: .medium))
-                            .foregroundColor(.primary)
+                            .foregroundStyle(.primary)
                     }
 
                     if let helpText = block.helpText, !helpText.isEmpty {
@@ -1012,12 +1012,12 @@ struct GuidanceContentView: View {
                         HStack(spacing: 4 * scaleFactor) {
                             Text("\(Int(currentValue))")
                                 .font(.system(size: 13 * scaleFactor, weight: .medium))
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
 
                             if let unit = block.unit {
                                 Text(unit)
                                     .font(.system(size: 12 * scaleFactor))
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -1089,7 +1089,7 @@ struct GuidanceContentView: View {
             } else if appvars.debugMode {
                 Text("status-badge requires 'label' and 'state' properties")
                     .font(.system(size: 11 * scaleFactor))
-                    .foregroundColor(.red)
+                    .foregroundStyle(.red)
                     .italic()
             }
 
@@ -1127,7 +1127,7 @@ struct GuidanceContentView: View {
             } else if appvars.debugMode {
                 Text("comparison-table requires 'expected' and 'actual' properties")
                     .font(.system(size: 11 * scaleFactor))
-                    .foregroundColor(.red)
+                    .foregroundStyle(.red)
                     .italic()
             }
 
@@ -1146,7 +1146,7 @@ struct GuidanceContentView: View {
             } else if appvars.debugMode {
                 Text("phase-tracker requires 'currentPhase' and 'phases' properties")
                     .font(.system(size: 11 * scaleFactor))
-                    .foregroundColor(.red)
+                    .foregroundStyle(.red)
                     .italic()
             }
 
@@ -1161,7 +1161,7 @@ struct GuidanceContentView: View {
                 if let label = progressLabel, !label.isEmpty {
                     Text(label)
                         .font(.system(size: 12 * scaleFactor, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                 }
 
                 if isDeterminate {
@@ -1198,7 +1198,7 @@ struct GuidanceContentView: View {
             } else if appvars.debugMode {
                 Text("image-carousel requires 'images' array with at least one image path")
                     .font(.system(size: 11 * scaleFactor))
-                    .foregroundColor(.red)
+                    .foregroundStyle(.red)
                     .italic()
             }
 
@@ -1218,7 +1218,7 @@ struct GuidanceContentView: View {
             } else if appvars.debugMode {
                 Text("compliance-card requires 'categoryName', 'passed', and 'total' fields")
                     .font(.system(size: 11 * scaleFactor))
-                    .foregroundColor(.red)
+                    .foregroundStyle(.red)
                     .italic()
             }
 
@@ -1238,14 +1238,14 @@ struct GuidanceContentView: View {
             } else if appvars.debugMode {
                 Text("compliance-header requires 'passed' and 'total' fields")
                     .font(.system(size: 11 * scaleFactor))
-                    .foregroundColor(.red)
+                    .foregroundStyle(.red)
                     .italic()
             }
 
         default:
             Text(block.content ?? "")
                 .font(.system(size: 13 * scaleFactor))
-                .foregroundColor(textColor)
+                .foregroundStyle(textColor)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -1344,8 +1344,14 @@ struct GuidanceContentView: View {
     }
 
     /// Resolve a single variable (fieldId or stepId.fieldId) to its actual value
+    /// Also supports system variables like serialNumber, computerModel, userName, etc.
     private func resolveVariable(_ variable: String, from inspectState: InspectState) -> String {
         let trimmed = variable.trimmingCharacters(in: .whitespaces)
+
+        // Check for system variables first
+        if let systemValue = resolveSystemVariable(trimmed) {
+            return systemValue
+        }
 
         // Check if it's a stepId.fieldId pattern
         if trimmed.contains(".") {
@@ -1397,6 +1403,32 @@ struct GuidanceContentView: View {
             return "(not set)"
         }
     }
+
+    /// Resolve system template variables like serialNumber, computerModel, userName, etc.
+    /// Returns nil if the variable name is not a recognized system variable.
+    private func resolveSystemVariable(_ variable: String) -> String? {
+        let systemInfo = getEnvironmentVars()
+
+        switch variable {
+        case "serialNumber":
+            return systemInfo["serialnumber"] ?? "Unknown"
+        case "computerModel":
+            return systemInfo["computermodel"] ?? "Unknown"
+        case "computerName":
+            return systemInfo["computername"] ?? "Unknown"
+        case "userName":
+            return systemInfo["username"] ?? "Unknown"
+        case "userFullName":
+            return systemInfo["userfullname"] ?? "Unknown"
+        case "osVersion":
+            let v = ProcessInfo.processInfo.operatingSystemVersion
+            return "\(v.majorVersion).\(v.minorVersion).\(v.patchVersion)"
+        case "osName":
+            return systemInfo["osname"] ?? "macOS"
+        default:
+            return nil  // Not a system variable
+        }
+    }
 }
 
 // MARK: - Processing Countdown View
@@ -1416,7 +1448,7 @@ struct ProcessingCountdownView: View {
             if let message = message {
                 Text(message.replacingOccurrences(of: "{countdown}", with: "\(countdown)"))
                     .font(.system(size: 13 * scaleFactor))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
         }
@@ -1444,12 +1476,12 @@ struct StepTypeIndicator: View {
         HStack(spacing: 4 * scaleFactor) {
             Image(systemName: iconName)
                 .font(.system(size: iconSize, weight: .semibold))
-                .foregroundColor(iconColor)
+                .foregroundStyle(iconColor)
 
             if style == .inline || style == .prominent {
                 Text(displayLabel)
                     .font(.system(size: textSize, weight: .medium))
-                    .foregroundColor(iconColor)
+                    .foregroundStyle(iconColor)
             }
         }
         .padding(.horizontal, horizontalPadding)
@@ -1678,12 +1710,12 @@ struct InstructionBanner: View {
                 if let iconName = icon {
                     Image(systemName: iconName)
                         .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                 }
 
                 Text(text)
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
 
@@ -1693,7 +1725,7 @@ struct InstructionBanner: View {
                 Button(action: dismiss) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 18))
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundStyle(.white.opacity(0.6))
                 }
                 .buttonStyle(.plain)
                 .help("Dismiss instruction")
@@ -1794,16 +1826,16 @@ struct StatusBadgeView: View {
         return HStack(spacing: 8 * scaleFactor) {
             Image(systemName: icon ?? defaultIcon)
                 .font(.system(size: 16 * scaleFactor))
-                .foregroundColor(stateColor)
+                .foregroundStyle(stateColor)
 
             VStack(alignment: .leading, spacing: 2 * scaleFactor) {
                 Text(label)
                     .font(.system(size: 13 * scaleFactor, weight: .medium))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
 
                 Text(state)
                     .font(.system(size: 12 * scaleFactor))
-                    .foregroundColor(stateColor)
+                    .foregroundStyle(stateColor)
                     .fontWeight(.semibold)
             }
 
@@ -1956,7 +1988,7 @@ struct ComparisonTableView: View {
             if !label.isEmpty {
                 Text(label)
                     .font(.system(size: 13 * scaleFactor, weight: .semibold))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
             }
 
             VStack(spacing: 6 * scaleFactor) {
@@ -1964,12 +1996,12 @@ struct ComparisonTableView: View {
                 HStack {
                     Text(expectedLabel + ":")
                         .font(.system(size: 12 * scaleFactor, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .frame(width: 80 * scaleFactor, alignment: .leading)
 
                     Text(expected)
                         .font(.system(size: 12 * scaleFactor))
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.primary)
                         .padding(.horizontal, 8 * scaleFactor)
                         .padding(.vertical, 4 * scaleFactor)
                         .background(
@@ -1984,12 +2016,12 @@ struct ComparisonTableView: View {
                 HStack {
                     Text(actualLabel + ":")
                         .font(.system(size: 12 * scaleFactor, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .frame(width: 80 * scaleFactor, alignment: .leading)
 
                     Text(actual)
                         .font(.system(size: 12 * scaleFactor))
-                        .foregroundColor(comparisonColor)
+                        .foregroundStyle(comparisonColor)
                         .fontWeight(.semibold)
                         .padding(.horizontal, 8 * scaleFactor)
                         .padding(.vertical, 4 * scaleFactor)
@@ -2004,7 +2036,7 @@ struct ComparisonTableView: View {
 
                     Image(systemName: isMatch ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .font(.system(size: 14 * scaleFactor))
-                        .foregroundColor(comparisonColor)
+                        .foregroundStyle(comparisonColor)
 
                     Spacer()
                 }
@@ -2023,7 +2055,7 @@ struct ComparisonTableView: View {
             if !label.isEmpty {
                 Text(label)
                     .font(.system(size: 13 * scaleFactor, weight: .semibold))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
             }
 
             HStack(spacing: 12 * scaleFactor) {
@@ -2031,19 +2063,19 @@ struct ComparisonTableView: View {
                 VStack(spacing: 4 * scaleFactor) {
                     Text(expectedLabel)
                         .font(.system(size: 11 * scaleFactor, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
 
                     VStack(spacing: 6 * scaleFactor) {
                         if let icon = expectedIcon {
                             Image(systemName: icon)
                                 .font(.system(size: 24 * scaleFactor))
-                                .foregroundColor(expectedColor != nil ? effectiveExpectedColor : .secondary)
+                                .foregroundStyle(expectedColor != nil ? effectiveExpectedColor : .secondary)
                                 .frame(height: 24 * scaleFactor)
                         }
 
                         Text(expected)
                             .font(.system(size: highlightCells ? 14 * scaleFactor : 12 * scaleFactor, weight: highlightCells ? .bold : .regular))
-                            .foregroundColor(expectedColor != nil ? effectiveExpectedColor : .primary)
+                            .foregroundStyle(expectedColor != nil ? effectiveExpectedColor : .primary)
                             .multilineTextAlignment(.center)
                             .lineLimit(3)
                     }
@@ -2065,25 +2097,25 @@ struct ComparisonTableView: View {
                 VStack(spacing: 4 * scaleFactor) {
                     Text(actualLabel)
                         .font(.system(size: 11 * scaleFactor, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
 
                     VStack(spacing: 6 * scaleFactor) {
                         if let icon = actualIcon {
                             Image(systemName: icon)
                                 .font(.system(size: 24 * scaleFactor))
-                                .foregroundColor(effectiveActualColor)
+                                .foregroundStyle(effectiveActualColor)
                                 .frame(height: 24 * scaleFactor)
                         } else {
                             // Auto-assign icon based on match
                             Image(systemName: getIconForState(isExpected: false))
                                 .font(.system(size: 24 * scaleFactor))
-                                .foregroundColor(effectiveActualColor)
+                                .foregroundStyle(effectiveActualColor)
                                 .frame(height: 24 * scaleFactor)
                         }
 
                         Text(actual)
                             .font(.system(size: highlightCells ? 14 * scaleFactor : 12 * scaleFactor, weight: highlightCells ? .bold : .semibold))
-                            .foregroundColor(effectiveActualColor)
+                            .foregroundStyle(effectiveActualColor)
                             .multilineTextAlignment(.center)
                             .lineLimit(3)
                     }
@@ -2140,19 +2172,19 @@ struct ComparisonGroupView: View {
                 HStack(spacing: 8 * scaleFactor) {
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                         .font(.system(size: 12 * scaleFactor, weight: .semibold))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .frame(width: 12 * scaleFactor)
 
                     Text(category)
                         .font(.system(size: 14 * scaleFactor, weight: .semibold))
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.primary)
 
                     Spacer()
 
                     // Summary badge (count of items)
                     Text("\(comparisons.count)")
                         .font(.system(size: 11 * scaleFactor, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .padding(.horizontal, 6 * scaleFactor)
                         .padding(.vertical, 2 * scaleFactor)
                         .background(
@@ -2261,18 +2293,18 @@ struct PhaseTrackerView: View {
                         if isCompleted {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 12 * scaleFactor, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundStyle(.white)
                         } else {
                             Text("\(phaseNum)")
                                 .font(.system(size: 12 * scaleFactor, weight: .bold))
-                                .foregroundColor(isActive ? .white : .secondary)
+                                .foregroundStyle(isActive ? .white : .secondary)
                         }
                     }
 
                     // Phase label
                     Text(phaseLabels[index])
                         .font(.system(size: 11 * scaleFactor, weight: isActive ? .semibold : .regular))
-                        .foregroundColor(isActive ? .primary : .secondary)
+                        .foregroundStyle(isActive ? .primary : .secondary)
 
                     // Connector line (except for last item)
                     if index < phaseLabels.count - 1 {
@@ -2292,13 +2324,13 @@ struct PhaseTrackerView: View {
             HStack {
                 Text("Phase \(currentPhase) of \(phaseLabels.count)")
                     .font(.system(size: 12 * scaleFactor, weight: .medium))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
 
                 Spacer()
 
                 Text(phaseLabels[safe: currentPhase - 1] ?? "")
                     .font(.system(size: 12 * scaleFactor, weight: .semibold))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
             }
 
             ProgressView(value: Double(currentPhase), total: Double(phaseLabels.count))
@@ -2321,13 +2353,12 @@ struct PhaseTrackerView: View {
                           isActive ? "square.fill" :
                           "square")
                         .font(.system(size: 16 * scaleFactor))
-                        .foregroundColor(isCompleted ? (Color(hex: "#34C759")) :
-                                            isActive ? (Color(hex: "#FF9F0A")) :
-                                       .secondary)
+                        .foregroundStyle(isCompleted ? Color(hex: "#34C759") :
+                                       isActive ? Color(hex: "#FF9F0A") : .secondary)
 
                     Text(phaseLabels[index])
                         .font(.system(size: 12 * scaleFactor, weight: isActive ? .semibold : .regular))
-                        .foregroundColor(isActive ? .primary : .secondary)
+                        .foregroundStyle(isActive ? .primary : .secondary)
 
                     Spacer()
                 }
@@ -2398,7 +2429,7 @@ struct AsyncImageView<Fallback: View>: View {
 
                         Text("Loading...")
                             .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundStyle(.white.opacity(0.8))
                     }
                 }
                 .frame(width: maxWidth, height: maxHeight)
@@ -2450,7 +2481,7 @@ struct AsyncImageView<Fallback: View>: View {
         }
 
         // Add small delay to show loading state
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try? await Task.sleep(for: .milliseconds(100))
 
         // Try to load the image
         if let nsImage = NSImage(contentsOfFile: fullPath) {
@@ -2543,7 +2574,7 @@ struct ImageCarouselView: View {
                         Button(action: previousImage) {
                             Image(systemName: "chevron.left.circle.fill")
                                 .font(.system(size: 32 * scaleFactor))
-                                .foregroundColor(.white)
+                                .foregroundStyle(.white)
                                 .shadow(color: .black.opacity(0.3), radius: 4)
                         }
                         .buttonStyle(.plain)
@@ -2557,7 +2588,7 @@ struct ImageCarouselView: View {
                         Button(action: nextImage) {
                             Image(systemName: "chevron.right.circle.fill")
                                 .font(.system(size: 32 * scaleFactor))
-                                .foregroundColor(.white)
+                                .foregroundStyle(.white)
                                 .shadow(color: .black.opacity(0.3), radius: 4)
                         }
                         .buttonStyle(.plain)
@@ -2581,7 +2612,7 @@ struct ImageCarouselView: View {
                !caption.isEmpty {
                 Text(caption)
                     .font(.system(size: 13 * scaleFactor, weight: .medium))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 16 * scaleFactor)
                     .transition(.opacity)
@@ -2617,11 +2648,11 @@ struct ImageCarouselView: View {
                         VStack(spacing: 8 * scaleFactor) {
                             Image(systemName: "photo")
                                 .font(.system(size: 40 * scaleFactor))
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
 
                             Text("Image not found")
                                 .font(.system(size: 12 * scaleFactor))
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -2841,14 +2872,14 @@ struct InfoPopoverButton: View {
         }) {
             Image(systemName: "info.circle")
                 .font(.system(size: 14 * scaleFactor))
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
         }
         .buttonStyle(.plain)
         .popover(isPresented: $showingPopover, arrowEdge: .trailing) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: "info.circle.fill")
-                        .foregroundColor(.blue)
+                        .foregroundStyle(.blue)
                     Text("Help")
                         .font(.headline)
                 }
@@ -2962,26 +2993,26 @@ struct ComplianceDashboardHeader: View {
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 64 * scaleFactor, height: 64 * scaleFactor)
-                            .foregroundColor(.accentColor)
+                            .foregroundStyle(Color.accentColor)
                     } else {
                         Image(systemName: iconName)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 64 * scaleFactor, height: 64 * scaleFactor)
-                            .foregroundColor(.accentColor)
+                            .foregroundStyle(Color.accentColor)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 4 * scaleFactor) {
                     Text(title)
                         .font(.system(size: 22 * scaleFactor, weight: .semibold))
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.primary)
                         .lineLimit(2)
 
                     if let subtitle = subtitle {
                         Text(subtitle)
                             .font(.system(size: 14 * scaleFactor))
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }
                 }
@@ -2991,7 +3022,7 @@ struct ComplianceDashboardHeader: View {
                 // Status badge
                 Text(statusText)
                     .font(.system(size: 12 * scaleFactor, weight: .semibold))
-                    .foregroundColor(statusColor)
+                    .foregroundStyle(statusColor)
                     .padding(.horizontal, 16 * scaleFactor)
                     .padding(.vertical, 8 * scaleFactor)
                     .background(
@@ -3011,10 +3042,10 @@ struct ComplianceDashboardHeader: View {
                             .frame(width: 8 * scaleFactor, height: 8 * scaleFactor)
                         Text("Passed")
                             .font(.system(size: 11 * scaleFactor, weight: .medium))
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                         Text("\(passed)")
                             .font(.system(size: 16 * scaleFactor, weight: .bold, design: .monospaced))
-                            .foregroundColor(colorThresholds.getPositiveColor())
+                            .foregroundStyle(colorThresholds.getPositiveColor())
                     }
 
                     Spacer()
@@ -3022,7 +3053,7 @@ struct ComplianceDashboardHeader: View {
                     // Overall percentage
                     Text("\(Int(score * 100))%")
                         .font(.system(size: 20 * scaleFactor, weight: .bold, design: .rounded))
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.primary)
 
                     Spacer()
 
@@ -3030,10 +3061,10 @@ struct ComplianceDashboardHeader: View {
                     HStack(spacing: 8 * scaleFactor) {
                         Text("\(failed)")
                             .font(.system(size: 16 * scaleFactor, weight: .bold, design: .monospaced))
-                            .foregroundColor(colorThresholds.getNegativeColor())
+                            .foregroundStyle(colorThresholds.getNegativeColor())
                         Text("Failed")
                             .font(.system(size: 11 * scaleFactor, weight: .medium))
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                         Circle()
                             .fill(colorThresholds.getNegativeColor())
                             .frame(width: 8 * scaleFactor, height: 8 * scaleFactor)
@@ -3069,7 +3100,7 @@ struct ComplianceDashboardHeader: View {
                 // Total count
                 Text("Total: \(total) items")
                     .font(.system(size: 10 * scaleFactor, weight: .medium))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.horizontal, 32 * scaleFactor)
@@ -3115,7 +3146,7 @@ struct CircularProgressView: View {
             // Percentage text
             Text("\(Int(progress * 100))%")
                 .font(.system(size: 12 * scaleFactor, weight: .bold, design: .rounded))
-                .foregroundColor(.primary)
+                .foregroundStyle(.primary)
         }
         .onAppear {
             withAnimation(.spring(response: 0.8, dampingFraction: 0.6).delay(0.1)) {
@@ -3180,12 +3211,12 @@ struct ComplianceCardView: View {
                     if let iconName = icon {
                         Image(systemName: iconName)
                             .font(.system(size: 20 * scaleFactor, weight: .semibold))
-                            .foregroundColor(statusColor)
+                            .foregroundStyle(statusColor)
                     }
 
                     Text(categoryName)
                         .font(.system(size: 15 * scaleFactor, weight: .bold))
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.primary)
                         .lineLimit(2)
                 }
 
@@ -3194,7 +3225,7 @@ struct ComplianceCardView: View {
                 // Status badge
                 Text(statusText)
                     .font(.system(size: 10 * scaleFactor, weight: .semibold))
-                    .foregroundColor(statusColor)
+                    .foregroundStyle(statusColor)
                     .padding(.horizontal, 10 * scaleFactor)
                     .padding(.vertical, 4 * scaleFactor)
                     .background(
@@ -3234,14 +3265,14 @@ struct ComplianceCardView: View {
                                     // Color-coded symbol
                                     Text(symbol)
                                         .font(.system(size: 10 * scaleFactor, weight: .semibold))
-                                        .foregroundColor(isPassed ? colorThresholds.getPositiveColor() :
+                                        .foregroundStyle(isPassed ? colorThresholds.getPositiveColor() :
                                                        isFailed ? colorThresholds.getNegativeColor() :
                                                        Color.secondary)
                                         .frame(width: 10 * scaleFactor, alignment: .leading)
 
                                     Text(text)
                                         .font(.system(size: 10 * scaleFactor, weight: .medium))
-                                        .foregroundColor(.primary)
+                                        .foregroundStyle(.primary)
                                         .lineLimit(2)
                                 }
                                 .padding(.vertical, 2 * scaleFactor)
@@ -3281,7 +3312,7 @@ struct ComplianceCardView: View {
                         // Percentage inside ring
                         Text("\(Int(score * 100))%")
                             .font(.system(size: 11 * scaleFactor, weight: .bold, design: .rounded))
-                            .foregroundColor(.primary)
+                            .foregroundStyle(.primary)
                     }
 
                     // Compact metrics (just numbers with dots)
@@ -3292,7 +3323,7 @@ struct ComplianceCardView: View {
                                 .frame(width: 4 * scaleFactor, height: 4 * scaleFactor)
                             Text("\(passed)")
                                 .font(.system(size: 9 * scaleFactor, weight: .medium, design: .monospaced))
-                                .foregroundColor(colorThresholds.getPositiveColor())
+                                .foregroundStyle(colorThresholds.getPositiveColor())
                         }
 
                         HStack(spacing: 5 * scaleFactor) {
@@ -3301,7 +3332,7 @@ struct ComplianceCardView: View {
                                 .frame(width: 4 * scaleFactor, height: 4 * scaleFactor)
                             Text("\(total - passed)")
                                 .font(.system(size: 9 * scaleFactor, weight: .medium, design: .monospaced))
-                                .foregroundColor(colorThresholds.getNegativeColor())
+                                .foregroundStyle(colorThresholds.getNegativeColor())
                         }
                     }
 
@@ -3348,5 +3379,202 @@ private func applyButtonStyle(_ button: some View, styleString: String?) -> some
         button.buttonStyle(.plain)
     default: // "bordered" or nil
         button.buttonStyle(.bordered)
+    }
+}
+
+// MARK: - Detail Overlay Help Button
+
+/// A configurable help button that triggers the detail overlay
+struct DetailOverlayHelpButton: View {
+    let config: InspectConfig.HelpButtonConfig
+    let action: () -> Void
+
+    /// Icon to display (SF Symbol name)
+    private var iconName: String {
+        config.icon ?? "questionmark.circle"
+    }
+
+    /// Button style
+    private var buttonStyle: String {
+        config.style ?? "floating"
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: iconName)
+                    .font(.system(size: buttonStyle == "floating" ? 18 : 14))
+
+                if let label = config.label {
+                    Text(label)
+                        .font(.system(size: 13, weight: .medium))
+                }
+            }
+            .foregroundStyle(buttonStyle == "floating" ? .white : .accentColor)
+            .padding(buttonStyle == "floating" ? 10 : 6)
+            .background(
+                Group {
+                    if buttonStyle == "floating" {
+                        Circle()
+                            .fill(Color.accentColor)
+                            .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
+                    } else if buttonStyle == "toolbar" {
+                        Capsule()
+                            .fill(Color(NSColor.controlBackgroundColor))
+                    }
+                }
+            )
+        }
+        .buttonStyle(.plain)
+        .help(config.tooltip ?? "Get Help")
+    }
+}
+
+// MARK: - Detail Overlay View Modifier
+
+/// View modifier for adding detail overlay support to any preset
+/// Always uses sheet presentation for a slide-in experience
+struct DetailOverlayModifier: ViewModifier {
+    @ObservedObject var inspectState: InspectState
+    @Binding var showOverlay: Bool
+    let config: InspectConfig.DetailOverlayConfig?
+
+    func body(content: Content) -> some View {
+        // Always use sheet presentation for slide-in effect
+        content
+            .sheet(isPresented: $showOverlay) {
+                if let config = config {
+                    DetailOverlayView(
+                        inspectState: inspectState,
+                        config: config,
+                        onClose: { showOverlay = false }
+                    )
+                }
+            }
+    }
+}
+
+extension View {
+    /// Adds detail overlay support to a view
+    func detailOverlay(
+        inspectState: InspectState,
+        isPresented: Binding<Bool>,
+        config: InspectConfig.DetailOverlayConfig?
+    ) -> some View {
+        modifier(DetailOverlayModifier(
+            inspectState: inspectState,
+            showOverlay: isPresented,
+            config: config
+        ))
+    }
+}
+
+// MARK: - Item Info Button
+
+/// A small info button (i) that can be placed next to each install item
+/// Shows item-specific details when tapped
+struct ItemInfoButton: View {
+    let item: InspectConfig.ItemConfig
+    let action: () -> Void
+    let size: CGFloat
+
+    init(item: InspectConfig.ItemConfig, action: @escaping () -> Void, size: CGFloat = 16) {
+        self.item = item
+        self.action = action
+        self.size = size
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "info.circle")
+                .font(.system(size: size))
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help("More info about \(item.displayName)")
+    }
+}
+
+// MARK: - Item Detail Overlay Modifier
+
+/// View modifier for showing item-specific detail overlay
+struct ItemDetailOverlayModifier: ViewModifier {
+    @ObservedObject var inspectState: InspectState
+    @Binding var showOverlay: Bool
+    let item: InspectConfig.ItemConfig?
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $showOverlay) {
+                if let item = item {
+                    // Use item-specific overlay config if available, otherwise fall back to global
+                    let config = item.itemOverlay ?? inspectState.config?.detailOverlay
+                    if let config = config {
+                        // Create an item-specific config with the item's display name as title
+                        let itemConfig = InspectConfig.DetailOverlayConfig(
+                            enabled: config.enabled,
+                            size: config.size,
+                            title: item.displayName,
+                            subtitle: config.subtitle,
+                            icon: item.icon ?? config.icon,
+                            overlayIcon: config.overlayIcon,
+                            content: config.content,
+                            showSystemInfo: config.showSystemInfo,
+                            showProgressInfo: false,  // Don't show progress for item-specific
+                            closeButtonText: config.closeButtonText,
+                            backgroundColor: config.backgroundColor,
+                            showDividers: config.showDividers
+                        )
+                        DetailOverlayView(
+                            inspectState: inspectState,
+                            config: itemConfig,
+                            onClose: { showOverlay = false }
+                        )
+                    }
+                }
+            }
+    }
+}
+
+extension View {
+    /// Adds item-specific detail overlay support to a view
+    func itemDetailOverlay(
+        inspectState: InspectState,
+        isPresented: Binding<Bool>,
+        item: InspectConfig.ItemConfig?
+    ) -> some View {
+        modifier(ItemDetailOverlayModifier(
+            inspectState: inspectState,
+            showOverlay: isPresented,
+            item: item
+        ))
+    }
+}
+
+// MARK: - Positioned Help Button Wrapper
+
+/// Positions the help button according to config (topRight, topLeft, bottomRight, bottomLeft)
+struct PositionedHelpButton: View {
+    let config: InspectConfig.HelpButtonConfig
+    let action: () -> Void
+    let padding: CGFloat
+
+    private var position: String {
+        config.position ?? "bottomRight"
+    }
+
+    var body: some View {
+        DetailOverlayHelpButton(config: config, action: action)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
+            .padding(padding)
+    }
+
+    private var alignment: Alignment {
+        switch position {
+        case "topLeft": return .topLeading
+        case "bottomLeft": return .bottomLeading
+        case "bottomRight": return .bottomTrailing
+        default: return .bottomTrailing  // bottomRight is default (macOS 26 style)
+        }
     }
 }

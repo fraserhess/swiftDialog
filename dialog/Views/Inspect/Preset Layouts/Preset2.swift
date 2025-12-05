@@ -12,6 +12,9 @@ import SwiftUI
 struct Preset2View: View, InspectLayoutProtocol {
     @ObservedObject var inspectState: InspectState
     @State private var showingAboutPopover = false
+    @State private var showDetailOverlay = false
+    @State private var showItemDetailOverlay = false
+    @State private var selectedItemForDetail: InspectConfig.ItemConfig?
     @StateObject private var iconCache = PresetIconCache()
     @State private var scrollOffset: Int = 0
     @State private var lastDownloadingItem: String?
@@ -38,7 +41,7 @@ struct Preset2View: View, InspectLayoutProtocol {
                             Text(bannerTitle)
                                 .font(.largeTitle)
                                 .fontWeight(.bold)
-                                .foregroundColor(.white)
+                                .foregroundStyle(.white)
                                 .shadow(color: .black.opacity(0.5), radius: 3, x: 2, y: 2)
                         }
                     }
@@ -80,7 +83,7 @@ struct Preset2View: View, InspectLayoutProtocol {
             if let currentMessage = inspectState.getCurrentSideMessage() {
                 Text(currentMessage)
                     .font(.system(size: 11 * scaleFactor))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(4)
                     .padding(.horizontal, 50 * scaleFactor)
@@ -97,7 +100,7 @@ struct Preset2View: View, InspectLayoutProtocol {
                     }) {
                         Image(systemName: "chevron.left.circle.fill")
                             .font(.system(size: 28 * scaleFactor))
-                            .foregroundColor(canScrollLeft() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
+                            .foregroundStyle(canScrollLeft() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
                     }
                     .disabled(!canScrollLeft())
                     .buttonStyle(PlainButtonStyle())
@@ -112,7 +115,11 @@ struct Preset2View: View, InspectLayoutProtocol {
                                 highlightColor: inspectState.uiConfiguration.highlightColor,
                                 scale: scaleFactor,
                                 resolvedIconPath: getIconPathForItem(item),
-                                inspectState: inspectState
+                                inspectState: inspectState,
+                                onInfoTapped: {
+                                    selectedItemForDetail = item
+                                    showItemDetailOverlay = true
+                                }
                             )
                         }
 
@@ -138,7 +145,7 @@ struct Preset2View: View, InspectLayoutProtocol {
                     }) {
                         Image(systemName: "chevron.right.circle.fill")
                             .font(.system(size: 28 * scaleFactor))
-                            .foregroundColor(canScrollRight() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
+                            .foregroundStyle(canScrollRight() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
                     }
                     .disabled(!canScrollRight())
                     .buttonStyle(PlainButtonStyle())
@@ -160,7 +167,7 @@ struct Preset2View: View, InspectLayoutProtocol {
                 // Progress text (customizable via uiLabels.progressFormat)
                 Text(getProgressText())
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
             .padding(.vertical, 16 * scaleFactor)
 
@@ -171,7 +178,7 @@ struct Preset2View: View, InspectLayoutProtocol {
                     showingAboutPopover.toggle()
                 }
                 .buttonStyle(.plain)
-                .foregroundColor(.blue)
+                .foregroundStyle(.blue)
                 .font(.body)
                 .popover(isPresented: $showingAboutPopover) {
                     InstallationInfoPopoverView(inspectState: inspectState)
@@ -226,6 +233,27 @@ struct Preset2View: View, InspectLayoutProtocol {
         .frame(width: windowSize.width, height: windowSize.height)
         .background(Color(NSColor.windowBackgroundColor))
         .ignoresSafeArea()
+        .overlay {
+            // Help button (positioned according to config)
+            if let helpButtonConfig = inspectState.config?.helpButton,
+               helpButtonConfig.enabled ?? true {
+                PositionedHelpButton(
+                    config: helpButtonConfig,
+                    action: { showDetailOverlay = true },
+                    padding: 16
+                )
+            }
+        }
+        .detailOverlay(
+            inspectState: inspectState,
+            isPresented: $showDetailOverlay,
+            config: inspectState.config?.detailOverlay
+        )
+        .itemDetailOverlay(
+            inspectState: inspectState,
+            isPresented: $showItemDetailOverlay,
+            item: selectedItemForDetail
+        )
         .onAppear {
             writeLog("Preset2LayoutServiceBased: Using InspectState", logLevel: .info)
         }
@@ -345,9 +373,18 @@ private struct Preset2ItemCardView: View {
     let scale: CGFloat
     let resolvedIconPath: String
     let inspectState: InspectState
+    let onInfoTapped: (() -> Void)?
 
-    // TODO: Uncomment when info popover is ready
-    // @State private var showingInfoPopover = false
+    init(item: InspectConfig.ItemConfig, isCompleted: Bool, isDownloading: Bool, highlightColor: String, scale: CGFloat, resolvedIconPath: String, inspectState: InspectState, onInfoTapped: (() -> Void)? = nil) {
+        self.item = item
+        self.isCompleted = isCompleted
+        self.isDownloading = isDownloading
+        self.highlightColor = highlightColor
+        self.scale = scale
+        self.resolvedIconPath = resolvedIconPath
+        self.inspectState = inspectState
+        self.onInfoTapped = onInfoTapped
+    }
 
     private var hasValidationWarning: Bool {
         // Only check validation for completed items
@@ -420,34 +457,33 @@ private struct Preset2ItemCardView: View {
                 // Item icon - larger size
                 IconView(image: resolvedIconPath, defaultImage: "app.fill", defaultColour: "accent")
                     .frame(width: 90 * scale, height: 90 * scale)
-                    .cornerRadius(16 * scale)
+                    .clipShape(.rect(cornerRadius: 16 * scale))
 
-                // TODO: Info button overlay (top-left) - Commented out - not ready yet
-                // VStack {
-                //     HStack {
-                //         Button(action: {
-                //             showingInfoPopover.toggle()
-                //         }) {
-                //             ZStack {
-                //                 Circle()
-                //                     .foregroundColor(.white.opacity(0.3))
-                //                 Image(systemName: "info")
-                //                     .font(.system(size: 8 * scale, weight: .medium))
-                //                     .foregroundColor(.blue)
-                //             }
-                //             .frame(width: 16 * scale, height: 16 * scale)
-                //         }
-                //         .buttonStyle(PlainButtonStyle())
-                //         .help("Show step information")
-                //         .popover(isPresented: $showingInfoPopover, arrowEdge: .top) {
-                //             ItemInfoPopoverView(item: item)
-                //         }
-                //
-                //         Spacer()
-                //     }
-                //     Spacer()
-                // }
-                // .padding(4 * scale)
+                // Info button overlay (top-left) - only show if detailOverlay or itemOverlay is configured
+                if onInfoTapped != nil && (inspectState.config?.detailOverlay != nil || item.itemOverlay != nil) {
+                    VStack {
+                        HStack {
+                            Button(action: {
+                                onInfoTapped?()
+                            }) {
+                                ZStack {
+                                    Circle()
+                                        .foregroundStyle(.white.opacity(0.8))
+                                    Image(systemName: "info")
+                                        .font(.system(size: 8 * scale, weight: .semibold))
+                                        .foregroundStyle(.blue)
+                                }
+                                .frame(width: 18 * scale, height: 18 * scale)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .help("Show item information")
+
+                            Spacer()
+                        }
+                        Spacer()
+                    }
+                    .padding(4 * scale)
+                }
 
                 // Status indicator overlay (top-right)
                 VStack {
@@ -460,7 +496,7 @@ private struct Preset2ItemCardView: View {
                                 .overlay(
                                     Image(systemName: hasValidationWarning ? "exclamationmark" : "checkmark")
                                         .font(.system(size: 12 * scale, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .foregroundStyle(.white)
                                 )
                                 .help(hasValidationWarning ?
                                       "Configuration validation failed - check plist settings" :
@@ -489,12 +525,12 @@ private struct Preset2ItemCardView: View {
                     .font(.system(size: 12 * scale, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
-                    .foregroundColor(isDownloading ? Color(hex: highlightColor) : .primary)
+                    .foregroundStyle(isDownloading ? Color(hex: highlightColor) : .primary)
 
                 // Status text
                 Text(getStatusText())
                     .font(.system(size: 9 * scale))
-                    .foregroundColor(getStatusColor())
+                    .foregroundStyle(getStatusColor())
             }
             .frame(width: 110 * scale, height: 35 * scale)
         }
@@ -543,7 +579,7 @@ private struct ItemInfoPopoverView: View {
             // Header with item name
             HStack {
                 Image(systemName: "info.circle.fill")
-                    .foregroundColor(.blue)
+                    .foregroundStyle(.blue)
                     .font(.title2)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -554,7 +590,7 @@ private struct ItemInfoPopoverView: View {
                     if let subtitle = item.subtitle, !subtitle.isEmpty {
                         Text(subtitle)
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -569,23 +605,23 @@ private struct ItemInfoPopoverView: View {
                     HStack {
                         Image(systemName: "folder.fill")
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                         Text("Installation Paths")
                             .font(.subheadline)
                             .fontWeight(.medium)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                     }
 
                     ForEach(item.paths, id: \.self) { path in
                         HStack(alignment: .top, spacing: 6) {
                             Text("→")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                                 .frame(width: 12, alignment: .leading)
 
                             Text(path)
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
@@ -593,7 +629,7 @@ private struct ItemInfoPopoverView: View {
             } else {
                 Text("No additional installation details available.")
                     .font(.body)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .italic()
             }
         }

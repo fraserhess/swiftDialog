@@ -34,6 +34,9 @@ struct Preset8View: View, InspectLayoutProtocol {
     @ObservedObject var inspectState: InspectState
     @State private var currentPage: Int = 0
     @State private var completedPages: Set<Int> = []
+    @State private var showDetailOverlay = false
+    @State private var showItemDetailOverlay = false
+    @State private var selectedItemForDetail: InspectConfig.ItemConfig?
     @StateObject private var iconCache = PresetIconCache()
     @State private var showSuccess: Bool = false
     @State private var showResetFeedback: Bool = false
@@ -151,7 +154,7 @@ struct Preset8View: View, InspectLayoutProtocol {
                                 Button(action: navigateBack) {
                                     Image(systemName: "chevron.left")
                                         .font(.system(size: 20, weight: .medium))
-                                        .foregroundColor(.white)
+                                        .foregroundStyle(.white)
                                         .frame(width: 44, height: 44)
                                         .background(Color.black.opacity(0.3))
                                         .clipShape(Circle())
@@ -178,7 +181,7 @@ struct Preset8View: View, InspectLayoutProtocol {
 
                             Text(pageCounterText)
                                 .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundStyle(.white)
                                 .monospacedDigit()
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
@@ -260,6 +263,27 @@ struct Preset8View: View, InspectLayoutProtocol {
         .frame(minWidth: windowSize.width, minHeight: windowSize.height)
         .onAppear(perform: handleViewAppear)
         .onDisappear(perform: handleViewDisappear)
+        .overlay {
+            // Help button (positioned according to config)
+            if let helpButtonConfig = inspectState.config?.helpButton,
+               helpButtonConfig.enabled ?? true {
+                PositionedHelpButton(
+                    config: helpButtonConfig,
+                    action: { showDetailOverlay = true },
+                    padding: 16
+                )
+            }
+        }
+        .detailOverlay(
+            inspectState: inspectState,
+            isPresented: $showDetailOverlay,
+            config: inspectState.config?.detailOverlay
+        )
+        .itemDetailOverlay(
+            inspectState: inspectState,
+            isPresented: $showItemDetailOverlay,
+            item: selectedItemForDetail
+        )
     }
 
     // MARK: - Minimal View Components
@@ -319,11 +343,11 @@ struct Preset8View: View, InspectLayoutProtocol {
                         VStack(spacing: 30) {
                             Image(systemName: "sparkles")
                                 .font(.system(size: 120, weight: .thin))
-                                .foregroundColor(getConfigurableTextColor())
+                                .foregroundStyle(getConfigurableTextColor())
 
                             Text("Welcome")
                                 .font(.system(size: 48, weight: .thin))
-                                .foregroundColor(getConfigurableTextColor())
+                                .foregroundStyle(getConfigurableTextColor())
                         }
                     }
                     .frame(width: geometry.size.width, height: geometry.size.height)
@@ -364,7 +388,7 @@ struct Preset8View: View, InspectLayoutProtocol {
                                 Text(buttonText)
                                     .font(.system(size: 17, weight: .semibold))
                             }
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .padding(.horizontal, 24)
                             .padding(.vertical, 14)
                             .background(
@@ -394,18 +418,18 @@ struct Preset8View: View, InspectLayoutProtocol {
                 // Large background icon
                 Image(systemName: getMinimalIcon(for: currentPage))
                     .font(.system(size: min(width, height) * 0.3, weight: .ultraLight))
-                    .foregroundColor(getConfigurableTextColor().opacity(0.1))
+                    .foregroundStyle(getConfigurableTextColor().opacity(0.1))
                     .offset(x: width * 0.2, y: -height * 0.1)
                 
                 // Content
                 VStack(spacing: 24) {
                     Image(systemName: getMinimalIcon(for: currentPage))
                         .font(.system(size: 80, weight: .light))
-                        .foregroundColor(getConfigurableTextColor())
+                        .foregroundStyle(getConfigurableTextColor())
                     
                     Text("Step \(currentPage + 1)")
                         .font(.system(size: 32, weight: .light))
-                        .foregroundColor(getConfigurableTextColor())
+                        .foregroundStyle(getConfigurableTextColor())
                 }
             }
         }
@@ -418,12 +442,12 @@ struct Preset8View: View, InspectLayoutProtocol {
             // Status icon
             Image(systemName: getStatusIcon())
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
 
             // Status text
             Text(getStatusText())
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
 
             // Subtle step type badge (if specified)
             if let item = currentPageItem, let stepType = item.stepType {
@@ -472,11 +496,11 @@ struct Preset8View: View, InspectLayoutProtocol {
                     VStack(spacing: 20) {
                         Image(systemName: getMinimalIcon(for: currentPage))
                             .font(.system(size: 60, weight: .ultraLight))
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundStyle(.white.opacity(0.7))
                         
                         Text("Step \(currentPage + 1)")
                             .font(.system(size: 24, weight: .light))
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundStyle(.white.opacity(0.8))
                     }
                 )
                 .overlay(
@@ -581,14 +605,14 @@ struct Preset8View: View, InspectLayoutProtocol {
             if let item = currentPageItem {
                 Text(item.displayName)
                     .font(.system(size: 28, weight: .regular))
-                    .foregroundColor(getConfigurableTextColor())
+                    .foregroundStyle(getConfigurableTextColor())
                     .multilineTextAlignment(.center)
                     .animation(.easeInOut(duration: 0.3), value: currentPage)
 
                 if let subtitle = item.subtitle {
                     Text(subtitle)
                         .font(.system(size: 17, weight: .regular))
-                        .foregroundColor(getConfigurableTextColor().opacity(0.7))
+                        .foregroundStyle(getConfigurableTextColor().opacity(0.7))
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
                         .animation(.easeInOut(duration: 0.3), value: currentPage)
@@ -596,12 +620,12 @@ struct Preset8View: View, InspectLayoutProtocol {
             } else {
                 Text("Get Started")
                     .font(.system(size: 28, weight: .regular))
-                    .foregroundColor(getConfigurableTextColor())
+                    .foregroundStyle(getConfigurableTextColor())
                     .multilineTextAlignment(.center)
 
                 Text("Follow the steps to complete setup")
                     .font(.system(size: 17, weight: .regular))
-                    .foregroundColor(getConfigurableTextColor().opacity(0.7))
+                    .foregroundStyle(getConfigurableTextColor().opacity(0.7))
                     .multilineTextAlignment(.center)
             }
         }
@@ -619,7 +643,7 @@ struct Preset8View: View, InspectLayoutProtocol {
                     handleButton2Action()
                 }
                 .font(.system(size: 17, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundStyle(.white.opacity(0.8))
                 .frame(height: 50)
                 .padding(.horizontal, 24)
                 .background(Color.white.opacity(0.15))
@@ -633,7 +657,7 @@ struct Preset8View: View, InspectLayoutProtocol {
                     navigateForward()
                 }
                 .font(.system(size: 17, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundStyle(.white.opacity(0.8))
                 .frame(height: 50)
                 .padding(.horizontal, 24)
                 .background(Color.white.opacity(0.15))
@@ -710,7 +734,7 @@ struct Preset8View: View, InspectLayoutProtocol {
                             .font(.system(size: 15, weight: .medium))
                     }
                 }
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
                 .frame(height: 50)
                 .padding(.horizontal, 32)
                 .background(
@@ -793,7 +817,7 @@ struct Preset8View: View, InspectLayoutProtocol {
                 // Single color symbol
                 Image(systemName: symbolName)
                     .font(.system(size: 100, weight: weight))
-                    .foregroundColor(color1)
+                    .foregroundStyle(color1)
             }
         }
     }
@@ -829,7 +853,7 @@ struct Preset8View: View, InspectLayoutProtocol {
                         VStack {
                             Image(systemName: getPlaceholderIcon(for: currentPage))
                                 .font(.system(size: 60))
-                                .foregroundColor(.blue.opacity(0.6))
+                                .foregroundStyle(.blue.opacity(0.6))
                             
                             Text("Step \(currentPage + 1)")
                                 .font(.title2)
@@ -878,11 +902,11 @@ struct Preset8View: View, InspectLayoutProtocol {
                                 Text("Step \(currentPage + 1)")
                                     .font(.title2)
                                     .fontWeight(.semibold)
-                                    .foregroundColor(.primary)
+                                    .foregroundStyle(.primary)
                                 
                                 Text(getStepDescription(for: currentPage, itemName: item.displayName))
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(.secondary)
                                     .multilineTextAlignment(.center)
                             }
                         }

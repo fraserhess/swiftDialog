@@ -12,6 +12,9 @@ import SwiftUI
 struct Preset5View: View, InspectLayoutProtocol {
     @ObservedObject var inspectState: InspectState
     @State private var showingAboutPopover = false
+    @State private var showDetailOverlay = false
+    @State private var showItemDetailOverlay = false
+    @State private var selectedItemForDetail: InspectConfig.ItemConfig?
     @State private var complianceData: [ComplianceCategory] = []
     @State private var lastCheck: String = ""
     @State private var overallScore: Double = 0.0
@@ -44,18 +47,18 @@ struct Preset5View: View, InspectLayoutProtocol {
                     VStack(alignment: .leading, spacing: 4 * scale) {
                         Text(inspectState.uiConfiguration.windowTitle)
                             .font(.system(size: 22 * scale, weight: .semibold))
-                            .foregroundColor(.primary)
+                            .foregroundStyle(.primary)
                             .lineLimit(2)
                         
                         if let message = inspectState.uiConfiguration.subtitleMessage, !message.isEmpty {
                             Text(message)
                                 .font(.system(size: 14 * scale))
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                                 .lineLimit(2)
                         } else {
                             Text("Last Check: \(lastCheck)")
                                 .font(.system(size: 12 * scale))
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                         }
                     }
                     
@@ -64,7 +67,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                     // Status badge on the right
                     Text(getOverallStatusText())
                         .font(.system(size: 12 * scale, weight: .semibold))
-                        .foregroundColor(inspectState.colorThresholds.getColor(for: getLiveOverallScore()))
+                        .foregroundStyle(inspectState.colorThresholds.getColor(for: getLiveOverallScore()))
                         .padding(.horizontal, 16 * scale)
                         .padding(.vertical, 8 * scale)
                         .background(
@@ -86,10 +89,10 @@ struct Preset5View: View, InspectLayoutProtocol {
                                 .frame(width: 8 * scale, height: 8 * scale)
                             Text("Passed")
                                 .font(.system(size: 11 * scale, weight: .medium))
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                             Text("\(getLivePassedCount())")
                                 .font(.system(size: 16 * scale, weight: .bold, design: .monospaced))
-                                .foregroundColor(inspectState.colorThresholds.getPositiveColor())
+                                .foregroundStyle(inspectState.colorThresholds.getPositiveColor())
                         }
                         
                         Spacer()
@@ -97,7 +100,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                         // Overall percentage
                         Text("\(Int(getLiveOverallScore() * 100))%")
                             .font(.system(size: 20 * scale, weight: .bold, design: .rounded))
-                            .foregroundColor(.primary)
+                            .foregroundStyle(.primary)
                         
                         Spacer()
                         
@@ -105,10 +108,10 @@ struct Preset5View: View, InspectLayoutProtocol {
                         HStack(spacing: 8 * scale) {
                             Text("\(getLiveFailedCount())")
                                 .font(.system(size: 16 * scale, weight: .bold, design: .monospaced))
-                                .foregroundColor(inspectState.colorThresholds.getNegativeColor())
+                                .foregroundStyle(inspectState.colorThresholds.getNegativeColor())
                             Text("Failed")
                                 .font(.system(size: 11 * scale, weight: .medium))
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                             Circle()
                                 .fill(inspectState.colorThresholds.getNegativeColor())
                                 .frame(width: 8 * scale, height: 8 * scale)
@@ -144,7 +147,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                     // Total count
                     Text("Total: \(getLiveTotalCount()) items")
                         .font(.system(size: 10 * scale, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 32 * scale)
                 .padding(.bottom, 20 * scale)
@@ -174,7 +177,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                     showingAboutPopover.toggle()
                 }
                 .buttonStyle(.plain)
-                .foregroundColor(.blue)
+                .foregroundStyle(.blue)
                 .font(.body)
                 .popover(isPresented: $showingAboutPopover, arrowEdge: .top) {
                     ComplianceDetailsPopoverView(
@@ -220,15 +223,36 @@ struct Preset5View: View, InspectLayoutProtocol {
             loadComplianceData()
             iconCache.cacheMainIcon(for: inspectState)
         }
-        .onChange(of: inspectState.items.count) {
+        .onChange(of: inspectState.items.count) { _, _ in
             loadComplianceData()
         }
-        .onChange(of: inspectState.completedItems) {
+        .onChange(of: inspectState.completedItems) { _, _ in
             loadComplianceData()
         }
-        .onChange(of: inspectState.downloadingItems) {
+        .onChange(of: inspectState.downloadingItems) { _, _ in
             loadComplianceData()
         }
+        .overlay {
+            // Help button (positioned according to config)
+            if let helpButtonConfig = inspectState.config?.helpButton,
+               helpButtonConfig.enabled ?? true {
+                PositionedHelpButton(
+                    config: helpButtonConfig,
+                    action: { showDetailOverlay = true },
+                    padding: 16
+                )
+            }
+        }
+        .detailOverlay(
+            inspectState: inspectState,
+            isPresented: $showDetailOverlay,
+            config: inspectState.config?.detailOverlay
+        )
+        .itemDetailOverlay(
+            inspectState: inspectState,
+            isPresented: $showItemDetailOverlay,
+            item: selectedItemForDetail
+        )
     }
 
     // MARK: - Icon Resolution Methods
@@ -732,13 +756,13 @@ struct CategoryRowView: View {
             // Category icon
             Image(systemName: category.icon)
                 .font(.system(size: 20 * scale))
-                .foregroundColor(.blue)
+                .foregroundStyle(.blue)
                 .frame(width: 24 * scale)
             
             // Category name
             Text(category.name)
                 .font(.system(size: 16 * scale, weight: .medium))
-                .foregroundColor(.primary)
+                .foregroundStyle(.primary)
             
             Spacer()
             
@@ -747,17 +771,17 @@ struct CategoryRowView: View {
                 // Status icon
                 Image(systemName: colorThresholds.getStatusIcon(for: category.score))
                     .font(.system(size: 14 * scale))
-                    .foregroundColor(colorThresholds.getColor(for: category.score))
+                    .foregroundStyle(colorThresholds.getColor(for: category.score))
                 
                 // Score text
                 Text("\(category.passed)/\(category.total)")
                     .font(.system(size: 14 * scale, weight: .medium, design: .monospaced))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
                 
                 // Percentage
                 Text("(\(Int(category.score * 100))%)")
                     .font(.system(size: 14 * scale))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 8 * scale)
@@ -784,7 +808,7 @@ struct CategoryCardView: View {
                 HStack(spacing: 8 * scale) {
                     Text(category.name)
                         .font(.system(size: 16 * scale, weight: .semibold))
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.primary)
                         .lineLimit(2)
                     
                     // Info button next to category name
@@ -793,7 +817,7 @@ struct CategoryCardView: View {
                     }) {
                         Image(systemName: "info.circle")
                             .font(.system(size: 14 * scale, weight: .medium))
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
                     .help("Click for category information and recommendations")
@@ -807,7 +831,7 @@ struct CategoryCardView: View {
                 // Status badge
                 Text(getStatusText())
                     .font(.system(size: 10 * scale, weight: .medium))
-                    .foregroundColor(colorThresholds.getColor(for: category.score))
+                    .foregroundStyle(colorThresholds.getColor(for: category.score))
                     .padding(.horizontal, 10 * scale)
                     .padding(.vertical, 4 * scale)
                     .background(
@@ -870,7 +894,7 @@ struct CategoryCardView: View {
                         // Percentage display inside the ring
                         Text("\(Int(category.score * 100))%")
                             .font(.system(size: 12 * scale, weight: .bold, design: .rounded))
-                            .foregroundColor(.primary)
+                            .foregroundStyle(.primary)
                     }
                     
                     // Compact status summary
@@ -881,7 +905,7 @@ struct CategoryCardView: View {
                                 .frame(width: 4 * scale, height: 4 * scale)
                             Text("\(category.passed)")
                                 .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
-                                .foregroundColor(colorThresholds.getPositiveColor())
+                                .foregroundStyle(colorThresholds.getPositiveColor())
                         }
                         
                         HStack(spacing: 6 * scale) {
@@ -890,7 +914,7 @@ struct CategoryCardView: View {
                                 .frame(width: 4 * scale, height: 4 * scale)
                             Text("\(category.total - category.passed)")
                                 .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
-                                .foregroundColor(colorThresholds.getNegativeColor())
+                                .foregroundStyle(colorThresholds.getNegativeColor())
                         }
                     }
                     
@@ -1012,7 +1036,7 @@ struct ItemRowView: View {
             // Item name
             Text(item.displayName)
                 .font(.system(size: 13 * scale, weight: .medium))
-                .foregroundColor(.primary)
+                .foregroundStyle(.primary)
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
 
@@ -1021,7 +1045,7 @@ struct ItemRowView: View {
             // Status icon
             Image(systemName: getItemIcon())
                 .font(.system(size: 12 * scale))
-                .foregroundColor(getItemColor())
+                .foregroundStyle(getItemColor())
         }
         .padding(.horizontal, 20 * scale)
         .padding(.vertical, 12 * scale)
@@ -1075,7 +1099,7 @@ struct ComplianceDetailsPopoverView: View {
                 
                 Text("Last Check: \(lastCheck)")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                 
                 // Show all items evaluation details (both plist and file checks)
                 if !inspectState.items.isEmpty {
@@ -1097,10 +1121,10 @@ struct ComplianceDetailsPopoverView: View {
                                 HStack {
                                     Image(systemName: categoryItems.first?.categoryIcon ?? "folder")
                                         .font(.system(size: 14))
-                                        .foregroundColor(.blue)
+                                        .foregroundStyle(.blue)
                                     Text(category)
                                         .font(.subheadline.weight(.semibold))
-                                        .foregroundColor(.primary)
+                                        .foregroundStyle(.primary)
                                     Spacer()
                                     
                                     // Category summary
@@ -1110,7 +1134,7 @@ struct ComplianceDetailsPopoverView: View {
                                     
                                     Text("\(validCount)/\(categoryItems.count)")
                                         .font(.caption)
-                                        .foregroundColor(validCount == categoryItems.count ? inspectState.colorThresholds.getPositiveColor() : .orange)
+                                        .foregroundStyle(validCount == categoryItems.count ? inspectState.colorThresholds.getPositiveColor() : .orange)
                                 }
                                 .padding(.top, 8)
                     
@@ -1126,7 +1150,7 @@ struct ComplianceDetailsPopoverView: View {
                                 
                                 Text(item.displayName)
                                     .font(.subheadline.weight(.medium))
-                                    .foregroundColor(.primary)
+                                    .foregroundStyle(.primary)
                                 
                                 Spacer()
                             }
@@ -1138,7 +1162,7 @@ struct ComplianceDetailsPopoverView: View {
                                     HStack {
                                         Text("Key:")
                                             .font(.caption.weight(.medium))
-                                            .foregroundColor(.secondary)
+                                            .foregroundStyle(.secondary)
                                             .frame(width: 60, alignment: .leading)
                                         Text(plistKey)
                                             .font(.system(.caption, design: .monospaced))
@@ -1150,11 +1174,11 @@ struct ComplianceDetailsPopoverView: View {
                                         HStack {
                                             Text("Expected:")
                                                 .font(.caption.weight(.medium))
-                                                .foregroundColor(.secondary)
+                                                .foregroundStyle(.secondary)
                                                 .frame(width: 60, alignment: .leading)
                                             Text(expectedValue)
                                                 .font(.system(.caption, design: .monospaced))
-                                                .foregroundColor(.orange)
+                                                .foregroundStyle(.orange)
                                                 .textSelection(.enabled)
                                         }
                                     }
@@ -1163,18 +1187,18 @@ struct ComplianceDetailsPopoverView: View {
                                     HStack {
                                         Text("Actual:")
                                             .font(.caption.weight(.medium))
-                                            .foregroundColor(.secondary)
+                                            .foregroundStyle(.secondary)
                                             .frame(width: 60, alignment: .leading)
                                         
                                         if let actualValue = inspectState.getPlistValueForDisplay(item: item) {
                                             Text(actualValue)
                                                 .font(.system(.caption, design: .monospaced))
-                                                .foregroundColor(inspectState.colorThresholds.getValidationColor(isValid: inspectState.validatePlistItem(item)))
+                                                .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: inspectState.validatePlistItem(item)))
                                                 .textSelection(.enabled)
                                         } else {
                                             Text("Key not found")
                                                 .font(.caption)
-                                                .foregroundColor(inspectState.colorThresholds.getNegativeColor())
+                                                .foregroundStyle(inspectState.colorThresholds.getNegativeColor())
                                                 .italic()
                                         }
                                     }
@@ -1184,11 +1208,11 @@ struct ComplianceDetailsPopoverView: View {
                                         HStack {
                                             Text("Path:")
                                                 .font(.caption.weight(.medium))
-                                                .foregroundColor(.secondary)
+                                                .foregroundStyle(.secondary)
                                                 .frame(width: 60, alignment: .leading)
                                             Text(path)
                                                 .font(.system(.caption, design: .monospaced))
-                                                .foregroundColor(.secondary)
+                                                .foregroundStyle(.secondary)
                                                 .lineLimit(2)
                                                 .textSelection(.enabled)
                                         }
@@ -1202,11 +1226,11 @@ struct ComplianceDetailsPopoverView: View {
                                     HStack {
                                         Text("Type:")
                                             .font(.caption.weight(.medium))
-                                            .foregroundColor(.secondary)
+                                            .foregroundStyle(.secondary)
                                             .frame(width: 60, alignment: .leading)
                                         Text("File Existence Check")
                                             .font(.caption)
-                                            .foregroundColor(.blue)
+                                            .foregroundStyle(.blue)
                                     }
                                     
                                     // Check all paths
@@ -1215,19 +1239,19 @@ struct ComplianceDetailsPopoverView: View {
                                         HStack {
                                             Text("Path:")
                                                 .font(.caption.weight(.medium))
-                                                .foregroundColor(.secondary)
+                                                .foregroundStyle(.secondary)
                                                 .frame(width: 60, alignment: .leading)
                                             
                                             VStack(alignment: .leading, spacing: 2) {
                                                 Text(path)
                                                     .font(.system(.caption, design: .monospaced))
-                                                    .foregroundColor(inspectState.colorThresholds.getValidationColor(isValid: fileExists))
+                                                    .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: fileExists))
                                                     .lineLimit(2)
                                                     .textSelection(.enabled)
                                                 
                                                 Text(fileExists ? "✓ File exists" : "✗ File not found")
                                                     .font(.caption)
-                                                    .foregroundColor(inspectState.colorThresholds.getValidationColor(isValid: fileExists))
+                                                    .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: fileExists))
                                             }
                                         }
                                     }
@@ -1240,11 +1264,11 @@ struct ComplianceDetailsPopoverView: View {
                                                 HStack {
                                                     Text("Size:")
                                                         .font(.caption.weight(.medium))
-                                                        .foregroundColor(.secondary)
+                                                        .foregroundStyle(.secondary)
                                                         .frame(width: 60, alignment: .leading)
                                                     Text(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))
                                                         .font(.caption)
-                                                        .foregroundColor(.secondary)
+                                                        .foregroundStyle(.secondary)
                                                 }
                                             }
                                             
@@ -1253,11 +1277,11 @@ struct ComplianceDetailsPopoverView: View {
                                                 HStack {
                                                     Text("Modified:")
                                                         .font(.caption.weight(.medium))
-                                                        .foregroundColor(.secondary)
+                                                        .foregroundStyle(.secondary)
                                                         .frame(width: 60, alignment: .leading)
                                                     Text(modDate, style: .date)
                                                         .font(.caption)
-                                                        .foregroundColor(.secondary)
+                                                        .foregroundStyle(.secondary)
                                                 }
                                             }
                                         }
@@ -1285,7 +1309,7 @@ struct ComplianceDetailsPopoverView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Image(systemName: "exclamationmark.shield.fill")
-                                .foregroundColor(inspectState.colorThresholds.getNegativeColor())
+                                .foregroundStyle(inspectState.colorThresholds.getNegativeColor())
                                 .font(.subheadline)
                             Text("Security Compliance Issues")
                                 .font(.subheadline)
@@ -1297,12 +1321,12 @@ struct ComplianceDetailsPopoverView: View {
                            let firstSource = plistSources.first {
                             Text("Source: \(firstSource.displayName)")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                         }
                         
                         Text("The following controls require attention:")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                     }
                     .padding(.bottom, 8)
                     
@@ -1312,12 +1336,12 @@ struct ComplianceDetailsPopoverView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
                                 Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(inspectState.colorThresholds.getNegativeColor())
+                                    .foregroundStyle(inspectState.colorThresholds.getNegativeColor())
                                     .font(.caption)
                                 
                                 Text(formatAuditControlTitle(issue.id))
                                     .font(.caption.weight(.medium))
-                                    .foregroundColor(.primary)
+                                    .foregroundStyle(.primary)
                                 
                                 Spacer()
                                 
@@ -1327,15 +1351,15 @@ struct ComplianceDetailsPopoverView: View {
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
                                     .background(Color.orange.opacity(0.2))
-                                    .foregroundColor(.orange)
-                                    .cornerRadius(4)
+                                    .foregroundStyle(.orange)
+                                    .clipShape(.rect(cornerRadius: 4))
                             }
                             
                             // Show control description/context from config
                             if let context = getContextFromPlistSources(for: issue.id) {
                                 Text(context)
                                     .font(.caption2)
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(.secondary)
                                     .padding(.leading, 16)
                             }
                         }
@@ -1353,23 +1377,23 @@ struct ComplianceDetailsPopoverView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack {
                                 Image(systemName: "info.circle")
-                                    .foregroundColor(.blue)
+                                    .foregroundStyle(.blue)
                                     .font(.caption)
                                 
                                 Text("\(totalFailingCount) control(s) need remediation")
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(.secondary)
                             }
                             
                             if criticalFailingCount > 0 {
                                 HStack {
                                     Image(systemName: "exclamationmark.triangle.fill")
-                                        .foregroundColor(inspectState.colorThresholds.getNegativeColor())
+                                        .foregroundStyle(inspectState.colorThresholds.getNegativeColor())
                                         .font(.caption)
                                     
                                     Text("\(criticalFailingCount) are critical priority")
                                         .font(.caption)
-                                        .foregroundColor(inspectState.colorThresholds.getNegativeColor())
+                                        .foregroundStyle(inspectState.colorThresholds.getNegativeColor())
                                 }
                             }
                         }
@@ -1498,11 +1522,11 @@ struct CategoryHelpPopover: View {
             HStack {
                 Image(systemName: category.icon)
                     .font(.title2)
-                    .foregroundColor(.blue)
+                    .foregroundStyle(.blue)
                 
                 Text(category.name)
                     .font(.headline)
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
                 
                 Spacer()
             }
@@ -1512,7 +1536,7 @@ struct CategoryHelpPopover: View {
             // Description based on category
             Text(getCategoryDescription())
                 .font(.body)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             
             // Compliance status
@@ -1528,12 +1552,12 @@ struct CategoryHelpPopover: View {
                     Text("\(Int(category.score * 100))%")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(getScoreColor())
+                        .foregroundStyle(getScoreColor())
                 }
                 
                 Text(getChecksPassedText())
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
             
             // Recommendations
@@ -1547,7 +1571,7 @@ struct CategoryHelpPopover: View {
                     
                     Text(getRecommendations())
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

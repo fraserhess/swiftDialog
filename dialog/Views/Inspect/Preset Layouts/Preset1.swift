@@ -13,6 +13,9 @@ import SwiftUI
 struct Preset1View: View, InspectLayoutProtocol {
     @ObservedObject var inspectState: InspectState
     @State private var showingAboutPopover = false
+    @State private var showDetailOverlay = false
+    @State private var showItemDetailOverlay = false
+    @State private var selectedItemForDetail: InspectConfig.ItemConfig?
     @StateObject private var iconCache = PresetIconCache()
 
     let systemImage: String = isLaptop ? "laptopcomputer.and.arrow.down" : "desktopcomputer.and.arrow.down"
@@ -49,12 +52,16 @@ struct Preset1View: View, InspectLayoutProtocol {
 
                 Spacer()
 
-                // Install info button
+                // Install info button - shows sheet if detailOverlay configured, otherwise popover
                 Button(inspectState.uiConfiguration.popupButtonText) {
-                    showingAboutPopover.toggle()
+                    if inspectState.config?.detailOverlay != nil {
+                        showDetailOverlay = true
+                    } else {
+                        showingAboutPopover.toggle()
+                    }
                 }
                 .buttonStyle(.plain)
-                .foregroundColor(.blue)
+                .foregroundStyle(.blue)
                 .font(.body)
                 .padding(.bottom, 20 * scaleFactor)
                 .popover(isPresented: $showingAboutPopover, arrowEdge: .top) {
@@ -81,7 +88,7 @@ struct Preset1View: View, InspectLayoutProtocol {
                 if let currentMessage = inspectState.getCurrentSideMessage() {
                     Text(currentMessage)
                         .font(.system(size: 14, weight: .regular))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .lineLimit(3)
                         .multilineTextAlignment(.leading)
                         .padding(.horizontal)
@@ -105,7 +112,7 @@ struct Preset1View: View, InspectLayoutProtocol {
                                     Text(getStatusHeaderText(for: getItemStatusType(for: item)))
                                         .font(.caption)
                                         .fontWeight(.semibold)
-                                        .foregroundColor(.secondary)
+                                        .foregroundStyle(.secondary)
                                     Spacer()
                                 }
                                 .padding(.horizontal)
@@ -125,7 +132,7 @@ struct Preset1View: View, InspectLayoutProtocol {
                 HStack {
                     Text(inspectState.uiConfiguration.statusMessage)
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                     Spacer()
                 }
                 .padding()
@@ -134,6 +141,27 @@ struct Preset1View: View, InspectLayoutProtocol {
         }
         .frame(width: windowSize.width, height: windowSize.height)
         .background(Color(NSColor.windowBackgroundColor))
+        .overlay {
+            // Help button (positioned according to config)
+            if let helpButtonConfig = inspectState.config?.helpButton,
+               helpButtonConfig.enabled ?? true {
+                PositionedHelpButton(
+                    config: helpButtonConfig,
+                    action: { showDetailOverlay = true },
+                    padding: 16
+                )
+            }
+        }
+        .detailOverlay(
+            inspectState: inspectState,
+            isPresented: $showDetailOverlay,
+            config: inspectState.config?.detailOverlay
+        )
+        .itemDetailOverlay(
+            inspectState: inspectState,
+            isPresented: $showItemDetailOverlay,
+            item: selectedItemForDetail
+        )
         .onAppear {
             writeLog("Preset1View: Using refactored InspectState", logLevel: .info)
         }
@@ -152,13 +180,29 @@ struct Preset1View: View, InspectLayoutProtocol {
 
             // Item info
             VStack(alignment: .leading, spacing: 2 * scaleFactor) {
-                Text(item.displayName)
-                    .font(.system(size: 16 * scaleFactor, weight: .medium))  // 14pt → 16pt
-                    .foregroundColor(.primary)
+                HStack(spacing: 4) {
+                    Text(item.displayName)
+                        .font(.system(size: 16 * scaleFactor, weight: .medium))
+                        .foregroundStyle(.primary)
+
+                    // Info button - only show if item has itemOverlay configured
+                    if item.itemOverlay != nil {
+                        Button(action: {
+                            selectedItemForDetail = item
+                            showItemDetailOverlay = true
+                        }) {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 14 * scaleFactor))
+                                .foregroundStyle(.blue)
+                        }
+                        .buttonStyle(.plain)
+                        .help("View details about \(item.displayName)")
+                    }
+                }
 
                 Text(getItemStatusWithValidation(for: item))
-                    .font(.system(size: 13 * scaleFactor))  // 12pt → 13pt
-                    .foregroundColor(getItemStatusColor(for: item))
+                    .font(.system(size: 13 * scaleFactor))
+                    .foregroundStyle(getItemStatusColor(for: item))
             }
 
             Spacer()
@@ -167,7 +211,7 @@ struct Preset1View: View, InspectLayoutProtocol {
             statusIndicatorWithValidation(for: item)
         }
         .padding(.horizontal)
-        .padding(.vertical, 8)  // Consistent 8pt padding
+        .padding(.vertical, 8)
     }
 
     // MARK: - Sorting & Status
@@ -267,7 +311,7 @@ struct Preset1View: View, InspectLayoutProtocol {
                 .overlay(
                     Image(systemName: hasValidationWarning(for: item) ? "exclamationmark" : "checkmark")
                         .font(.system(size: size * 0.6, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                 )
                 .help(hasValidationWarning(for: item) ?
                       "Configuration validation failed - check plist settings" :
