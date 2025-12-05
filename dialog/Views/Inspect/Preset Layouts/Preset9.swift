@@ -252,8 +252,8 @@ struct Preset9View: View, InspectLayoutProtocol {
             HStack(spacing: 0) {
                 // Left Panel - Main Content Area with Layered Images
                 ZStack {
-                    // Background gradient
-                    createConfigurableGradient()
+                    // Background gradient - per-item color if available
+                    createConfigurableGradient(for: currentPageItem)
                         .ignoresSafeArea()
                     
                     // Layered content display
@@ -671,10 +671,10 @@ struct Preset9View: View, InspectLayoutProtocol {
                             .frame(width: 28, height: 28)
                             .background(
                                 Circle()
-                                    .fill(getConfigurableAccentColor().opacity(0.15))
+                                    .fill(getConfigurableAccentColor(for: currentPageItem).opacity(0.15))
                                     .overlay(
                                         Circle()
-                                            .stroke(getConfigurableAccentColor().opacity(0.3), lineWidth: 1.5)
+                                            .stroke(getConfigurableAccentColor(for: currentPageItem).opacity(0.3), lineWidth: 1.5)
                                     )
                             )
                             .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
@@ -732,7 +732,7 @@ struct Preset9View: View, InspectLayoutProtocol {
 
                     // Current position indicator
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(getConfigurableAccentColor())
+                        .fill(getConfigurableAccentColor(for: currentPageItem))
                         .frame(width: geometry.size.width * (CGFloat(currentPage + 1) / CGFloat(totalPages)), height: 4)
                         .animation(.easeInOut(duration: 0.5), value: currentPage)
                 }
@@ -848,7 +848,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                 .background(
                     RoundedRectangle(cornerRadius: 8)  // Smaller corner radius
                         .fill(LinearGradient(
-                            colors: [getConfigurableAccentColor(), getConfigurableAccentColor().opacity(0.8)],
+                            colors: getItemGradient(for: currentPageItem),
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ))
@@ -857,7 +857,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                                 .stroke(Color.white.opacity(0.2), lineWidth: 0.5)  // Thinner stroke
                         )
                 )
-                .shadow(color: getConfigurableAccentColor().opacity(0.2), radius: 4, x: 0, y: 2)  // Smaller shadow
+                .shadow(color: getConfigurableAccentColor(for: currentPageItem).opacity(0.2), radius: 4, x: 0, y: 2)  // Smaller shadow
             }
             .buttonStyle(.plain)
             .animation(.easeInOut(duration: 0.1), value: isLastPage)
@@ -885,13 +885,18 @@ struct Preset9View: View, InspectLayoutProtocol {
     }
 
     // Helper function for section indicator colors (navigation-focused)
+    // Now uses per-item highlightColor for colored step dots
     private func getSectionIndicatorColor(for index: Int) -> Color {
+        let item = inspectState.items.indices.contains(index) ? inspectState.items[index] : nil
+        let itemColor = getConfigurableAccentColor(for: item)
+
         if index == currentPage {
-            return getConfigurableAccentColor()
+            return itemColor
         } else if index < currentPage {
-            return getConfigurableAccentColor().opacity(0.4)
+            return itemColor.opacity(0.6)
         } else {
-            return Color.white.opacity(0.3)
+            // Future items: show their color at low opacity
+            return itemColor.opacity(0.3)
         }
     }
 
@@ -918,54 +923,54 @@ struct Preset9View: View, InspectLayoutProtocol {
                                 }) {
                                     Image(systemName: "info.circle.fill")
                                         .font(.system(size: 16))
-                                        .foregroundStyle(getConfigurableAccentColor())
+                                        .foregroundStyle(getConfigurableAccentColor(for: item))
                                 }
                                 .buttonStyle(.plain)
                                 .help("More information")
                             }
                         }
-                        
+
                         // Category or type indicator if available
                         if let stepType = item.stepType {
                             Text(stepType.uppercased())
                                 .font(.system(size: 10, weight: .semibold))  // Made more prominent
-                                .foregroundStyle(getConfigurableAccentColor())
+                                .foregroundStyle(getConfigurableAccentColor(for: item))
                                 .textCase(.uppercase)
                                 .tracking(1.0)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 3)
                                 .background(
                                     RoundedRectangle(cornerRadius: 4)
-                                        .fill(getConfigurableAccentColor().opacity(0.15))
+                                        .fill(getConfigurableAccentColor(for: item).opacity(0.15))
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 4)
-                                                .stroke(getConfigurableAccentColor().opacity(0.3), lineWidth: 0.5)
+                                                .stroke(getConfigurableAccentColor(for: item).opacity(0.3), lineWidth: 0.5)
                                         )
                                 )
                         }
                     }
-                    
+
                     // Main description/information with optimized spacing for readability
                     if let subtitle = item.subtitle {
                         Text(subtitle)
                             .font(.system(size: 15, weight: .regular))  // Optimized for wider sidebar
-                            .foregroundStyle(.white.opacity(0.95))  
+                            .foregroundStyle(.white.opacity(0.95))
                             .lineLimit(nil) // Allow unlimited lines for guide content
                             .fixedSize(horizontal: false, vertical: true)
                             .lineSpacing(5)  // Improved line spacing for better readability
                     }
-                    
+
                     // Additional information with bullet points or structured content
                     if let additionalInfo = getGuideInformation(for: item) {
-                        VStack(alignment: .leading, spacing: 12) {  
+                        VStack(alignment: .leading, spacing: 12) {
                             HStack(alignment: .center, spacing: 8) {
                                 Image(systemName: "lightbulb.fill")
                                     .font(.system(size: 14, weight: .medium))  // Slightly larger
-                                    .foregroundStyle(getConfigurableAccentColor())
-                                
+                                    .foregroundStyle(getConfigurableAccentColor(for: item))
+
                                 Text(inspectState.config?.uiLabels?.keyPointsLabel ?? "Key Points")
                                     .font(.system(size: 12, weight: .bold))  // Made bolder
-                                    .foregroundStyle(getConfigurableAccentColor())
+                                    .foregroundStyle(getConfigurableAccentColor(for: item))
                                     .textCase(.uppercase)
                                     .tracking(0.8)
                             }
@@ -988,10 +993,10 @@ struct Preset9View: View, InspectLayoutProtocol {
                                 HStack(alignment: .top, spacing: 10) {  // Increased spacing
                                     // Enhanced bullet point indicator
                                     Circle()
-                                        .fill(getConfigurableAccentColor())
+                                        .fill(getConfigurableAccentColor(for: item))
                                         .frame(width: 5, height: 5)  // Slightly larger
                                         .padding(.top, 7)  // Adjusted alignment
-                                    
+
                                     Text(bulletPoints[index])
                                         .font(.system(size: 13, weight: .regular))  // Consistent with other text
                                         .foregroundStyle(.white.opacity(0.9))
@@ -1126,7 +1131,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                 .background(
                     RoundedRectangle(cornerRadius: 12)
                         .fill(LinearGradient(
-                            colors: [getConfigurableAccentColor(), getConfigurableAccentColor().opacity(0.8)],
+                            colors: getItemGradient(for: currentPageItem),
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ))
@@ -1135,7 +1140,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                                 .stroke(Color.white.opacity(0.2), lineWidth: 1)
                         )
                 )
-                .shadow(color: getConfigurableAccentColor().opacity(0.3), radius: 8, x: 0, y: 4)
+                .shadow(color: getConfigurableAccentColor(for: currentPageItem).opacity(0.3), radius: 8, x: 0, y: 4)
             }
             .buttonStyle(.plain)
             .animation(.easeInOut(duration: 0.1), value: isLastPage)
@@ -1334,8 +1339,8 @@ struct Preset9View: View, InspectLayoutProtocol {
                     if iconPath.lowercased().hasPrefix("sf=") {
                         // For SF Symbols, create a nice background with the symbol
                         ZStack {
-                            // Gradient background for SF Symbols - use config colors if available
-                            createConfigurableGradient()
+                            // Gradient background for SF Symbols - use per-item colors if available
+                            createConfigurableGradient(for: item)
                             
                             // Large SF Symbol
                             sfSymbolView(from: iconPath)
@@ -1392,8 +1397,8 @@ struct Preset9View: View, InspectLayoutProtocol {
     @ViewBuilder
     private func fullSpanPlaceholderContent(for item: InspectConfig.ItemConfig, width: CGFloat, height: CGFloat) -> some View {
         ZStack {
-            // Configurable gradient background
-            createConfigurableGradient()
+            // Configurable gradient background - per-item color
+            createConfigurableGradient(for: item)
             
             // Subtle pattern overlay
             ZStack {
@@ -1730,7 +1735,7 @@ struct Preset9View: View, InspectLayoutProtocol {
                 .padding(.horizontal, 32)
                 .background(
                     LinearGradient(
-                        gradient: Gradient(colors: [getConfigurableAccentColor(), getConfigurableAccentColor().opacity(0.8)]),
+                        gradient: Gradient(colors: getItemGradient(for: currentPageItem)),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -1916,8 +1921,35 @@ struct Preset9View: View, InspectLayoutProtocol {
     // MARK: - Configuration-based Color & Gradient Helpers
     
     /// Creates a configurable gradient based on JSON config or fallback to defaults
-    private func createConfigurableGradient() -> LinearGradient {
-        // Check if custom gradient colors are provided in config
+    /// - Parameter item: Optional item to get per-item gradient colors from
+    private func createConfigurableGradient(for item: InspectConfig.ItemConfig? = nil) -> LinearGradient {
+        // Priority 1: Check if per-item gradient colors are provided
+        if let item = item, let gradientColors = item.gradientColors, !gradientColors.isEmpty {
+            let colors = gradientColors.compactMap { Color(hex: $0) }
+            if !colors.isEmpty {
+                return LinearGradient(
+                    gradient: Gradient(colors: colors),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
+
+        // Priority 2: Check if per-item highlight color is provided
+        if let item = item, let highlightColor = item.highlightColor {
+            let baseColor = Color(hex: highlightColor)
+            return LinearGradient(
+                gradient: Gradient(colors: [
+                    baseColor.opacity(0.8),
+                    baseColor.opacity(0.6),
+                    baseColor.opacity(0.8)
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+
+        // Priority 3: Check if global gradient colors are provided in config
         if let gradientColors = inspectState.config?.gradientColors, !gradientColors.isEmpty {
             let colors = gradientColors.compactMap { Color(hex: $0) }
             if !colors.isEmpty {
@@ -1928,8 +1960,8 @@ struct Preset9View: View, InspectLayoutProtocol {
                 )
             }
         }
-        
-        // Check if single highlight color is provided
+
+        // Priority 4: Check if global highlight color is provided
         if let highlightColor = inspectState.config?.highlightColor {
             let baseColor = Color(hex: highlightColor)
             return LinearGradient(
@@ -1942,13 +1974,13 @@ struct Preset9View: View, InspectLayoutProtocol {
                 endPoint: .bottomTrailing
             )
         }
-        
-        // Fallback to default gradient
+
+        // Fallback to system accent color based gradient
         return LinearGradient(
             gradient: Gradient(colors: [
-                Color.blue.opacity(0.8),
-                Color.purple.opacity(0.6),
-                Color.indigo.opacity(0.8)
+                Color.accentColor.opacity(0.8),
+                Color.accentColor.opacity(0.6),
+                Color.accentColor.opacity(0.8)
             ]),
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -1992,11 +2024,33 @@ struct Preset9View: View, InspectLayoutProtocol {
     }
     
     /// Gets configurable accent color for status indicators and buttons
-    private func getConfigurableAccentColor() -> Color {
+    /// If item is provided, uses item's highlightColor if set, otherwise falls back to global
+    private func getConfigurableAccentColor(for item: InspectConfig.ItemConfig? = nil) -> Color {
+        // First check per-item highlightColor
+        if let item = item, let itemColor = item.highlightColor {
+            return Color(hex: itemColor)
+        }
+        // Fall back to global highlightColor
         if let highlightColor = inspectState.config?.highlightColor {
             return Color(hex: highlightColor)
         }
-        return Color.blue // Default accent color
+        // Fall back to system accent color
+        return Color.accentColor
+    }
+
+    /// Gets gradient colors for an item, or falls back to accent color gradient
+    private func getItemGradient(for item: InspectConfig.ItemConfig?) -> [Color] {
+        // Check for per-item gradient
+        if let item = item, let gradientColors = item.gradientColors, gradientColors.count >= 2 {
+            return gradientColors.map { Color(hex: $0) }
+        }
+        // Check for global gradient
+        if let gradientColors = inspectState.config?.gradientColors, gradientColors.count >= 2 {
+            return gradientColors.map { Color(hex: $0) }
+        }
+        // Fall back to accent color gradient
+        let accentColor = getConfigurableAccentColor(for: item)
+        return [accentColor, accentColor.opacity(0.8)]
     }
 
     /// Logo overlay view with configurable positioning and styling

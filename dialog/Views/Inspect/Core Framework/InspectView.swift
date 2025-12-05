@@ -67,32 +67,32 @@ struct InspectView: View {
         let basePreset = preset
 
         switch basePreset {
-        case "preset1":
-            // Test with Preset1 first
+        case "preset1", "1", "deployment":
+            // Classic sidebar with FSevents progress tracking
             Preset1View(inspectState: inspectState)
-        case "preset2":
-            // Using service-based version to fix state flipping
+        case "preset2", "2", "cards":
+            // Card-based display with carousel, banner
             Preset2View(inspectState: inspectState)
-        case "preset3":
-            // Using wrapper to fix state recreation
+        case "preset3", "3", "compact":
+            // Compact list with gradient background
             Preset3Wrapper(coordinator: inspectState)
-        case "preset4":
-            // Using wrapper to fix state recreation
+        case "preset4", "4", "compliance":
+            // File/folder/setting checks
             Preset4Wrapper(coordinator: inspectState)
-        case "preset5":
-            // Using wrapper to fix state recreation
+        case "preset5", "5", "dashboard":
+            // Compliance dashboard with plist checks
             Preset5Wrapper(coordinator: inspectState)
-        case "preset6", "6":
-            // Progress Stepper with Side Panel (formerly Preset9)
+        case "preset6", "6", "guidance":
+            // Progress Stepper with Side Panel (blocking steps)
             Preset6Wrapper(coordinator: inspectState)
-        case "preset7", "7":
-            // Using wrapper to fix state recreation
+        case "preset7", "7", "guide":
+            // Interactive step-by-step guide with images
             Preset7Wrapper(coordinator: inspectState)
-        case "preset8", "8":
-            // Using wrapper to fix state recreation
+        case "preset8", "8", "onboarding":
+            // Minimal onboarding with large images
             Preset8Wrapper(coordinator: inspectState)
-        case "preset9", "9":
-            // Modern two-panel onboarding flow
+        case "preset9", "9", "display":
+            // Two-panel info display with sidebar
             Preset9Wrapper(coordinator: inspectState)
         default:
             // Default fallback

@@ -224,6 +224,7 @@ struct InspectConfig: Codable {
 
         // Preset9 custom content
         let keyPointsText: String?      // Custom paragraph text for "Key Points" section in Preset9 (appears above bullet points)
+        let highlightColor: String?     // Per-item accent/highlight color (hex string like "#61BB46") - overrides global highlightColor
 
         // Preset6 success/failure handling (Option 3 - Hybrid approach)
         let successMessage: String?     // Message shown when step completes successfully
