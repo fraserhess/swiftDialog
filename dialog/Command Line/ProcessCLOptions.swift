@@ -47,6 +47,19 @@ func getJSON() -> JSON {
         // read json in from file
         json = processJSON(jsonFilePath: CLOptionText(optionName: appArguments.jsonFile))
     }
+    
+    if CLOptionPresent(optionName: appArguments.inspectConfig) {
+        // read json in from inspect config
+        json = processJSON(jsonFilePath: CLOptionText(optionName: appArguments.inspectConfig))
+        writeLog("Inspect Mode: Config path from command line argument", logLevel: .debug)
+    }
+    
+    if let envConfigPath = ProcessInfo.processInfo.environment["DIALOG_INSPECT_CONFIG"],
+       !envConfigPath.isEmpty {
+        json = processJSON(jsonFilePath: envConfigPath)
+        writeLog("Inspect Mode: Config path found in environment variable: \(envConfigPath)", logLevel: .debug)
+    }
+    
 
     if CLOptionPresent(optionName: appArguments.jsonString) {
         // read json in from text string
