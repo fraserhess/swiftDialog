@@ -515,7 +515,7 @@ struct InspectConfig: Codable {
     struct HelpButtonConfig: Codable {
         let enabled: Bool?                  // Show help button (default: true when config present)
         let icon: String?                   // SF Symbol icon (default: "questionmark.circle")
-        let position: String?               // "topRight" | "topLeft" | "bottomRight" | "bottomLeft" (default: "topRight")
+        let position: String?               // "topRight" | "topLeft" | "bottomRight" | "bottomLeft" (default: "bottomRight")
         let label: String?                  // Optional button label text (e.g., "Help")
         let tooltip: String?                // Hover tooltip text (default: "Get Help")
         let style: String?                  // "floating" | "inline" | "toolbar" (default: "floating")

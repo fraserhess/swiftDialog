@@ -3560,7 +3560,7 @@ struct PositionedHelpButton: View {
     let padding: CGFloat
 
     private var position: String {
-        config.position ?? "topRight"
+        config.position ?? "bottomRight"
     }
 
     var body: some View {
@@ -3574,7 +3574,7 @@ struct PositionedHelpButton: View {
         case "topLeft": return .topLeading
         case "bottomLeft": return .bottomLeading
         case "bottomRight": return .bottomTrailing
-        default: return .topTrailing  // topRight is default
+        default: return .bottomTrailing  // bottomRight is default (macOS 26 style)
         }
     }
 }
