@@ -237,7 +237,17 @@ class Config {
             warnings.append("Configuration has no items or plist sources")
         }
         
-        if let preset = config.preset, !["preset1", "preset2", "preset3", "preset4", "preset5", "preset6"].contains(preset) {
+        let validPresets = [
+            // Full names
+            "preset1", "preset2", "preset3", "preset4", "preset5",
+            "preset6", "preset7", "preset8", "preset9",
+            // Numeric shorthand
+            "1", "2", "3", "4", "5", "6", "7", "8", "9",
+            // Marketing names
+            "deployment", "cards", "compact", "compliance",
+            "dashboard", "guidance", "guide", "onboarding", "display"
+        ]
+        if let preset = config.preset, !validPresets.contains(preset.lowercased()) {
             warnings.append("Unknown preset '\(preset)' - will default to preset1")
         }
         
