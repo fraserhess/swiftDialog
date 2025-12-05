@@ -9,24 +9,24 @@ import SwiftUI
 import MarkdownUI
 
 struct HelpView: View {
-    @ObservedObject var observedData: DialogUpdatableContent
+    var helpMessage: String
+    var alignment: TextAlignment
+    var helpImagePath: String
+    var helpSheetButtonText: String
+    @Binding var showHelp: Bool
 
-    //var markdownStyle: MarkdownStyle = MarkdownStyle(font: .system(size: appvars.messageFontSize, weight: appvars.messageFontWeight), foregroundColor: .primary)
-
-    init(observedContent: DialogUpdatableContent) {
-        self.observedData = observedContent
-    }
-
+    var settings: AppDefaults = .init()
+    
     var body: some View {
         VStack {
             Image(systemName: "questionmark.circle.fill")
                 .resizable()
                 .foregroundColor(.orange)
                 .frame(width: 32, height: 32)
-                .padding(.top, appDefaults.topPadding)
+                .padding(.top, settings.topPadding)
             HStack {
-                Markdown(observedData.args.helpMessage.value, baseURL: URL(string: "http://"))
-                    .multilineTextAlignment(observedData.appProperties.helpAlignment)
+                Markdown(helpMessage, baseURL: URL(string: "http://"))
+                    .multilineTextAlignment(alignment)
                     .markdownTextStyle {
                         FontSize(appvars.messageFontSize)
                         ForegroundColor(.primary)
@@ -37,26 +37,26 @@ struct HelpView: View {
                     }
                     .padding(32)
                     .focusable(false)
-                if observedData.args.helpImage.present {
+                if !helpImagePath.isEmpty {
                     Divider()
-                        .padding(appDefaults.sidePadding)
+                        .padding(settings.sidePadding)
                         .frame(width: 2)
-                    IconView(image: observedData.args.helpImage.value)
+                    IconView(image: helpImagePath)
                         .frame(height: 160)
-                        .padding(.leading, appDefaults.sidePadding)
-                        .padding(.trailing, appDefaults.sidePadding)
+                        .padding(.leading, settings.sidePadding)
+                        .padding(.trailing, settings.sidePadding)
                 }
             }
             Spacer()
             Button(action: {
-                observedData.appProperties.showHelpMessage = false
+                showHelp = false
             }, label: {
-                Text(observedData.args.helpSheetButton.value)
+                Text(helpSheetButtonText)
             })
-            .padding(appDefaults.sidePadding)
+            .padding(settings.sidePadding)
             .keyboardShortcut(.defaultAction)
         }
-        .frame(width: observedData.appProperties.windowWidth-100)
+        //.frame(width: observedData.appProperties.windowWidth-100)
         .fixedSize()
     }
 }
