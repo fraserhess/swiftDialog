@@ -902,12 +902,28 @@ struct Preset9View: View, InspectLayoutProtocol {
                 VStack(alignment: .leading, spacing: 20) {  // Increased spacing for better readability
                     // Guide header with enhanced typography for prominent display
                     VStack(alignment: .leading, spacing: 10) {  // Increased header spacing
-                        Text(item.displayName)
-                            .font(.system(size: 22, weight: .bold))  // Optimized size for 35% panel
-                            .foregroundStyle(.white)
-                            .lineLimit(3)  // Allow more lines in wider sidebar
-                            .fixedSize(horizontal: false, vertical: true)
-                            .lineSpacing(2)  // Better line spacing for multi-line titles
+                        HStack(alignment: .top, spacing: 8) {
+                            Text(item.displayName)
+                                .font(.system(size: 22, weight: .bold))  // Optimized size for 35% panel
+                                .foregroundStyle(.white)
+                                .lineLimit(3)  // Allow more lines in wider sidebar
+                                .fixedSize(horizontal: false, vertical: true)
+                                .lineSpacing(2)  // Better line spacing for multi-line titles
+
+                            // Info button for itemOverlay
+                            if item.itemOverlay != nil {
+                                Button(action: {
+                                    selectedItemForDetail = item
+                                    showItemDetailOverlay = true
+                                }) {
+                                    Image(systemName: "info.circle.fill")
+                                        .font(.system(size: 16))
+                                        .foregroundStyle(getConfigurableAccentColor())
+                                }
+                                .buttonStyle(.plain)
+                                .help("More information")
+                            }
+                        }
                         
                         // Category or type indicator if available
                         if let stepType = item.stepType {
@@ -1178,22 +1194,11 @@ struct Preset9View: View, InspectLayoutProtocol {
             return customText
         }
 
-        // Generate contextual placeholder content based on page position
+        // Return configuration instructions as placeholder
         let totalPages = inspectState.items.count
         let pageNumber = currentPage + 1
-        let isFirst = currentPage == 0
-        let isLast = currentPage == totalPages - 1
-        let progress = totalPages > 1 ? Int((Double(currentPage) / Double(totalPages - 1)) * 100) : 0
 
-        // Template-based generation with contextual awareness
-        if isFirst {
-            return "This is section \(pageNumber) of \(totalPages). Review the overview and familiarize yourself with the key concepts before proceeding.\n\nTake note of any prerequisites or system requirements that may apply to your situation."
-        } else if isLast {
-            return "You've reached the final section (\(pageNumber) of \(totalPages)). Review the summary information and next steps provided here.\n\nConsider setting up follow-up actions or reminders as needed to complete the workflow."
-        } else {
-            let midProgress = progress < 50 ? "early" : "later"
-            return "Section \(pageNumber) of \(totalPages) (\(progress)% through). This \(midProgress) section covers important details about the topic.\n\nReview the information carefully and refer back to this section as needed during implementation."
-        }
+        return "Section \(pageNumber) of \(totalPages)\n\nTo customize this text, add \"keyPointsText\" to your item config:\n\n\"keyPointsText\": \"Your description text here. Supports multiple sentences and paragraphs.\""
     }
     
     // Helper function to generate enhanced bullet point content
@@ -1203,70 +1208,13 @@ struct Preset9View: View, InspectLayoutProtocol {
             return customInfo
         }
 
-        // Fall back to default generated content for onboarding mode
-        // Generate contextual placeholder bullets based on page position
-        let totalPages = inspectState.items.count
-        let isFirst = currentPage == 0
-        let isLast = currentPage == totalPages - 1
-
-        // Template-based bullet generation with contextual awareness
-        if isFirst {
-            return [
-                "Review system requirements and compatibility",
-                "Check for any prerequisites or dependencies",
-                "Ensure you have proper access permissions",
-                "Backup important data before proceeding",
-                "Have documentation readily available"
-            ]
-        } else if isLast {
-            return [
-                "Review all completed steps and configurations",
-                "Test the complete workflow end-to-end",
-                "Document the final setup for future reference",
-                "Plan for ongoing maintenance and updates",
-                "Set up monitoring and alerting as needed"
-            ]
-        } else {
-            // Generate contextual middle-section bullets
-            let templates: [[String]] = [
-                [
-                    "Configure primary settings according to your needs",
-                    "Test configuration changes in a safe environment",
-                    "Document any custom modifications made",
-                    "Verify settings work with your existing setup",
-                    "Set up monitoring for configuration changes",
-                    "Create backup copies of working configurations"
-                ],
-                [
-                    "Follow established best practices and guidelines",
-                    "Implement recommended security measures",
-                    "Test thoroughly in development environment first",
-                    "Document all customizations and changes made",
-                    "Plan for regular maintenance and updates",
-                    "Set up proper backup and recovery procedures"
-                ],
-                [
-                    "Install required components and dependencies",
-                    "Verify installation completed successfully",
-                    "Run initial setup and configuration wizards",
-                    "Test basic functionality before proceeding",
-                    "Update to latest versions if available",
-                    "Configure automatic updates if recommended"
-                ],
-                [
-                    "Review and implement security best practices",
-                    "Configure access controls and permissions properly",
-                    "Enable audit logging and monitoring features",
-                    "Set up data encryption where required",
-                    "Plan for regular security updates and patches",
-                    "Create incident response procedures"
-                ]
-            ]
-
-            // Cycle through templates based on page position
-            let templateIndex = (currentPage - 1) % templates.count
-            return templates[templateIndex]
-        }
+        // Return configuration instructions as placeholder bullets
+        return [
+            "Add \"info\" array to your item config:",
+            "\"info\": [\"First bullet point\", \"Second bullet point\"]",
+            "Each string becomes a bullet point",
+            "Supports any number of items"
+        ]
     }
 
     @ViewBuilder
