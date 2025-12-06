@@ -3430,10 +3430,428 @@ struct DetailOverlayHelpButton: View {
     }
 }
 
+// MARK: - Gallery Presentation Components
+
+/// Individual image slide in gallery carousel
+struct GalleryImageSlide: View {
+    let imagePath: String
+    let caption: String?
+    let imageHeight: Double
+    let allowZoom: Bool
+    let onImageTap: () -> Void
+    
+    @State private var image: NSImage?
+    @State private var isLoading: Bool = true
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            // Main image area
+            ZStack {
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .frame(maxWidth: .infinity, maxHeight: imageHeight)
+                } else if let image = image {
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxHeight: imageHeight)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                        .onTapGesture {
+                            if allowZoom {
+                                onImageTap()
+                            }
+                        }
+                        .help(allowZoom ? "Click to view fullscreen" : "")
+                } else {
+                    // Error state
+                    VStack(spacing: 8) {
+                        Image(systemName: "photo.fill")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.secondary)
+                        Text("Image not available")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: imageHeight)
+                }
+            }
+            
+            // Caption (if provided)
+            if let caption = caption, !caption.isEmpty {
+                Text(caption)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+            }
+        }
+        .onAppear {
+            loadImage()
+        }
+    }
+    
+    private func loadImage() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            if let loadedImage = NSImage(contentsOfFile: imagePath) {
+                DispatchQueue.main.async {
+                    self.image = loadedImage
+                    self.isLoading = false
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                }
+            }
+        }
+    }
+}
+
+/// Thumbnail view for gallery navigation
+struct GalleryThumbnail: View {
+    let imagePath: String
+    let thumbnailSize: Double
+    let isSelected: Bool
+    let action: () -> Void
+    
+    @State private var thumbnail: NSImage?
+    
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                if let thumbnail = thumbnail {
+                    Image(nsImage: thumbnail)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: thumbnailSize, height: thumbnailSize)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                } else {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: thumbnailSize, height: thumbnailSize)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .overlay(
+                            ProgressView()
+                                .scaleEffect(0.6)
+                        )
+                }
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 3)
+            )
+            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+        }
+        .buttonStyle(.plain)
+        .onAppear {
+            loadThumbnail()
+        }
+    }
+    
+    private func loadThumbnail() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            if let loadedImage = NSImage(contentsOfFile: imagePath) {
+                DispatchQueue.main.async {
+                    self.thumbnail = loadedImage
+                }
+            }
+        }
+    }
+}
+
+/// Gallery presentation view (carousel mode)
+struct GalleryCarouselView: View {
+    let config: InspectConfig.DetailOverlayConfig
+    let onClose: () -> Void
+    
+    @State private var currentIndex: Int = 0
+    @State private var showFullscreen: Bool = false
+    
+    private var images: [String] {
+        config.galleryImages ?? []
+    }
+    
+    private var imageHeight: Double {
+        config.imageHeight ?? 400
+    }
+    
+    private var thumbnailSize: Double {
+        config.thumbnailSize ?? 60
+    }
+    
+    private var showStepCounter: Bool {
+        config.showStepCounter ?? true
+    }
+    
+    private var showNavigationArrows: Bool {
+        config.showNavigationArrows ?? true
+    }
+    
+    private var showThumbnails: Bool {
+        config.showThumbnails ?? true
+    }
+    
+    private var allowZoom: Bool {
+        config.allowImageZoom ?? false
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(config.title ?? "Instructions")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    
+                    if let subtitle = config.subtitle {
+                        Text(subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                // Step counter
+                if showStepCounter && images.count > 1 {
+                    Text("Step \(currentIndex + 1) of \(images.count)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(Color.gray.opacity(0.1))
+                        )
+                }
+                
+                Button(config.closeButtonText ?? "Close") {
+                    onClose()
+                }
+                .keyboardShortcut(.cancelAction)
+            }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
+            
+            Divider()
+            
+            // Main content area
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Carousel with navigation
+                    HStack(spacing: 16) {
+                        // Previous button
+                        if showNavigationArrows && images.count > 1 {
+                            Button(action: previousImage) {
+                                Image(systemName: "chevron.left.circle.fill")
+                                    .font(.system(size: 32))
+                                    .foregroundStyle(currentIndex > 0 ? Color.accentColor : Color.gray.opacity(0.3))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(currentIndex == 0)
+                            .help("Previous")
+                        }
+                        
+                        // Current image
+                        if currentIndex < images.count {
+                            GalleryImageSlide(
+                                imagePath: images[currentIndex],
+                                caption: config.galleryCaptions?[safe: currentIndex],
+                                imageHeight: imageHeight,
+                                allowZoom: allowZoom,
+                                onImageTap: {
+                                    if allowZoom {
+                                        showFullscreen = true
+                                    }
+                                }
+                            )
+                        }
+                        
+                        // Next button
+                        if showNavigationArrows && images.count > 1 {
+                            Button(action: nextImage) {
+                                Image(systemName: "chevron.right.circle.fill")
+                                    .font(.system(size: 32))
+                                    .foregroundStyle(currentIndex < images.count - 1 ? Color.accentColor : Color.gray.opacity(0.3))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(currentIndex >= images.count - 1)
+                            .help("Next")
+                        }
+                    }
+                    .padding(.horizontal, showNavigationArrows ? 16 : 32)
+                    .padding(.vertical, 20)
+                    
+                    // Thumbnail strip
+                    if showThumbnails && images.count > 1 {
+                        Divider()
+                            .padding(.horizontal)
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(images.indices, id: \.self) { index in
+                                    GalleryThumbnail(
+                                        imagePath: images[index],
+                                        thumbnailSize: thumbnailSize,
+                                        isSelected: currentIndex == index,
+                                        action: { currentIndex = index }
+                                    )
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 16)
+                        }
+                    }
+                }
+            }
+        }
+        .frame(width: getSizeWidth(), height: getSizeHeight())
+        .background(Color(NSColor.windowBackgroundColor))
+    }
+    
+    private func previousImage() {
+        if currentIndex > 0 {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                currentIndex -= 1
+            }
+        }
+    }
+    
+    private func nextImage() {
+        if currentIndex < images.count - 1 {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                currentIndex += 1
+            }
+        }
+    }
+    
+    private func getSizeWidth() -> CGFloat {
+        switch config.size {
+        case "small": return 600
+        case "large": return 1000
+        case "full": return 1200
+        default: return 800  // medium
+        }
+    }
+    
+    private func getSizeHeight() -> CGFloat {
+        switch config.size {
+        case "small": return 500
+        case "large": return 700
+        case "full": return 900
+        default: return 600  // medium
+        }
+    }
+}
+
+// MARK: - Detail Overlay View (Placeholder)
+
+/// Placeholder for the actual DetailOverlayView implementation
+/// This view shows standard text-based help content with GuidanceContent blocks
+/// TODO: Implement full DetailOverlayView with system info, progress info, and rich content rendering
+struct DetailOverlayView: View {
+    let inspectState: InspectState
+    let config: InspectConfig.DetailOverlayConfig
+    let onClose: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text(config.title ?? "Help")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Button(config.closeButtonText ?? "Close") {
+                    onClose()
+                }
+                .keyboardShortcut(.cancelAction)
+            }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
+            
+            Divider()
+            
+            // Content area
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if let content = config.content {
+                        GuidanceContentView(
+                            contentBlocks: content,
+                            scaleFactor: 1.0,
+                            iconBasePath: inspectState.uiConfiguration.iconBasePath,
+                            inspectState: inspectState,
+                            itemId: "overlay"
+                        )
+                        .padding()
+                    } else {
+                        Text("No content available")
+                            .foregroundStyle(.secondary)
+                            .padding()
+                    }
+                    
+                    // System info section
+                    if config.showSystemInfo ?? true {
+                        Divider()
+                            .padding(.horizontal)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("System Information")
+                                .font(.headline)
+                            
+                            let sysInfo = getEnvironmentVars()
+                            VStack(alignment: .leading, spacing: 4) {
+                                if let model = sysInfo["computermodel"] {
+                                    Text("Model: \(model)")
+                                        .font(.caption)
+                                }
+                                if let serial = sysInfo["serialnumber"] {
+                                    Text("Serial: \(serial)")
+                                        .font(.caption)
+                                }
+                                let v = ProcessInfo.processInfo.operatingSystemVersion
+                                Text("OS: \(v.majorVersion).\(v.minorVersion).\(v.patchVersion)")
+                                    .font(.caption)
+                            }
+                            .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                    }
+                }
+            }
+        }
+        .frame(width: getSizeWidth(), height: getSizeHeight())
+        .background(Color(NSColor.windowBackgroundColor))
+    }
+    
+    private func getSizeWidth() -> CGFloat {
+        switch config.size {
+        case "small": return 500
+        case "large": return 900
+        case "full": return 1100
+        default: return 700  // medium
+        }
+    }
+    
+    private func getSizeHeight() -> CGFloat {
+        switch config.size {
+        case "small": return 400
+        case "large": return 650
+        case "full": return 850
+        default: return 550  // medium
+        }
+    }
+}
+
 // MARK: - Detail Overlay View Modifier
 
 /// View modifier for adding detail overlay support to any preset
-/// Always uses sheet presentation for a slide-in experience
+/// Supports both standard text-based content and gallery presentation mode
+/// Set `presentationMode: "gallery"` in config to display images in carousel format
 struct DetailOverlayModifier: ViewModifier {
     @ObservedObject var inspectState: InspectState
     @Binding var showOverlay: Bool
@@ -3444,11 +3862,21 @@ struct DetailOverlayModifier: ViewModifier {
         content
             .sheet(isPresented: $showOverlay) {
                 if let config = config {
-                    DetailOverlayView(
-                        inspectState: inspectState,
-                        config: config,
-                        onClose: { showOverlay = false }
-                    )
+                    // Check presentation mode
+                    if config.presentationMode == "gallery" {
+                        // Gallery mode - show carousel
+                        GalleryCarouselView(
+                            config: config,
+                            onClose: { showOverlay = false }
+                        )
+                    } else {
+                        // Standard mode - show traditional content overlay
+                        DetailOverlayView(
+                            inspectState: inspectState,
+                            config: config,
+                            onClose: { showOverlay = false }
+                        )
+                    }
                 }
             }
     }

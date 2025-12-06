@@ -496,6 +496,10 @@ struct InspectConfig: Codable {
     /// Detail overlay configuration (Global - all presets)
     /// Provides a customizable flyout/sheet overlay for help, support info, or detailed content
     /// Can display rich content using GuidanceContent blocks, system info, and template variables
+    ///
+    /// **Gallery Presentation Mode:**
+    /// Set `presentationMode: "gallery"` to display images in a carousel/grid format
+    /// Perfect for visual step-by-step instructions, before/after comparisons, or screenshot guides
     struct DetailOverlayConfig: Codable {
         let enabled: Bool?                  // Enable overlay (default: true when config present)
         let size: String?                   // "small" | "medium" | "large" | "full" (default: "medium")
@@ -509,6 +513,67 @@ struct InspectConfig: Codable {
         let closeButtonText: String?        // Close button text (default: "Close")
         let backgroundColor: String?        // Optional background color override (hex)
         let showDividers: Bool?             // Show section dividers (default: true)
+        
+        // Gallery presentation mode (for visual instructions)
+        let presentationMode: String?       // "standard" (default) | "gallery" - switches between text and image-focused layouts
+        let galleryImages: [String]?        // Array of image paths for gallery mode (required when presentationMode: "gallery")
+        let galleryCaptions: [String]?      // Optional captions for each image (1:1 mapping with galleryImages)
+        let galleryLayout: String?          // "carousel" (default) | "grid" - gallery display style
+        let showStepCounter: Bool?          // Show "Step 2 of 5" counter in gallery mode (default: true)
+        let showNavigationArrows: Bool?     // Show prev/next arrow buttons in carousel mode (default: true)
+        let showThumbnails: Bool?           // Show thumbnail strip below main image for quick navigation (default: true)
+        let imageHeight: Double?            // Maximum height for gallery images in points (default: 400)
+        let thumbnailSize: Double?          // Thumbnail dimensions in points (default: 60)
+        let allowImageZoom: Bool?           // Allow clicking image to view fullscreen (default: false)
+        
+        /// Manual initializer for creating configs programmatically (needed for item-specific overlays)
+        init(
+            enabled: Bool? = nil,
+            size: String? = nil,
+            title: String? = nil,
+            subtitle: String? = nil,
+            icon: String? = nil,
+            overlayIcon: String? = nil,
+            content: [GuidanceContent]? = nil,
+            showSystemInfo: Bool? = nil,
+            showProgressInfo: Bool? = nil,
+            closeButtonText: String? = nil,
+            backgroundColor: String? = nil,
+            showDividers: Bool? = nil,
+            presentationMode: String? = nil,
+            galleryImages: [String]? = nil,
+            galleryCaptions: [String]? = nil,
+            galleryLayout: String? = nil,
+            showStepCounter: Bool? = nil,
+            showNavigationArrows: Bool? = nil,
+            showThumbnails: Bool? = nil,
+            imageHeight: Double? = nil,
+            thumbnailSize: Double? = nil,
+            allowImageZoom: Bool? = nil
+        ) {
+            self.enabled = enabled
+            self.size = size
+            self.title = title
+            self.subtitle = subtitle
+            self.icon = icon
+            self.overlayIcon = overlayIcon
+            self.content = content
+            self.showSystemInfo = showSystemInfo
+            self.showProgressInfo = showProgressInfo
+            self.closeButtonText = closeButtonText
+            self.backgroundColor = backgroundColor
+            self.showDividers = showDividers
+            self.presentationMode = presentationMode
+            self.galleryImages = galleryImages
+            self.galleryCaptions = galleryCaptions
+            self.galleryLayout = galleryLayout
+            self.showStepCounter = showStepCounter
+            self.showNavigationArrows = showNavigationArrows
+            self.showThumbnails = showThumbnails
+            self.imageHeight = imageHeight
+            self.thumbnailSize = thumbnailSize
+            self.allowImageZoom = allowImageZoom
+        }
     }
 
     /// Help button configuration (Global - all presets)
