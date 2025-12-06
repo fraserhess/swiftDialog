@@ -328,6 +328,9 @@ struct InspectConfig: Codable {
         let shell: String?              // Shell command to execute (for action="shell")
         let buttonStyle: String?        // Button style: "bordered" (default), "borderedProminent", "plain"
 
+        // Overlay trigger (for any content type)
+        let opensOverlay: Bool?         // When true, clicking this content block opens the item's overlay (default: false)
+
         // Status monitoring fields (for type="status-badge" | "comparison-table" | "phase-tracker" | "progress-bar")
         let label: String?              // Display label for status components
         let state: String?              // Current state (e.g., "enabled", "disabled", "active", "enrolled")

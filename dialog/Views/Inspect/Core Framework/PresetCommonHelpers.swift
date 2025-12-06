@@ -419,14 +419,16 @@ struct GuidanceContentView: View {
     let iconBasePath: String?  // Optional base path for resolving relative image paths
     @ObservedObject var inspectState: InspectState
     let itemId: String
+    let onOverlayTap: (() -> Void)?  // Optional callback when a block with opensOverlay=true is tapped
 
     // Initialize with required parameters for interactive form support
-    init(contentBlocks: [InspectConfig.GuidanceContent], scaleFactor: CGFloat, iconBasePath: String? = nil, inspectState: InspectState, itemId: String) {
+    init(contentBlocks: [InspectConfig.GuidanceContent], scaleFactor: CGFloat, iconBasePath: String? = nil, inspectState: InspectState, itemId: String, onOverlayTap: (() -> Void)? = nil) {
         self.contentBlocks = contentBlocks
         self.scaleFactor = scaleFactor
         self.iconBasePath = iconBasePath
         self.inspectState = inspectState
         self.itemId = itemId
+        self.onOverlayTap = onOverlayTap
 
         // Initialize form state for this item asynchronously to avoid publishing during view updates
         DispatchQueue.main.async {
@@ -505,10 +507,33 @@ struct GuidanceContentView: View {
                 } else {
                     // Render individual blocks normally
                     ForEach(Array(group.items.enumerated()), id: \.offset) { _, block in
-                        contentBlockView(for: block)
+                        wrappedContentBlockView(for: block)
                     }
                 }
             }
+        }
+    }
+
+    /// Wraps content block with overlay tap gesture if opensOverlay is true
+    @ViewBuilder
+    private func wrappedContentBlockView(for block: InspectConfig.GuidanceContent) -> some View {
+        if block.opensOverlay == true, let onTap = onOverlayTap {
+            // Make the content clickable to open overlay
+            contentBlockView(for: block)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    onTap()
+                }
+                .overlay(alignment: .trailing) {
+                    // Add subtle indicator that this is clickable
+                    Image(systemName: "chevron.right.circle.fill")
+                        .font(.system(size: 12 * scaleFactor))
+                        .foregroundStyle(.secondary.opacity(0.5))
+                        .padding(.trailing, 8 * scaleFactor)
+                }
+                .help("Click for more details")
+        } else {
+            contentBlockView(for: block)
         }
     }
 
@@ -3480,26 +3505,45 @@ struct DetailOverlayHelpButton: View {
 // MARK: - Gallery Presentation Components
 
 /// Individual image slide in gallery carousel
+/// Cache for preloading gallery images
+class GalleryImageCache: ObservableObject {
+    @Published var images: [String: NSImage] = [:]
+    @Published var loadingComplete: Bool = false
+
+    func preloadImages(paths: [String]) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            var loadedImages: [String: NSImage] = [:]
+            for path in paths {
+                if let image = NSImage(contentsOfFile: path) {
+                    loadedImages[path] = image
+                }
+            }
+            DispatchQueue.main.async {
+                self?.images = loadedImages
+                self?.loadingComplete = true
+            }
+        }
+    }
+
+    func image(for path: String) -> NSImage? {
+        images[path]
+    }
+}
+
+/// Individual image slide in gallery carousel - uses cached images
 struct GalleryImageSlide: View {
     let imagePath: String
     let caption: String?
     let imageHeight: Double
     let allowZoom: Bool
     let onImageTap: () -> Void
-
-    @State private var image: NSImage?
-    @State private var isLoading: Bool = true
-    @State private var loadedPath: String = ""
+    let cachedImage: NSImage?
 
     var body: some View {
         VStack(spacing: 12) {
             // Main image area
             ZStack {
-                if isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .frame(maxWidth: .infinity, maxHeight: imageHeight)
-                } else if let image = image {
+                if let image = cachedImage {
                     Image(nsImage: image)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
@@ -3513,7 +3557,7 @@ struct GalleryImageSlide: View {
                         }
                         .help(allowZoom ? "Click to view fullscreen" : "")
                 } else {
-                    // Error state
+                    // Loading or error state
                     VStack(spacing: 8) {
                         Image(systemName: "photo.fill")
                             .font(.system(size: 48))
@@ -3535,50 +3579,21 @@ struct GalleryImageSlide: View {
                     .padding(.horizontal, 16)
             }
         }
-        .onAppear {
-            loadImage()
-        }
-        .onChange(of: imagePath) { newPath in
-            // Reload image when path changes (navigation between slides)
-            if newPath != loadedPath {
-                loadImage()
-            }
-        }
-    }
-
-    private func loadImage() {
-        isLoading = true
-        image = nil
-        loadedPath = imagePath
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            if let loadedImage = NSImage(contentsOfFile: imagePath) {
-                DispatchQueue.main.async {
-                    self.image = loadedImage
-                    self.isLoading = false
-                }
-            } else {
-                DispatchQueue.main.async {
-                    self.isLoading = false
-                }
-            }
-        }
     }
 }
 
-/// Thumbnail view for gallery navigation
+/// Thumbnail view for gallery navigation - uses cached images
 struct GalleryThumbnail: View {
     let imagePath: String
     let thumbnailSize: Double
     let isSelected: Bool
     let action: () -> Void
-    
-    @State private var thumbnail: NSImage?
-    
+    let cachedImage: NSImage?
+
     var body: some View {
         Button(action: action) {
             ZStack {
-                if let thumbnail = thumbnail {
+                if let thumbnail = cachedImage {
                     Image(nsImage: thumbnail)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -3602,58 +3617,46 @@ struct GalleryThumbnail: View {
             .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
         }
         .buttonStyle(.plain)
-        .onAppear {
-            loadThumbnail()
-        }
-    }
-    
-    private func loadThumbnail() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            if let loadedImage = NSImage(contentsOfFile: imagePath) {
-                DispatchQueue.main.async {
-                    self.thumbnail = loadedImage
-                }
-            }
-        }
     }
 }
 
-/// Gallery presentation view (carousel mode)
+/// Gallery presentation view (carousel mode) with preloaded image cache
 struct GalleryCarouselView: View {
     let config: InspectConfig.DetailOverlayConfig
     let onClose: () -> Void
-    
+
     @State private var currentIndex: Int = 0
     @State private var showFullscreen: Bool = false
-    
+    @StateObject private var imageCache = GalleryImageCache()
+
     private var images: [String] {
         config.galleryImages ?? []
     }
-    
+
     private var imageHeight: Double {
         config.imageHeight ?? 400
     }
-    
+
     private var thumbnailSize: Double {
         config.thumbnailSize ?? 60
     }
-    
+
     private var showStepCounter: Bool {
         config.showStepCounter ?? true
     }
-    
+
     private var showNavigationArrows: Bool {
         config.showNavigationArrows ?? true
     }
-    
+
     private var showThumbnails: Bool {
         config.showThumbnails ?? true
     }
-    
+
     private var allowZoom: Bool {
         config.allowImageZoom ?? false
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -3662,16 +3665,16 @@ struct GalleryCarouselView: View {
                     Text(config.title ?? "Instructions")
                         .font(.title2)
                         .fontWeight(.semibold)
-                    
+
                     if let subtitle = config.subtitle {
                         Text(subtitle)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                 }
-                
+
                 Spacer()
-                
+
                 // Step counter
                 if showStepCounter && images.count > 1 {
                     Text("Step \(currentIndex + 1) of \(images.count)")
@@ -3684,7 +3687,7 @@ struct GalleryCarouselView: View {
                                 .fill(Color.gray.opacity(0.1))
                         )
                 }
-                
+
                 Button(config.closeButtonText ?? "Close") {
                     onClose()
                 }
@@ -3692,74 +3695,93 @@ struct GalleryCarouselView: View {
             }
             .padding()
             .background(Color(NSColor.windowBackgroundColor))
-            
+
             Divider()
-            
+
             // Main content area
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Carousel with navigation
-                    HStack(spacing: 16) {
-                        // Previous button
-                        if showNavigationArrows && images.count > 1 {
-                            Button(action: previousImage) {
-                                Image(systemName: "chevron.left.circle.fill")
-                                    .font(.system(size: 32))
-                                    .foregroundStyle(currentIndex > 0 ? Color.accentColor : Color.gray.opacity(0.3))
+            if !imageCache.loadingComplete {
+                // Loading state
+                VStack {
+                    Spacer()
+                    ProgressView("Loading images...")
+                        .scaleEffect(1.2)
+                    Spacer()
+                }
+            } else {
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Carousel with navigation
+                        HStack(spacing: 16) {
+                            // Previous button
+                            if showNavigationArrows && images.count > 1 {
+                                Button(action: previousImage) {
+                                    Image(systemName: "chevron.left.circle.fill")
+                                        .font(.system(size: 32))
+                                        .foregroundStyle(currentIndex > 0 ? Color.accentColor : Color.gray.opacity(0.3))
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(currentIndex == 0)
+                                .help("Previous")
                             }
-                            .buttonStyle(.plain)
-                            .disabled(currentIndex == 0)
-                            .help("Previous")
+
+                            // Current image - use cached image with smooth transition
+                            if currentIndex < images.count {
+                                GalleryImageSlide(
+                                    imagePath: images[currentIndex],
+                                    caption: config.galleryCaptions?[safe: currentIndex],
+                                    imageHeight: imageHeight,
+                                    allowZoom: allowZoom,
+                                    onImageTap: {
+                                        if allowZoom {
+                                            showFullscreen = true
+                                        }
+                                    },
+                                    cachedImage: imageCache.image(for: images[currentIndex])
+                                )
+                                .id(currentIndex) // Force view identity for smooth transitions
+                                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                            }
+
+                            // Next button
+                            if showNavigationArrows && images.count > 1 {
+                                Button(action: nextImage) {
+                                    Image(systemName: "chevron.right.circle.fill")
+                                        .font(.system(size: 32))
+                                        .foregroundStyle(currentIndex < images.count - 1 ? Color.accentColor : Color.gray.opacity(0.3))
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(currentIndex >= images.count - 1)
+                                .help("Next")
+                            }
                         }
-                        
-                        // Current image
-                        if currentIndex < images.count {
-                            GalleryImageSlide(
-                                imagePath: images[currentIndex],
-                                caption: config.galleryCaptions?[safe: currentIndex],
-                                imageHeight: imageHeight,
-                                allowZoom: allowZoom,
-                                onImageTap: {
-                                    if allowZoom {
-                                        showFullscreen = true
+                        .padding(.horizontal, showNavigationArrows ? 16 : 32)
+                        .padding(.vertical, 20)
+                        .animation(.easeInOut(duration: 0.25), value: currentIndex)
+
+                        // Thumbnail strip
+                        if showThumbnails && images.count > 1 {
+                            Divider()
+                                .padding(.horizontal)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    ForEach(images.indices, id: \.self) { index in
+                                        GalleryThumbnail(
+                                            imagePath: images[index],
+                                            thumbnailSize: thumbnailSize,
+                                            isSelected: currentIndex == index,
+                                            action: {
+                                                withAnimation(.easeInOut(duration: 0.25)) {
+                                                    currentIndex = index
+                                                }
+                                            },
+                                            cachedImage: imageCache.image(for: images[index])
+                                        )
                                     }
                                 }
-                            )
-                        }
-                        
-                        // Next button
-                        if showNavigationArrows && images.count > 1 {
-                            Button(action: nextImage) {
-                                Image(systemName: "chevron.right.circle.fill")
-                                    .font(.system(size: 32))
-                                    .foregroundStyle(currentIndex < images.count - 1 ? Color.accentColor : Color.gray.opacity(0.3))
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 16)
                             }
-                            .buttonStyle(.plain)
-                            .disabled(currentIndex >= images.count - 1)
-                            .help("Next")
-                        }
-                    }
-                    .padding(.horizontal, showNavigationArrows ? 16 : 32)
-                    .padding(.vertical, 20)
-                    
-                    // Thumbnail strip
-                    if showThumbnails && images.count > 1 {
-                        Divider()
-                            .padding(.horizontal)
-                        
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(images.indices, id: \.self) { index in
-                                    GalleryThumbnail(
-                                        imagePath: images[index],
-                                        thumbnailSize: thumbnailSize,
-                                        isSelected: currentIndex == index,
-                                        action: { currentIndex = index }
-                                    )
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 16)
                         }
                     }
                 }
@@ -3767,24 +3789,28 @@ struct GalleryCarouselView: View {
         }
         .frame(width: getSizeWidth(), height: getSizeHeight())
         .background(Color(NSColor.windowBackgroundColor))
+        .onAppear {
+            // Preload all images when view appears
+            imageCache.preloadImages(paths: images)
+        }
     }
-    
+
     private func previousImage() {
         if currentIndex > 0 {
-            withAnimation(.easeInOut(duration: 0.3)) {
+            withAnimation(.easeInOut(duration: 0.25)) {
                 currentIndex -= 1
             }
         }
     }
-    
+
     private func nextImage() {
         if currentIndex < images.count - 1 {
-            withAnimation(.easeInOut(duration: 0.3)) {
+            withAnimation(.easeInOut(duration: 0.25)) {
                 currentIndex += 1
             }
         }
     }
-    
+
     private func getSizeWidth() -> CGFloat {
         switch config.size {
         case "small": return 600
@@ -3793,7 +3819,7 @@ struct GalleryCarouselView: View {
         default: return 800  // medium
         }
     }
-    
+
     private func getSizeHeight() -> CGFloat {
         switch config.size {
         case "small": return 500

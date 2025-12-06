@@ -720,7 +720,11 @@ struct Preset6View: View, InspectLayoutProtocol {
                         scaleFactor: scaleFactor,
                         iconBasePath: inspectState.uiConfiguration.iconBasePath,
                         inspectState: inspectState,
-                        itemId: item.id
+                        itemId: item.id,
+                        onOverlayTap: item.itemOverlay != nil ? {
+                            selectedItemForDetail = item
+                            showItemDetailOverlay = true
+                        } : nil
                     )
                     // No longer need .id() modifier - @Published guarantees updates
                 }
@@ -989,6 +993,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                 url: block.url,
                 shell: block.shell,
                 buttonStyle: block.buttonStyle,
+                opensOverlay: block.opensOverlay,
                 label: block.label,
                 state: block.state,
                 icon: block.icon,
@@ -1067,6 +1072,7 @@ struct Preset6View: View, InspectLayoutProtocol {
             url: block.url,
             shell: block.shell,
             buttonStyle: block.buttonStyle,
+            opensOverlay: block.opensOverlay,
             label: props["label"] ?? block.label,
             state: props["state"] ?? block.state,
             icon: props["icon"] ?? block.icon,
