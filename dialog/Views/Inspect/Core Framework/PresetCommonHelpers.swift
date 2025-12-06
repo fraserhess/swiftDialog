@@ -8,6 +8,8 @@
 //
 
 import SwiftUI
+import AVKit
+import WebViewKit
 
 // MARK: - Icon Cache Manager
 class PresetIconCache: ObservableObject {
@@ -766,6 +768,51 @@ struct GuidanceContentView: View {
                                     .fill(Color.secondary.opacity(0.1))
                             )
                         }
+                    }
+                }
+            }
+
+        case "video":
+            // Video player - reuses main dialog's VideoView
+            if let videoPath = block.content, !videoPath.isEmpty {
+                VStack(spacing: 4 * scaleFactor) {
+                    let videoHeight = CGFloat(block.videoHeight ?? 300) * scaleFactor
+                    let autoPlay = block.autoplay ?? false
+
+                    VideoView(
+                        videourl: videoPath,
+                        autoplay: autoPlay,
+                        caption: block.caption ?? ""
+                    )
+                    .frame(height: videoHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
+                    .padding(.vertical, 4 * scaleFactor)
+                }
+            }
+
+        case "webcontent":
+            // Embedded web content - simplified version for overlay use
+            if let webURL = block.content, !webURL.isEmpty, let url = URL(string: webURL) {
+                VStack(spacing: 4 * scaleFactor) {
+                    let webHeight = CGFloat(block.webHeight ?? 400) * scaleFactor
+
+                    WebView(url: url) { _ in }
+                        .frame(height: webHeight)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                        )
+                        .padding(.vertical, 4 * scaleFactor)
+
+                    if let caption = block.caption {
+                        Text(caption)
+                            .font(.system(size: 11 * scaleFactor))
+                            .foregroundStyle(.secondary)
+                            .italic()
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 2 * scaleFactor)
                     }
                 }
             }
@@ -3938,26 +3985,35 @@ struct ItemDetailOverlayModifier: ViewModifier {
                     // Use item-specific overlay config if available, otherwise fall back to global
                     let config = item.itemOverlay ?? inspectState.config?.detailOverlay
                     if let config = config {
-                        // Create an item-specific config with the item's display name as title
-                        let itemConfig = InspectConfig.DetailOverlayConfig(
-                            enabled: config.enabled,
-                            size: config.size,
-                            title: item.displayName,
-                            subtitle: config.subtitle,
-                            icon: item.icon ?? config.icon,
-                            overlayIcon: config.overlayIcon,
-                            content: config.content,
-                            showSystemInfo: config.showSystemInfo,
-                            showProgressInfo: false,  // Don't show progress for item-specific
-                            closeButtonText: config.closeButtonText,
-                            backgroundColor: config.backgroundColor,
-                            showDividers: config.showDividers
-                        )
-                        DetailOverlayView(
-                            inspectState: inspectState,
-                            config: itemConfig,
-                            onClose: { showOverlay = false }
-                        )
+                        // Check presentation mode - gallery mode uses carousel view
+                        if config.presentationMode == "gallery" {
+                            GalleryCarouselView(
+                                config: config,
+                                onClose: { showOverlay = false }
+                            )
+                        } else {
+                            // Standard mode - show traditional content overlay
+                            // Create an item-specific config with the item's display name as title
+                            let itemConfig = InspectConfig.DetailOverlayConfig(
+                                enabled: config.enabled,
+                                size: config.size,
+                                title: config.title ?? item.displayName,
+                                subtitle: config.subtitle,
+                                icon: config.icon ?? item.icon,
+                                overlayIcon: config.overlayIcon,
+                                content: config.content,
+                                showSystemInfo: config.showSystemInfo,
+                                showProgressInfo: false,  // Don't show progress for item-specific
+                                closeButtonText: config.closeButtonText,
+                                backgroundColor: config.backgroundColor,
+                                showDividers: config.showDividers
+                            )
+                            DetailOverlayView(
+                                inspectState: inspectState,
+                                config: itemConfig,
+                                onClose: { showOverlay = false }
+                            )
+                        }
                     }
                 }
             }

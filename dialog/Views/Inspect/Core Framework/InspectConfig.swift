@@ -290,7 +290,7 @@ struct InspectConfig: Codable {
 
     // Guidance content blocks for rich text display eg. used in Preset6
     struct GuidanceContent: Codable {
-        let type: String                // "text" | "highlight" | "warning" | "info" | "success" | "bullets" | "arrow" | "image" | "image-carousel" | "checkbox" | "dropdown" | "radio" | "toggle" | "slider" | "button" | "status-badge" | "comparison-table" | "phase-tracker" | "progress-bar" | "compliance-card" | "compliance-header"
+        let type: String                // "text" | "highlight" | "warning" | "info" | "success" | "bullets" | "arrow" | "image" | "image-carousel" | "video" | "webcontent" | "checkbox" | "dropdown" | "radio" | "toggle" | "slider" | "button" | "status-badge" | "comparison-table" | "phase-tracker" | "progress-bar" | "compliance-card" | "compliance-header"
         let content: String?            // The actual text content (or button label for type="button") - optional for status monitoring types
         let color: String?              // Optional color override (hex format)
         let bold: Bool?                 // Whether to display in bold
@@ -301,6 +301,13 @@ struct InspectConfig: Codable {
         let imageWidth: Double?         // Custom width in points (default: 400)
         let imageBorder: Bool?          // Show border/shadow around image (default: true)
         let caption: String?            // Caption text displayed below the image
+
+        // Video-specific fields (for type="video")
+        let autoplay: Bool?             // Auto-play video on load (default: false)
+        let videoHeight: Double?        // Video player height in points (default: 300)
+
+        // Webcontent-specific fields (for type="webcontent")
+        let webHeight: Double?          // Web view height in points (default: 400)
 
         // Interactive element fields (for type="checkbox" | "dropdown" | "radio" | "toggle" | "slider")
         let id: String?                 // Unique identifier for storing user input

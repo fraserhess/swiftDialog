@@ -680,13 +680,30 @@ struct Preset6View: View, InspectLayoutProtocol {
     private func guidanceContentView(for item: InspectConfig.ItemConfig) -> some View {
         ScrollView(.vertical, showsIndicators: true) {
             VStack(alignment: .leading, spacing: 16 * scaleFactor) {
-                // Step heading
+                // Step heading with optional info button
                 VStack(alignment: .leading, spacing: 4 * scaleFactor) {
                     if let guidanceTitle = item.guidanceTitle {
-                        Text(guidanceTitle)
-                            .font(.system(size: 20 * scaleFactor, weight: .semibold))
-                            .foregroundStyle(.primary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(spacing: 8) {
+                            Text(guidanceTitle)
+                                .font(.system(size: 20 * scaleFactor, weight: .semibold))
+                                .foregroundStyle(.primary)
+
+                            // Info button - only show if item has itemOverlay configured
+                            if item.itemOverlay != nil {
+                                Button(action: {
+                                    selectedItemForDetail = item
+                                    showItemDetailOverlay = true
+                                }) {
+                                    Image(systemName: "info.circle.fill")
+                                        .font(.system(size: 16 * scaleFactor))
+                                        .foregroundStyle(.blue)
+                                }
+                                .buttonStyle(.plain)
+                                .help("View details about \(item.displayName)")
+                            }
+
+                            Spacer()
+                        }
                     }
                 }
                 .padding(.bottom, 8 * scaleFactor)
@@ -956,6 +973,9 @@ struct Preset6View: View, InspectLayoutProtocol {
                 imageWidth: block.imageWidth,
                 imageBorder: block.imageBorder,
                 caption: block.caption,
+                autoplay: block.autoplay,
+                videoHeight: block.videoHeight,
+                webHeight: block.webHeight,
                 id: block.id,
                 required: block.required,
                 options: block.options,
@@ -1031,6 +1051,9 @@ struct Preset6View: View, InspectLayoutProtocol {
             imageWidth: block.imageWidth,
             imageBorder: block.imageBorder,
             caption: block.caption,
+            autoplay: block.autoplay,
+            videoHeight: block.videoHeight,
+            webHeight: block.webHeight,
             id: block.id,
             required: block.required,
             options: block.options,
