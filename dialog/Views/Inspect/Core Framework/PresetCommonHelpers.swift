@@ -3486,10 +3486,11 @@ struct GalleryImageSlide: View {
     let imageHeight: Double
     let allowZoom: Bool
     let onImageTap: () -> Void
-    
+
     @State private var image: NSImage?
     @State private var isLoading: Bool = true
-    
+    @State private var loadedPath: String = ""
+
     var body: some View {
         VStack(spacing: 12) {
             // Main image area
@@ -3524,7 +3525,7 @@ struct GalleryImageSlide: View {
                     .frame(maxWidth: .infinity, maxHeight: imageHeight)
                 }
             }
-            
+
             // Caption (if provided)
             if let caption = caption, !caption.isEmpty {
                 Text(caption)
@@ -3537,9 +3538,19 @@ struct GalleryImageSlide: View {
         .onAppear {
             loadImage()
         }
+        .onChange(of: imagePath) { newPath in
+            // Reload image when path changes (navigation between slides)
+            if newPath != loadedPath {
+                loadImage()
+            }
+        }
     }
-    
+
     private func loadImage() {
+        isLoading = true
+        image = nil
+        loadedPath = imagePath
+
         DispatchQueue.global(qos: .userInitiated).async {
             if let loadedImage = NSImage(contentsOfFile: imagePath) {
                 DispatchQueue.main.async {
