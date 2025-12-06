@@ -3538,6 +3538,7 @@ struct GalleryImageSlide: View {
     let allowZoom: Bool
     let onImageTap: () -> Void
     let cachedImage: NSImage?
+    var maxWidth: CGFloat? = nil  // Optional max width constraint
 
     var body: some View {
         VStack(spacing: 12) {
@@ -3547,7 +3548,7 @@ struct GalleryImageSlide: View {
                     Image(nsImage: image)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(maxHeight: imageHeight)
+                        .frame(maxWidth: maxWidth, maxHeight: imageHeight)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                         .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                         .onTapGesture {
@@ -3566,7 +3567,7 @@ struct GalleryImageSlide: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: imageHeight)
+                    .frame(maxWidth: maxWidth ?? .infinity, maxHeight: imageHeight)
                 }
             }
 
@@ -3657,6 +3658,14 @@ struct GalleryCarouselView: View {
         config.allowImageZoom ?? false
     }
 
+    private var isSideBySide: Bool {
+        config.galleryLayout == "sideBySide" && getSizeWidth() >= 800
+    }
+
+    private var hasSideContent: Bool {
+        config.gallerySideContent != nil && !(config.gallerySideContent?.isEmpty ?? true)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -3707,84 +3716,12 @@ struct GalleryCarouselView: View {
                         .scaleEffect(1.2)
                     Spacer()
                 }
+            } else if isSideBySide && hasSideContent {
+                // Side-by-side layout: image on left, content on right
+                sideBySideContent
             } else {
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // Carousel with navigation
-                        HStack(spacing: 16) {
-                            // Previous button
-                            if showNavigationArrows && images.count > 1 {
-                                Button(action: previousImage) {
-                                    Image(systemName: "chevron.left.circle.fill")
-                                        .font(.system(size: 32))
-                                        .foregroundStyle(currentIndex > 0 ? Color.accentColor : Color.gray.opacity(0.3))
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(currentIndex == 0)
-                                .help("Previous")
-                            }
-
-                            // Current image - use cached image with smooth transition
-                            if currentIndex < images.count {
-                                GalleryImageSlide(
-                                    imagePath: images[currentIndex],
-                                    caption: config.galleryCaptions?[safe: currentIndex],
-                                    imageHeight: imageHeight,
-                                    allowZoom: allowZoom,
-                                    onImageTap: {
-                                        if allowZoom {
-                                            showFullscreen = true
-                                        }
-                                    },
-                                    cachedImage: imageCache.image(for: images[currentIndex])
-                                )
-                                .id(currentIndex) // Force view identity for smooth transitions
-                                .transition(.opacity.combined(with: .scale(scale: 0.98)))
-                            }
-
-                            // Next button
-                            if showNavigationArrows && images.count > 1 {
-                                Button(action: nextImage) {
-                                    Image(systemName: "chevron.right.circle.fill")
-                                        .font(.system(size: 32))
-                                        .foregroundStyle(currentIndex < images.count - 1 ? Color.accentColor : Color.gray.opacity(0.3))
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(currentIndex >= images.count - 1)
-                                .help("Next")
-                            }
-                        }
-                        .padding(.horizontal, showNavigationArrows ? 16 : 32)
-                        .padding(.vertical, 20)
-                        .animation(.easeInOut(duration: 0.25), value: currentIndex)
-
-                        // Thumbnail strip
-                        if showThumbnails && images.count > 1 {
-                            Divider()
-                                .padding(.horizontal)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 12) {
-                                    ForEach(images.indices, id: \.self) { index in
-                                        GalleryThumbnail(
-                                            imagePath: images[index],
-                                            thumbnailSize: thumbnailSize,
-                                            isSelected: currentIndex == index,
-                                            action: {
-                                                withAnimation(.easeInOut(duration: 0.25)) {
-                                                    currentIndex = index
-                                                }
-                                            },
-                                            cachedImage: imageCache.image(for: images[index])
-                                        )
-                                    }
-                                }
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 16)
-                            }
-                        }
-                    }
-                }
+                // Standard carousel layout
+                standardCarouselContent
             }
         }
         .frame(width: getSizeWidth(), height: getSizeHeight())
@@ -3792,6 +3729,199 @@ struct GalleryCarouselView: View {
         .onAppear {
             // Preload all images when view appears
             imageCache.preloadImages(paths: images)
+        }
+    }
+
+    // MARK: - Standard Carousel Layout
+
+    private var standardCarouselContent: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // Carousel with navigation
+                HStack(spacing: 16) {
+                    // Previous button
+                    if showNavigationArrows && images.count > 1 {
+                        Button(action: previousImage) {
+                            Image(systemName: "chevron.left.circle.fill")
+                                .font(.system(size: 32))
+                                .foregroundStyle(currentIndex > 0 ? Color.accentColor : Color.gray.opacity(0.3))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(currentIndex == 0)
+                        .help("Previous")
+                    }
+
+                    // Current image - use cached image with smooth transition
+                    if currentIndex < images.count {
+                        GalleryImageSlide(
+                            imagePath: images[currentIndex],
+                            caption: config.galleryCaptions?[safe: currentIndex],
+                            imageHeight: imageHeight,
+                            allowZoom: allowZoom,
+                            onImageTap: {
+                                if allowZoom {
+                                    showFullscreen = true
+                                }
+                            },
+                            cachedImage: imageCache.image(for: images[currentIndex])
+                        )
+                        .id(currentIndex) // Force view identity for smooth transitions
+                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                    }
+
+                    // Next button
+                    if showNavigationArrows && images.count > 1 {
+                        Button(action: nextImage) {
+                            Image(systemName: "chevron.right.circle.fill")
+                                .font(.system(size: 32))
+                                .foregroundStyle(currentIndex < images.count - 1 ? Color.accentColor : Color.gray.opacity(0.3))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(currentIndex >= images.count - 1)
+                        .help("Next")
+                    }
+                }
+                .padding(.horizontal, showNavigationArrows ? 16 : 32)
+                .padding(.vertical, 20)
+                .animation(.easeInOut(duration: 0.25), value: currentIndex)
+
+                // Thumbnail strip
+                if showThumbnails && images.count > 1 {
+                    Divider()
+                        .padding(.horizontal)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(images.indices, id: \.self) { index in
+                                GalleryThumbnail(
+                                    imagePath: images[index],
+                                    thumbnailSize: thumbnailSize,
+                                    isSelected: currentIndex == index,
+                                    action: {
+                                        withAnimation(.easeInOut(duration: 0.25)) {
+                                            currentIndex = index
+                                        }
+                                    },
+                                    cachedImage: imageCache.image(for: images[index])
+                                )
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Side-by-Side Layout
+
+    private var sideBySideContent: some View {
+        HStack(alignment: .top, spacing: 0) {
+            // Left side: Image carousel (60% width)
+            VStack(spacing: 16) {
+                // Navigation arrows + image
+                HStack(spacing: 12) {
+                    // Previous button
+                    if showNavigationArrows && images.count > 1 {
+                        Button(action: previousImage) {
+                            Image(systemName: "chevron.left.circle.fill")
+                                .font(.system(size: 28))
+                                .foregroundStyle(currentIndex > 0 ? Color.accentColor : Color.gray.opacity(0.3))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(currentIndex == 0)
+                        .help("Previous")
+                    }
+
+                    // Current image
+                    if currentIndex < images.count {
+                        GalleryImageSlide(
+                            imagePath: images[currentIndex],
+                            caption: config.galleryCaptions?[safe: currentIndex],
+                            imageHeight: imageHeight * 0.85,
+                            allowZoom: allowZoom,
+                            onImageTap: {
+                                if allowZoom {
+                                    showFullscreen = true
+                                }
+                            },
+                            cachedImage: imageCache.image(for: images[currentIndex]),
+                            maxWidth: getSizeWidth() * 0.55
+                        )
+                        .id(currentIndex)
+                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                    }
+
+                    // Next button
+                    if showNavigationArrows && images.count > 1 {
+                        Button(action: nextImage) {
+                            Image(systemName: "chevron.right.circle.fill")
+                                .font(.system(size: 28))
+                                .foregroundStyle(currentIndex < images.count - 1 ? Color.accentColor : Color.gray.opacity(0.3))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(currentIndex >= images.count - 1)
+                        .help("Next")
+                    }
+                }
+                .animation(.easeInOut(duration: 0.25), value: currentIndex)
+
+                // Step counter below image
+                if showStepCounter && images.count > 1 {
+                    Text("Step \(currentIndex + 1) of \(images.count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(Color.gray.opacity(0.1))
+                        )
+                }
+
+                // Thumbnail strip
+                if showThumbnails && images.count > 1 {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(images.indices, id: \.self) { index in
+                                GalleryThumbnail(
+                                    imagePath: images[index],
+                                    thumbnailSize: thumbnailSize * 0.8,
+                                    isSelected: currentIndex == index,
+                                    action: {
+                                        withAnimation(.easeInOut(duration: 0.25)) {
+                                            currentIndex = index
+                                        }
+                                    },
+                                    cachedImage: imageCache.image(for: images[index])
+                                )
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                    }
+                }
+
+                Spacer()
+            }
+            .padding()
+            .frame(width: getSizeWidth() * 0.6)
+
+            // Divider
+            Divider()
+
+            // Right side: Content blocks (40% width)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if let sideContent = config.gallerySideContent {
+                        ForEach(Array(sideContent.enumerated()), id: \.offset) { _, block in
+                            GallerySideContentBlock(block: block, scaleFactor: 1.0)
+                        }
+                    }
+                }
+                .padding()
+            }
+            .frame(width: getSizeWidth() * 0.4)
         }
     }
 
@@ -3830,6 +3960,117 @@ struct GalleryCarouselView: View {
     }
 }
 
+// MARK: - Gallery Side Content Block
+
+/// Renders a single content block for the side panel in sideBySide gallery layout
+struct GallerySideContentBlock: View {
+    let block: InspectConfig.GuidanceContent
+    let scaleFactor: CGFloat
+
+    var body: some View {
+        switch block.type {
+        case "text":
+            Text(block.content ?? "")
+                .font(.system(size: 13 * scaleFactor, weight: block.bold == true ? .semibold : .regular))
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+
+        case "highlight":
+            Text(block.content ?? "")
+                .font(.system(size: 14 * scaleFactor, weight: .semibold))
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 12 * scaleFactor)
+                .padding(.vertical, 6 * scaleFactor)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(hex: block.color ?? "#007AFF").opacity(0.15))
+                )
+
+        case "bullets":
+            if let content = block.content {
+                VStack(alignment: .leading, spacing: 6 * scaleFactor) {
+                    ForEach(content.components(separatedBy: "\n"), id: \.self) { line in
+                        if !line.isEmpty {
+                            HStack(alignment: .top, spacing: 8 * scaleFactor) {
+                                Text("•")
+                                    .font(.system(size: 13 * scaleFactor))
+                                    .foregroundStyle(.secondary)
+                                Text(line)
+                                    .font(.system(size: 13 * scaleFactor))
+                                    .foregroundStyle(.primary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+            }
+
+        case "info":
+            HStack(alignment: .top, spacing: 8 * scaleFactor) {
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 13 * scaleFactor))
+                    .foregroundStyle(.blue)
+                Text(block.content ?? "")
+                    .font(.system(size: 13 * scaleFactor))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(10 * scaleFactor)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.blue.opacity(0.1))
+            )
+
+        case "warning":
+            HStack(alignment: .top, spacing: 8 * scaleFactor) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 13 * scaleFactor))
+                    .foregroundStyle(.orange)
+                Text(block.content ?? "")
+                    .font(.system(size: 13 * scaleFactor))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(10 * scaleFactor)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.orange.opacity(0.1))
+            )
+
+        case "success":
+            HStack(alignment: .top, spacing: 8 * scaleFactor) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 13 * scaleFactor))
+                    .foregroundStyle(.green)
+                Text(block.content ?? "")
+                    .font(.system(size: 13 * scaleFactor))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(10 * scaleFactor)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.green.opacity(0.1))
+            )
+
+        case "arrow":
+            HStack(spacing: 6 * scaleFactor) {
+                Text(block.content ?? "")
+                    .font(.system(size: 13 * scaleFactor, weight: .medium))
+                    .foregroundStyle(.primary)
+            }
+
+        default:
+            // Fallback for unsupported types
+            if let content = block.content {
+                Text(content)
+                    .font(.system(size: 13 * scaleFactor))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
 // MARK: - Detail Overlay View (Placeholder)
 
 /// Placeholder for the actual DetailOverlayView implementation
@@ -3839,7 +4080,7 @@ struct DetailOverlayView: View {
     let inspectState: InspectState
     let config: InspectConfig.DetailOverlayConfig
     let onClose: () -> Void
-    
+
     var body: some View {
         VStack(spacing: 0) {
             // Header

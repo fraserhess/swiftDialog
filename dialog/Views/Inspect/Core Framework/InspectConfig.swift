@@ -528,7 +528,8 @@ struct InspectConfig: Codable {
         let presentationMode: String?       // "standard" (default) | "gallery" - switches between text and image-focused layouts
         let galleryImages: [String]?        // Array of image paths for gallery mode (required when presentationMode: "gallery")
         let galleryCaptions: [String]?      // Optional captions for each image (1:1 mapping with galleryImages)
-        let galleryLayout: String?          // "carousel" (default) | "grid" - gallery display style
+        let galleryLayout: String?          // "carousel" (default) | "grid" | "sideBySide" - gallery display style
+        let gallerySideContent: [GuidanceContent]?  // Content blocks shown on right side in sideBySide layout
         let showStepCounter: Bool?          // Show "Step 2 of 5" counter in gallery mode (default: true)
         let showNavigationArrows: Bool?     // Show prev/next arrow buttons in carousel mode (default: true)
         let showThumbnails: Bool?           // Show thumbnail strip below main image for quick navigation (default: true)
@@ -554,6 +555,7 @@ struct InspectConfig: Codable {
             galleryImages: [String]? = nil,
             galleryCaptions: [String]? = nil,
             galleryLayout: String? = nil,
+            gallerySideContent: [GuidanceContent]? = nil,
             showStepCounter: Bool? = nil,
             showNavigationArrows: Bool? = nil,
             showThumbnails: Bool? = nil,
@@ -577,6 +579,7 @@ struct InspectConfig: Codable {
             self.galleryImages = galleryImages
             self.galleryCaptions = galleryCaptions
             self.galleryLayout = galleryLayout
+            self.gallerySideContent = gallerySideContent
             self.showStepCounter = showStepCounter
             self.showNavigationArrows = showNavigationArrows
             self.showThumbnails = showThumbnails
