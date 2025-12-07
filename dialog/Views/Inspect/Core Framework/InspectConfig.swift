@@ -116,23 +116,12 @@ struct InspectConfig: Codable {
     let imageSyncMode: String?              // "manual" | "sync" | "auto"
     let stepStyle: String?                  // "plain" | "colored" | "cards"
     let listIndicatorStyle: String?         // "letters" | "numbers" | "roman" - list indicator format
-    let extraButton: ExtraButtonConfig?     // Optional extra button (e.g., Reset, Help, Info)
     let progressBarConfig: ProgressBarConfig? // Optional progress bar visual configuration
     let logoConfig: LogoConfig?             // Optional logo overlay configuration (Preset9, etc.)
     let detailOverlay: DetailOverlayConfig? // Optional detail flyout overlay configuration
     let helpButton: HelpButtonConfig?       // Optional help button configuration
 
     let items: [ItemConfig]
-
-    // Extra button configuration for optional actions in presets
-    struct ExtraButtonConfig: Codable {
-        let text: String                    // Button text (e.g., "Reset", "Help", "Info")
-        let action: String                  // Action type: "reset", "url", "custom"
-        let url: String?                    // URL to open (for action: "url")
-        let visible: Bool?                  // Show/hide button (default: true)
-        let position: String?               // "sidebar" | "bottom" (default: "sidebar")
-        let icon: String?                   // SF Symbol icon name (e.g., "star.fill")
-    }
 
     // Progress bar configuration for status visualization
     struct ProgressBarConfig: Codable {
@@ -590,14 +579,38 @@ struct InspectConfig: Codable {
     }
 
     /// Help button configuration (Global - all presets)
-    /// Displays a floating or inline help button that triggers the detail overlay
+    /// Displays a floating or inline help button that can trigger overlay, open URL, or custom action
     struct HelpButtonConfig: Codable {
+        // Display properties
         let enabled: Bool?                  // Show help button (default: true when config present)
         let icon: String?                   // SF Symbol icon (default: "questionmark.circle")
-        let position: String?               // "topRight" | "topLeft" | "bottomRight" | "bottomLeft" (default: "bottomRight")
         let label: String?                  // Optional button label text (e.g., "Help")
         let tooltip: String?                // Hover tooltip text (default: "Get Help")
         let style: String?                  // "floating" | "inline" | "toolbar" (default: "floating")
+
+        // Action properties
+        let action: String?                 // "overlay" (default) | "url" | "custom"
+        let url: String?                    // URL to open (for action: "url")
+        let customId: String?               // Custom identifier for interaction log (for action: "custom")
+
+        // Position properties
+        let position: String?               // "topRight" | "topLeft" | "bottomRight" | "bottomLeft" |
+                                            // "sidebar" | "buttonBar" (default: "bottomRight")
+
+        /// Memberwise initializer for programmatic creation
+        init(enabled: Bool? = nil, icon: String? = nil, label: String? = nil,
+             tooltip: String? = nil, style: String? = nil, action: String? = nil,
+             url: String? = nil, customId: String? = nil, position: String? = nil) {
+            self.enabled = enabled
+            self.icon = icon
+            self.label = label
+            self.tooltip = tooltip
+            self.style = style
+            self.action = action
+            self.url = url
+            self.customId = customId
+            self.position = position
+        }
     }
 
     // Generic color threshold system for all presets
@@ -751,7 +764,6 @@ struct InspectConfig: Codable {
         try container.encodeIfPresent(imageSyncMode, forKey: .imageSyncMode)
         try container.encodeIfPresent(stepStyle, forKey: .stepStyle)
         try container.encodeIfPresent(listIndicatorStyle, forKey: .listIndicatorStyle)
-        try container.encodeIfPresent(extraButton, forKey: .extraButton)
         try container.encodeIfPresent(progressBarConfig, forKey: .progressBarConfig)
         try container.encodeIfPresent(logoConfig, forKey: .logoConfig)
         try container.encodeIfPresent(detailOverlay, forKey: .detailOverlay)
@@ -837,7 +849,6 @@ struct InspectConfig: Codable {
         imageSyncMode = try container.decodeIfPresent(String.self, forKey: .imageSyncMode)
         stepStyle = try container.decodeIfPresent(String.self, forKey: .stepStyle)
         listIndicatorStyle = try container.decodeIfPresent(String.self, forKey: .listIndicatorStyle)
-        extraButton = try container.decodeIfPresent(ExtraButtonConfig.self, forKey: .extraButton)
         progressBarConfig = try container.decodeIfPresent(ProgressBarConfig.self, forKey: .progressBarConfig)
         logoConfig = try container.decodeIfPresent(LogoConfig.self, forKey: .logoConfig)
         detailOverlay = try container.decodeIfPresent(DetailOverlayConfig.self, forKey: .detailOverlay)
@@ -872,8 +883,6 @@ struct InspectConfig: Codable {
         case autoEnableButton, autoEnableButtonText, hideSystemDetails, observeOnly, colorThresholds, plistSources, categoryHelp, uiLabels, complianceLabels, pickerConfig, instructionBanner, pickerLabels, items
         // Preset6 specific properties
         case iconBasePath, overlayicon, rotatingImages, imageRotationInterval, imageShape, imageSyncMode, stepStyle, listIndicatorStyle
-        // Extra button configuration
-        case extraButton
         // Progress bar configuration
         case progressBarConfig
         // Logo overlay configuration

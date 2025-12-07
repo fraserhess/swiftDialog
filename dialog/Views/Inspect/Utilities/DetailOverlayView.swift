@@ -15,10 +15,10 @@ import Foundation
 
 /// Defines the available sizes for the detail overlay
 enum DetailOverlaySize: String {
-    case small = "small"
-    case medium = "medium"
-    case large = "large"
-    case full = "full"
+    case small
+    case medium
+    case large
+    case full
 
     /// Width for the overlay
     var width: CGFloat {

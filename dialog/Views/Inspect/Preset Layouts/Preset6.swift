@@ -342,11 +342,17 @@ struct Preset6View: View, InspectLayoutProtocol {
         }
         .overlay {
             // Help button (positioned according to config)
+            // Supports action types: overlay (default), url, custom
             if let helpButtonConfig = inspectState.config?.helpButton,
                helpButtonConfig.enabled ?? true {
                 PositionedHelpButton(
                     config: helpButtonConfig,
-                    action: { showDetailOverlay = true },
+                    action: {
+                        handleHelpButtonAction(
+                            config: helpButtonConfig,
+                            showOverlay: $showDetailOverlay
+                        )
+                    },
                     padding: 16
                 )
             }
@@ -577,31 +583,6 @@ struct Preset6View: View, InspectLayoutProtocol {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.horizontal, 32)
-
-            // Help button integrated into banner (top-right)
-            if let extraButton = inspectState.config?.extraButton,
-               extraButton.visible ?? true {
-                Button(action: {
-                    handleExtraButtonAction(extraButton)
-                }) {
-                    ZStack {
-                        // Semi-transparent white background with better contrast
-                        Circle()
-                            .fill(Color.white.opacity(0.3))
-                            .frame(width: 36 * scaleFactor, height: 36 * scaleFactor)
-
-                        // Text fallback with highlight color (works where SF Symbols don't)
-                        Text("?")
-                            .font(.system(size: 22 * scaleFactor, weight: .bold))
-                            .foregroundStyle(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor))
-                    }
-                    .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
-                }
-                .buttonStyle(.plain)
-                .help(extraButton.text)
-                .padding(.top, 12 * scaleFactor)
-                .padding(.trailing, 16 * scaleFactor)
-            }
         }
         .frame(maxWidth: .infinity, maxHeight: CGFloat(inspectState.uiConfiguration.bannerHeight) * scaleFactor)
         .clipShape(
@@ -647,31 +628,6 @@ struct Preset6View: View, InspectLayoutProtocol {
                 .padding([.top, .trailing], 16 * scaleFactor)
             }
 
-            // Help button (only show when no banner present)
-            if !hasBanner,
-               let extraButton = inspectState.config?.extraButton,
-               extraButton.visible ?? true {
-                Button(action: {
-                    handleExtraButtonAction(extraButton)
-                }) {
-                    ZStack {
-                        // Semi-transparent white background with better contrast
-                        Circle()
-                            .fill(Color.white.opacity(0.3))
-                            .frame(width: 36 * scaleFactor, height: 36 * scaleFactor)
-
-                        // Text fallback with highlight color (works where SF Symbols don't)
-                        Text("?")
-                            .font(.system(size: 22 * scaleFactor, weight: .bold))
-                            .foregroundStyle(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor))
-                    }
-                    .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
-                }
-                .buttonStyle(.plain)
-                .help(extraButton.text)
-                .padding(.top, 12 * scaleFactor)
-                .padding(.trailing, 16 * scaleFactor)
-            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -1944,25 +1900,6 @@ struct Preset6View: View, InspectLayoutProtocol {
         // Perform the reset after a brief delay to show visual feedback
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             self.resetSteps()
-        }
-    }
-
-    private func handleExtraButtonAction(_ buttonConfig: InspectConfig.ExtraButtonConfig) {
-        switch buttonConfig.action {
-        case "reset":
-            resetSteps()
-        case "url":
-            if let urlString = buttonConfig.url, let url = URL(string: urlString) {
-                NSWorkspace.shared.open(url)
-                logUserInteraction("extra_button_url", details: ["url": urlString])
-            }
-        case "custom":
-            // Write to interaction log for external script monitoring
-            writeToInteractionLog("extra_button:\(buttonConfig.text)")
-            logUserInteraction("extra_button_custom", details: ["text": buttonConfig.text])
-            writeLog("Preset6: Custom extra button action triggered: \(buttonConfig.text)", logLevel: .info)
-        default:
-            writeLog("Preset6: Unknown extra button action: \(buttonConfig.action)", logLevel: .error)
         }
     }
 

@@ -3454,6 +3454,52 @@ private func applyButtonStyle(_ button: some View, styleString: String?) -> some
     }
 }
 
+// MARK: - Help Button Action Handler
+
+/// Handles help button actions based on config (overlay, url, custom)
+/// - Parameters:
+///   - config: The help button configuration
+///   - showOverlay: Binding to toggle overlay visibility (for action: "overlay")
+///   - interactionLogPath: Path to write interaction log (for action: "custom")
+func handleHelpButtonAction(
+    config: InspectConfig.HelpButtonConfig,
+    showOverlay: Binding<Bool>? = nil,
+    interactionLogPath: String = "/var/tmp/dialog-inspect-interactions.log"
+) {
+    let actionType = config.action ?? "overlay"
+
+    switch actionType {
+    case "url":
+        if let urlString = config.url, let url = URL(string: urlString) {
+            NSWorkspace.shared.open(url)
+            writeLog("HelpButton: Opened URL: \(urlString)", logLevel: .info)
+        } else {
+            writeLog("HelpButton: Invalid or missing URL for action 'url'", logLevel: .error)
+        }
+
+    case "custom":
+        let customId = config.customId ?? config.label ?? "help"
+        let message = "helpbutton:custom:\(customId)"
+        // Write to interaction log for external script monitoring
+        if let data = (message + "\n").data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: interactionLogPath) {
+                if let handle = FileHandle(forWritingAtPath: interactionLogPath) {
+                    handle.seekToEndOfFile()
+                    handle.write(data)
+                    handle.closeFile()
+                }
+            } else {
+                FileManager.default.createFile(atPath: interactionLogPath, contents: data, attributes: nil)
+            }
+        }
+        writeLog("HelpButton: Custom action triggered: \(customId)", logLevel: .info)
+
+    case "overlay", _:
+        // Default: show overlay
+        showOverlay?.wrappedValue = true
+    }
+}
+
 // MARK: - Detail Overlay Help Button
 
 /// A configurable help button that triggers the detail overlay
@@ -3538,7 +3584,7 @@ struct GalleryImageSlide: View {
     let allowZoom: Bool
     let onImageTap: () -> Void
     let cachedImage: NSImage?
-    var maxWidth: CGFloat? = nil  // Optional max width constraint
+    var maxWidth: CGFloat?  // Optional max width constraint
 
     var body: some View {
         VStack(spacing: 12) {
@@ -4217,7 +4263,8 @@ extension View {
 
 // MARK: - Positioned Help Button Wrapper
 
-/// Positions the help button according to config (topRight, topLeft, bottomRight, bottomLeft)
+/// Positions the help button according to config
+/// Supports: topRight, topLeft, bottomRight, bottomLeft, sidebar, buttonBar
 struct PositionedHelpButton: View {
     let config: InspectConfig.HelpButtonConfig
     let action: () -> Void
@@ -4227,18 +4274,31 @@ struct PositionedHelpButton: View {
         config.position ?? "bottomRight"
     }
 
+    /// Whether this position uses floating overlay positioning
+    var isFloatingPosition: Bool {
+        !["sidebar", "buttonBar"].contains(position)
+    }
+
     var body: some View {
-        DetailOverlayHelpButton(config: config, action: action)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
-            .padding(padding)
+        if isFloatingPosition {
+            // Floating positions use full-frame overlay with alignment
+            DetailOverlayHelpButton(config: config, action: action)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
+                .padding(padding)
+        } else {
+            // Non-floating positions (sidebar, buttonBar) are rendered inline
+            // The parent view handles actual positioning
+            DetailOverlayHelpButton(config: config, action: action)
+        }
     }
 
     private var alignment: Alignment {
         switch position {
         case "topLeft": return .topLeading
+        case "topRight": return .topTrailing
         case "bottomLeft": return .bottomLeading
         case "bottomRight": return .bottomTrailing
-        default: return .bottomTrailing  // bottomRight is default (macOS 26 style)
+        default: return .bottomTrailing
         }
     }
 }

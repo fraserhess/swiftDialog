@@ -376,11 +376,17 @@ struct Preset9View: View, InspectLayoutProtocol {
         .onDisappear(perform: handleViewDisappear)
         .overlay {
             // Help button (positioned according to config)
+            // Supports action types: overlay (default), url, custom
             if let helpButtonConfig = inspectState.config?.helpButton,
                helpButtonConfig.enabled ?? true {
                 PositionedHelpButton(
                     config: helpButtonConfig,
-                    action: { showDetailOverlay = true },
+                    action: {
+                        handleHelpButtonAction(
+                            config: helpButtonConfig,
+                            showOverlay: $showDetailOverlay
+                        )
+                    },
                     padding: 16
                 )
             }
