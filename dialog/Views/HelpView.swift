@@ -1,21 +1,22 @@
 //
-//  InfoView.swift
+//  HelpView.swift
 //  dialog
 //
 //  Created by Bart Reardon on 11/12/2022.
+//  Refactored to standalone view for reusability
 //
 
 import SwiftUI
 import MarkdownUI
 
 struct HelpView: View {
-    @ObservedObject var observedData: DialogUpdatableContent
+    let helpMessage: String
+    let alignment: TextAlignment
+    let helpImagePath: String
+    let helpSheetButtonText: String
+    @Binding var showHelpSheet: Bool
 
-    //var markdownStyle: MarkdownStyle = MarkdownStyle(font: .system(size: appvars.messageFontSize, weight: appvars.messageFontWeight), foregroundColor: .primary)
-
-    init(observedContent: DialogUpdatableContent) {
-        self.observedData = observedContent
-    }
+    var settings: AppDefaults = .init()
 
     var body: some View {
         VStack {
@@ -23,10 +24,10 @@ struct HelpView: View {
                 .resizable()
                 .foregroundColor(.orange)
                 .frame(width: 32, height: 32)
-                .padding(.top, appDefaults.topPadding)
+                .padding(.top, settings.topPadding)
             HStack {
-                Markdown(observedData.args.helpMessage.value, baseURL: URL(string: "http://"))
-                    .multilineTextAlignment(observedData.appProperties.helpAlignment)
+                Markdown(helpMessage, baseURL: URL(string: "http://"))
+                    .multilineTextAlignment(alignment)
                     .markdownTextStyle {
                         FontSize(appvars.messageFontSize)
                         ForegroundColor(.primary)
@@ -37,26 +38,26 @@ struct HelpView: View {
                     }
                     .padding(32)
                     .focusable(false)
-                if observedData.args.helpImage.present {
+                if !helpImagePath.isEmpty {
                     Divider()
-                        .padding(appDefaults.sidePadding)
+                        .padding(settings.sidePadding)
                         .frame(width: 2)
-                    IconView(image: observedData.args.helpImage.value)
+                    IconView(image: helpImagePath)
                         .frame(height: 160)
-                        .padding(.leading, appDefaults.sidePadding)
-                        .padding(.trailing, appDefaults.sidePadding)
+                        .padding(.leading, settings.sidePadding)
+                        .padding(.trailing, settings.sidePadding)
                 }
             }
             Spacer()
             Button(action: {
-                observedData.appProperties.showHelpMessage = false
+                showHelpSheet = false
             }, label: {
-                Text(observedData.args.helpSheetButton.value)
+                Text(helpSheetButtonText)
             })
-            .padding(appDefaults.sidePadding)
+            .padding(settings.sidePadding)
             .keyboardShortcut(.defaultAction)
         }
-        .frame(width: observedData.appProperties.windowWidth-100)
+        .frame(minWidth: 400)
         .fixedSize()
     }
 }

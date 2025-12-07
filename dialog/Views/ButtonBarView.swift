@@ -117,7 +117,14 @@ struct ButtonBarView: View {
             
             // Help Button
             if !buttonStackStyle && !buttonCentreStyle {
-                HelpButton(observedDialogContent: observedData)
+                HelpButton(
+                    showHelpButton: observedData.args.helpMessage.present,
+                    showHelpSheet: $observedData.appProperties.showHelpMessage,
+                    helpMessage: observedData.args.helpMessage.value,
+                    alignment: observedData.appProperties.helpAlignment,
+                    helpImagePath: observedData.args.helpImage.present ? observedData.args.helpImage.value : "",
+                    helpSheetButtonText: observedData.args.helpSheetButton.value
+                )
             }
             
             if buttonCentreStyle {
@@ -130,16 +137,17 @@ struct ButtonBarView: View {
 }
 
 struct HelpButton: View {
-    @ObservedObject var observedData: DialogUpdatableContent
-
-    init(observedDialogContent: DialogUpdatableContent) {
-        self.observedData = observedDialogContent
-    }
+    let showHelpButton: Bool
+    @Binding var showHelpSheet: Bool
+    let helpMessage: String
+    let alignment: TextAlignment
+    let helpImagePath: String
+    let helpSheetButtonText: String
 
     var body: some View {
-        if observedData.args.helpMessage.present {
+        if showHelpButton {
             Button(action: {
-                observedData.appProperties.showHelpMessage.toggle()
+                showHelpSheet.toggle()
             }, label: {
                 ZStack {
                     Circle()
@@ -155,15 +163,20 @@ struct HelpButton: View {
             })
             .focusable(false)
             .buttonStyle(HelpButtonStyle())
-            .sheet(isPresented: $observedData.appProperties.showHelpMessage) {
-                HelpView(observedContent: observedData)
-                    .background(WindowAccessor { window in
-                        window?.canBecomeVisibleWithoutLogin = true
-                    })
+            .sheet(isPresented: $showHelpSheet) {
+                HelpView(
+                    helpMessage: helpMessage,
+                    alignment: alignment,
+                    helpImagePath: helpImagePath,
+                    helpSheetButtonText: helpSheetButtonText,
+                    showHelpSheet: $showHelpSheet
+                )
+                .background(WindowAccessor { window in
+                    window?.canBecomeVisibleWithoutLogin = true
+                })
             }
         }
     }
-
 }
 
 struct HelpButtonStyle: ButtonStyle {
