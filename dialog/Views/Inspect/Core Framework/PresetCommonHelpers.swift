@@ -2993,6 +2993,33 @@ private func handleButtonAction(block: InspectConfig.GuidanceContent, itemId: St
 
     case "shell":
         if let shellCommand = block.shell {
+            let timeout = block.shellTimeout ?? 30
+            let targetBadge = block.targetBadge
+            let buttonLabel = block.content ?? "button"
+            let triggerFilePath = "/tmp/preset6_trigger.txt"
+
+            // Helper to write to trigger file (for badge updates)
+            func writeTriggerCommand(_ command: String) {
+                if let data = (command + "\n").data(using: .utf8) {
+                    if FileManager.default.fileExists(atPath: triggerFilePath) {
+                        if let handle = FileHandle(forWritingAtPath: triggerFilePath) {
+                            handle.seekToEndOfFile()
+                            handle.write(data)
+                            handle.closeFile()
+                        }
+                    } else {
+                        FileManager.default.createFile(atPath: triggerFilePath, contents: data, attributes: nil)
+                    }
+                }
+            }
+
+            // Set badge to pending state before running
+            if let target = targetBadge {
+                let pendingState = target.pendingState ?? "pending"
+                writeTriggerCommand("update_guidance:\(itemId):\(target.blockIndex):state=\(pendingState)")
+                writeLog("Button: Set badge \(target.blockIndex) to '\(pendingState)'", logLevel: .debug)
+            }
+
             // Execute shell command in background
             DispatchQueue.global(qos: .userInitiated).async {
                 let task = Process()
@@ -3001,12 +3028,54 @@ private func handleButtonAction(block: InspectConfig.GuidanceContent, itemId: St
 
                 do {
                     try task.run()
-                    writeLog("Button: Executed shell command: \(shellCommand)", logLevel: .info)
+                    writeLog("Button: Executing shell command: \(shellCommand)", logLevel: .info)
+
+                    // Wait for completion with timeout
+                    var completed = false
+                    let semaphore = DispatchSemaphore(value: 0)
+
+                    DispatchQueue.global().async {
+                        task.waitUntilExit()
+                        semaphore.signal()
+                    }
+
+                    let result = semaphore.wait(timeout: .now() + .seconds(timeout))
+                    completed = (result == .success)
+
+                    // If timed out, terminate the process
+                    if !completed && task.isRunning {
+                        task.terminate()
+                        writeLog("Button: Shell command timed out after \(timeout)s", logLevel: .info)
+                    }
+
+                    let exitCode = task.terminationStatus
+                    let success = completed && exitCode == 0
+
                     DispatchQueue.main.async {
-                        inspectState.writeToInteractionLog("button:\(itemId):\(block.content ?? "button"):shell:\(shellCommand)")
+                        // Update badge with result via trigger file
+                        if let target = targetBadge {
+                            let state = success ? (target.successState ?? "success")
+                                               : (target.failState ?? "fail")
+                            writeTriggerCommand("update_guidance:\(itemId):\(target.blockIndex):state=\(state)")
+                            writeLog("Button: Set badge \(target.blockIndex) to '\(state)'", logLevel: .debug)
+                        }
+
+                        // Log to interaction file with result for script monitoring
+                        let resultInfo = completed ? "exit=\(exitCode):\(success ? "success" : "fail")"
+                                                  : "timeout:fail"
+                        inspectState.writeToInteractionLog("button:\(itemId):\(buttonLabel):shell:\(shellCommand):\(resultInfo)")
+                        writeLog("Button: Shell command completed - \(resultInfo)", logLevel: .info)
                     }
                 } catch {
                     writeLog("Button: Failed to execute shell command: \(error)", logLevel: .error)
+                    DispatchQueue.main.async {
+                        // Update badge to fail state on error
+                        if let target = targetBadge {
+                            let failState = target.failState ?? "fail"
+                            writeTriggerCommand("update_guidance:\(itemId):\(target.blockIndex):state=\(failState)")
+                        }
+                        inspectState.writeToInteractionLog("button:\(itemId):\(buttonLabel):shell:\(shellCommand):error:\(error.localizedDescription)")
+                    }
                 }
             }
         } else {

@@ -315,7 +315,17 @@ struct InspectConfig: Codable {
         let action: String?             // Button action: "url", "shell", "custom" (triggers callback)
         let url: String?                // URL to open (for action="url")
         let shell: String?              // Shell command to execute (for action="shell")
+        let shellTimeout: Int?          // Timeout in seconds for shell command (default: 30)
+        let targetBadge: TargetBadgeConfig?  // Badge to update with shell command result
         let buttonStyle: String?        // Button style: "bordered" (default), "borderedProminent", "plain"
+
+        // Target badge configuration for shell commands
+        struct TargetBadgeConfig: Codable {
+            let blockIndex: Int             // Index in guidanceContent array to update
+            let successState: String?       // State on exit 0 (default: "success")
+            let failState: String?          // State on non-zero exit (default: "fail")
+            let pendingState: String?       // State while running (default: "pending")
+        }
 
         // Overlay trigger (for any content type)
         let opensOverlay: Bool?         // When true, clicking this content block opens the item's overlay (default: false)
