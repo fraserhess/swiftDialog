@@ -81,7 +81,7 @@ struct InspectConfig: Codable {
     let sideInterval: Int?
     let style: String?
     let liststyle: String?
-    let preset: String?
+    let preset: String
     let popupButton: String?
     let highlightColor: String?
     let secondaryColor: String?
@@ -809,7 +809,7 @@ struct InspectConfig: Codable {
         sideInterval = try container.decodeIfPresent(Int.self, forKey: .sideInterval)
         style = try container.decodeIfPresent(String.self, forKey: .style)
         liststyle = try container.decodeIfPresent(String.self, forKey: .liststyle)
-        preset = try container.decodeIfPresent(String.self, forKey: .preset)
+        preset = try container.decode(String.self, forKey: .preset)
         popupButton = try container.decodeIfPresent(String.self, forKey: .popupButton)
         highlightColor = try container.decodeIfPresent(String.self, forKey: .highlightColor)
         secondaryColor = try container.decodeIfPresent(String.self, forKey: .secondaryColor)

@@ -262,7 +262,7 @@ enum ConfigurationError: Error, LocalizedError {
         case "guiIndex":
             return "Add \"guiIndex\": 0 to each item. This determines the display order (0 = first)."
         case "preset":
-            return "Add \"preset\": \"preset6\" at the root level. Valid presets: preset1-preset9."
+            return "Add \"preset\": \"preset1\" at the root level. Valid: preset1-9, or named: deployment, cards, compact, compliance, dashboard, guidance, guide, onboarding, display."
         case "items":
             return "Add \"items\": [] at the root level. This array contains the items to display."
         case "title":
@@ -515,8 +515,8 @@ class Config {
             "deployment", "cards", "compact", "compliance",
             "dashboard", "guidance", "guide", "onboarding", "display"
         ]
-        if let preset = config.preset, !validPresets.contains(preset.lowercased()) {
-            warnings.append("Unknown preset '\(preset)' - will default to preset1")
+        if !validPresets.contains(config.preset.lowercased()) {
+            warnings.append("Unknown preset '\(config.preset)' - will default to preset1")
         }
         
         // Check for missing icon files
@@ -575,9 +575,7 @@ class Config {
             uiConfig.popupButtonText = popupButton
         }
 
-        if let preset = config.preset {
-            uiConfig.preset = preset
-        }
+        uiConfig.preset = config.preset
 
         if let highlightColor = config.highlightColor {
             uiConfig.highlightColor = highlightColor
