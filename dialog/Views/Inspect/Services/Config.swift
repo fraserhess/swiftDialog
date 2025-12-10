@@ -32,18 +32,167 @@ enum ConfigurationError: Error, LocalizedError {
     case invalidJSON(path: String, error: Error)
     case missingEnvironmentVariable(name: String)
     case testDataCreationFailed(error: Error)
-    
+
     var errorDescription: String? {
         switch self {
         case .fileNotFound(let path):
             return "Configuration file not found at: \(path)"
         case .invalidJSON(let path, let error):
-            return "Invalid JSON in configuration file \(path): \(error.localizedDescription)"
+            // Read JSON file to provide snippet context in error
+            let jsonString = try? String(contentsOfFile: path, encoding: .utf8)
+            return "Invalid JSON in configuration file \(path): \(Self.formatJSONError(error, jsonString: jsonString))"
         case .missingEnvironmentVariable(let name):
             return "Environment variable '\(name)' not set and no fallback available"
         case .testDataCreationFailed(let error):
             return "Failed to create test configuration: \(error.localizedDescription)"
         }
+    }
+
+    /// Format JSON decoding errors with helpful details including line/column for syntax errors
+    static func formatJSONError(_ error: Error, jsonString: String? = nil) -> String {
+        if let decodingError = error as? DecodingError {
+            switch decodingError {
+            case .keyNotFound(let key, let context):
+                let path = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                let location = path.isEmpty ? "root" : "'\(path)'"
+                var message = "Missing required field '\(key.stringValue)' at \(location)"
+
+                // Try to show the JSON section where error occurred
+                if let json = jsonString, !path.isEmpty {
+                    if let snippet = extractJSONSnippet(json: json, path: path) {
+                        message += "\n\n📍 Error location:\n\(snippet)"
+                    }
+                }
+                return message
+
+            case .typeMismatch(let type, let context):
+                let path = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                var message = "Type mismatch at '\(path)': expected \(type)"
+
+                if let json = jsonString, !path.isEmpty {
+                    if let snippet = extractJSONSnippet(json: json, path: path) {
+                        message += "\n\n📍 Error location:\n\(snippet)"
+                    }
+                }
+                return message
+
+            case .valueNotFound(let type, let context):
+                let path = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                return "Missing value at '\(path)': expected \(type)"
+
+            case .dataCorrupted(let context):
+                let path = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                let location = path.isEmpty ? "document" : "'\(path)'"
+                return "Data corrupted at \(location): \(context.debugDescription)"
+
+            @unknown default:
+                return error.localizedDescription
+            }
+        }
+
+        // For NSError from JSONSerialization (syntax errors)
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain || nsError.domain == "NSCocoaErrorDomain" {
+            // Try to extract line/column from userInfo if available
+            if let debugDesc = nsError.userInfo[NSDebugDescriptionErrorKey] as? String {
+                // Format: "... around line X, column Y"
+                var message = "JSON syntax error: \(debugDesc)"
+
+                // Try to extract line number and show context
+                if let json = jsonString,
+                   let range = debugDesc.range(of: "line \\d+", options: .regularExpression),
+                   let lineNum = Int(debugDesc[range].dropFirst(5)) {
+                    let lines = json.components(separatedBy: "\n")
+                    if lineNum > 0 && lineNum <= lines.count {
+                        let startLine = max(0, lineNum - 3)
+                        let endLine = min(lines.count, lineNum + 2)
+                        var snippet = "\n\n📍 Around line \(lineNum):\n"
+                        for i in startLine..<endLine {
+                            let marker = (i + 1 == lineNum) ? "→ " : "  "
+                            snippet += "\(marker)\(i + 1): \(lines[i])\n"
+                        }
+                        message += snippet
+                    }
+                }
+                return message
+            }
+        }
+
+        return error.localizedDescription
+    }
+
+    /// Extract JSON snippet around a coding path for error context
+    private static func extractJSONSnippet(json: String, path: String) -> String? {
+        // Parse path to find the item index (e.g., "items.Index 0" -> look for first item)
+        let components = path.split(separator: ".")
+
+        // Find the relevant section in the JSON
+        // For "items.Index 0", search for the first item in items array
+        var searchKey = ""
+        var itemIndex = 0
+
+        for component in components {
+            let comp = String(component)
+            if comp.hasPrefix("Index ") {
+                if let idx = Int(comp.dropFirst(6)) {
+                    itemIndex = idx
+                }
+            } else {
+                searchKey = comp
+            }
+        }
+
+        // Find the key in JSON and extract surrounding lines
+        let lines = json.components(separatedBy: "\n")
+        var foundKeyLine = -1
+        var braceCount = 0
+        var inTargetArray = false
+        var currentItemIndex = -1
+
+        for (lineIdx, line) in lines.enumerated() {
+            // Look for the array key
+            if line.contains("\"\(searchKey)\"") && line.contains("[") {
+                inTargetArray = true
+                braceCount = 0
+            }
+
+            if inTargetArray {
+                // Count braces to track items
+                for char in line {
+                    if char == "{" {
+                        if braceCount == 0 {
+                            currentItemIndex += 1
+                        }
+                        braceCount += 1
+                        if currentItemIndex == itemIndex && braceCount == 1 {
+                            foundKeyLine = lineIdx
+                        }
+                    } else if char == "}" {
+                        braceCount -= 1
+                    }
+                }
+
+                if line.contains("]") && braceCount <= 0 {
+                    inTargetArray = false
+                }
+            }
+
+            if foundKeyLine >= 0 && braceCount == 0 {
+                break
+            }
+        }
+
+        if foundKeyLine >= 0 {
+            let startLine = max(0, foundKeyLine)
+            let endLine = min(lines.count, foundKeyLine + 8)
+            var snippet = ""
+            for i in startLine..<endLine {
+                snippet += "  \(i + 1): \(lines[i])\n"
+            }
+            return snippet
+        }
+
+        return nil
     }
 }
 
@@ -127,7 +276,10 @@ class Config {
             ))
             
         } catch let error {
-            writeLog("ConfigurationService: Configuration loading failed for \(path): \(error)", logLevel: .error)
+            // Get original JSON string for enhanced error reporting
+            let jsonString = try? String(contentsOfFile: path, encoding: .utf8)
+            let detailedError = ConfigurationError.formatJSONError(error, jsonString: jsonString)
+            writeLog("ConfigurationService: Configuration loading failed for \(path):\n\(detailedError)", logLevel: .error)
             return .failure(.invalidJSON(path: path, error: error))
         }
     }
