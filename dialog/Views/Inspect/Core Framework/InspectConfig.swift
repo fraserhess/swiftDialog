@@ -241,6 +241,16 @@ struct InspectConfig: Codable {
 
         // Per-item detail overlay override (overrides global detailOverlay for this item)
         let itemOverlay: DetailOverlayConfig? // Optional per-item detail overlay content
+
+        // Validation target badge - auto-update a status-badge when plist/json validation runs
+        let validationTargetBadge: ValidationTargetBadge? // Specifies which badge to update with validation result
+
+        // Target badge configuration for validation results (plistKey + evaluation)
+        struct ValidationTargetBadge: Codable {
+            let blockIndex: Int             // Index in guidanceContent array to update
+            let successState: String?       // State when validation passes (default: "success")
+            let failState: String?          // State when validation fails (default: "fail")
+        }
     }
 
     // Completion trigger - defines automatic step completion when plist condition met

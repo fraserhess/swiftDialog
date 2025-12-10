@@ -316,6 +316,10 @@ struct Preset6View: View, InspectLayoutProtocol {
                 writeLog("Preset6: Cancelled pending auto-navigation due to step change (\(oldStep) → \(newStep))", logLevel: .debug)
             }
         }
+        .onChange(of: inspectState.plistValidationResults) { _, newResults in
+            // Update validation target badges when validation results change
+            updateValidationTargetBadges(results: newResults)
+        }
         .sheet(isPresented: $showOverrideDialog) {
             // Progressive override dialog
             if let stepId = processingState.stepId {
@@ -2412,6 +2416,34 @@ struct Preset6View: View, InspectLayoutProtocol {
             "property": property,
             "value": value
         ])
+    }
+
+    /// Update validation target badges when plistValidationResults change
+    /// Items with validationTargetBadge config will have their specified badge updated
+    private func updateValidationTargetBadges(results: [String: Bool]) {
+        for item in inspectState.items {
+            guard let badgeConfig = item.validationTargetBadge,
+                  let isValid = results[item.id] else {
+                continue
+            }
+
+            // Determine the state based on validation result and config
+            let state = isValid
+                ? (badgeConfig.successState ?? "success")
+                : (badgeConfig.failState ?? "fail")
+
+            // Update the badge state
+            withAnimation(.easeInOut(duration: 0.3)) {
+                dynamicState.updateGuidanceProperty(
+                    stepId: item.id,
+                    blockIndex: badgeConfig.blockIndex,
+                    property: "state",
+                    value: state
+                )
+            }
+
+            writeLog("Preset6: Validation badge updated for '\(item.id)' → \(state) (valid=\(isValid), blockIndex=\(badgeConfig.blockIndex))", logLevel: .debug)
+        }
     }
 
     /// Unified handler for step completion triggers (success/failure)
