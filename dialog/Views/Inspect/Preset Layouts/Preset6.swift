@@ -953,6 +953,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                 url: block.url,
                 shell: block.shell,
                 shellTimeout: block.shellTimeout,
+                requestId: block.requestId,
                 targetBadge: block.targetBadge,
                 buttonStyle: block.buttonStyle,
                 opensOverlay: block.opensOverlay,
@@ -1034,6 +1035,7 @@ struct Preset6View: View, InspectLayoutProtocol {
             url: block.url,
             shell: block.shell,
             shellTimeout: block.shellTimeout,
+            requestId: block.requestId,
             targetBadge: block.targetBadge,
             buttonStyle: block.buttonStyle,
             opensOverlay: block.opensOverlay,
@@ -1401,6 +1403,18 @@ struct Preset6View: View, InspectLayoutProtocol {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: workItem)
         default:
             handleStepCompletion(item: item)
+            // Check if we should auto-advance after marking complete (default: true for better UX)
+            let shouldAutoAdvance = item.autoAdvanceOnComplete
+                ?? inspectState.config?.autoAdvanceOnComplete
+                ?? true
+            if shouldAutoAdvance && currentStep < inspectState.items.count - 1 {
+                autoNavigationWorkItem?.cancel()
+                let workItem = DispatchWorkItem {
+                    self.navigateToNextStep()
+                }
+                autoNavigationWorkItem = workItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: workItem)
+            }
         }
     }
 
@@ -1817,6 +1831,7 @@ struct Preset6View: View, InspectLayoutProtocol {
             currentStep = 0
             scrollOffset = 0
             inspectState.completedItems.removeAll()
+            inspectState.plistValidationResults.removeAll()
         }
 
         // Clear all dynamic state from MVVM state manager
@@ -1875,6 +1890,17 @@ struct Preset6View: View, InspectLayoutProtocol {
                 value: newValue
             )
         }
+
+        // Re-run validation for items with plistKey + evaluation
+        for item in inspectState.items {
+            if item.plistKey != nil && item.evaluation != nil {
+                // Validate the item fresh
+                _ = inspectState.validatePlistItem(item)
+            }
+        }
+
+        // Update validation target badges after re-evaluation
+        updateValidationTargetBadges(results: inspectState.plistValidationResults)
 
         // Restart file monitoring for external triggers
         setupFileMonitoring()

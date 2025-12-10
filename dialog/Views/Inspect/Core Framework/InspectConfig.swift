@@ -99,6 +99,7 @@ struct InspectConfig: Codable {
     let finalButtonText: String?        // Optional text for final button when all items complete (overrides button1Text)
     let hideSystemDetails: Bool?
     let observeOnly: Bool?                  // Global observe-only mode - disables all user interactions (default: false/interactive)
+    let autoAdvanceOnComplete: Bool?        // Preset6: Auto-navigate to next step after marking complete (default: true, set false for two-click flow)
     let colorThresholds: ColorThresholds?   // WIP: Configurable color thresholds for visualizations
     let plistSources: [PlistSourceConfig]?  // Array of plist configurations to monitor - used in compliance dashboards like preset5
     let categoryHelp: [CategoryHelp]?       // Optional help popovers for categories - used in compliance dashboards like preset5
@@ -120,6 +121,7 @@ struct InspectConfig: Codable {
     let logoConfig: LogoConfig?             // Optional logo overlay configuration (Preset9, etc.)
     let detailOverlay: DetailOverlayConfig? // Optional detail flyout overlay configuration
     let helpButton: HelpButtonConfig?       // Optional help button configuration
+    let actionPipe: String?                 // Optional FIFO path for instant script request delivery
 
     let items: [ItemConfig]
 
@@ -188,6 +190,7 @@ struct InspectConfig: Codable {
         let guidanceTitle: String?      // Main title for the step by step workflow
         let guidanceContent: [GuidanceContent]? // Rich content blocks for the step
         let stepType: String?           // "info" | "confirmation" | "processing" | "completion"
+        let autoAdvanceOnComplete: Bool? // Per-item override: Auto-navigate to next step after marking complete (overrides global setting)
         let actionButtonText: String?   // Custom button text for this step's action (e.g., "Start", "Confirm", "Install")
         let continueButtonText: String? // Custom button text after step completes to navigate to next step (e.g., "Next", "Proceed")
         let finalButtonText: String?    // Custom button text when this step is complete (e.g., "Finish" for completion step)
@@ -322,10 +325,11 @@ struct InspectConfig: Codable {
         let unit: String?               // Unit label to display (e.g., "%", "GB", "minutes")
 
         // Button-specific fields (for type="button")
-        let action: String?             // Button action: "url", "shell", "custom" (triggers callback)
+        let action: String?             // Button action: "url", "shell", "request", "custom" (triggers callback)
         let url: String?                // URL to open (for action="url")
         let shell: String?              // Shell command to execute (for action="shell")
         let shellTimeout: Int?          // Timeout in seconds for shell command (default: 30)
+        let requestId: String?          // Abstract identifier for script callback (for action="request", e.g., "profiles-install")
         let targetBadge: TargetBadgeConfig?  // Badge to update with shell command result
         let buttonStyle: String?        // Button style: "bordered" (default), "borderedProminent", "plain"
 
@@ -788,6 +792,7 @@ struct InspectConfig: Codable {
         try container.encodeIfPresent(logoConfig, forKey: .logoConfig)
         try container.encodeIfPresent(detailOverlay, forKey: .detailOverlay)
         try container.encodeIfPresent(helpButton, forKey: .helpButton)
+        try container.encodeIfPresent(actionPipe, forKey: .actionPipe)
         try container.encode(items, forKey: .items)
     }
 
@@ -846,6 +851,7 @@ struct InspectConfig: Codable {
         autoEnableButtonText = try container.decodeIfPresent(String.self, forKey: .autoEnableButtonText)
         hideSystemDetails = try container.decodeIfPresent(Bool.self, forKey: .hideSystemDetails)
         observeOnly = try container.decodeIfPresent(Bool.self, forKey: .observeOnly)
+        autoAdvanceOnComplete = try container.decodeIfPresent(Bool.self, forKey: .autoAdvanceOnComplete)
         colorThresholds = try container.decodeIfPresent(ColorThresholds.self, forKey: .colorThresholds)
         plistSources = try container.decodeIfPresent([PlistSourceConfig].self, forKey: .plistSources)
         categoryHelp = try container.decodeIfPresent([CategoryHelp].self, forKey: .categoryHelp)
@@ -873,6 +879,7 @@ struct InspectConfig: Codable {
         logoConfig = try container.decodeIfPresent(LogoConfig.self, forKey: .logoConfig)
         detailOverlay = try container.decodeIfPresent(DetailOverlayConfig.self, forKey: .detailOverlay)
         helpButton = try container.decodeIfPresent(HelpButtonConfig.self, forKey: .helpButton)
+        actionPipe = try container.decodeIfPresent(String.self, forKey: .actionPipe)
 
         // Default to empty array if items not provided
         items = try container.decodeIfPresent([ItemConfig].self, forKey: .items) ?? []
@@ -900,14 +907,14 @@ struct InspectConfig: Codable {
         // Backward compatibility: Field is decoded but ignored
         // Removal timeline: v3.0.0 (post Presets 5-9 public release)
         case buttonStyle
-        case autoEnableButton, autoEnableButtonText, hideSystemDetails, observeOnly, colorThresholds, plistSources, categoryHelp, uiLabels, complianceLabels, pickerConfig, instructionBanner, pickerLabels, items
+        case autoEnableButton, autoEnableButtonText, hideSystemDetails, observeOnly, autoAdvanceOnComplete, colorThresholds, plistSources, categoryHelp, uiLabels, complianceLabels, pickerConfig, instructionBanner, pickerLabels, items
         // Preset6 specific properties
         case iconBasePath, overlayicon, rotatingImages, imageRotationInterval, imageShape, imageSyncMode, stepStyle, listIndicatorStyle
         // Progress bar configuration
         case progressBarConfig
         // Logo overlay configuration
         case logoConfig
-        // Detail overlay and help button configuration
-        case detailOverlay, helpButton
+        // Detail overlay, help button, and action pipe configuration
+        case detailOverlay, helpButton, actionPipe
     }
 }
