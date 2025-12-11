@@ -298,6 +298,31 @@ func processCLOptions(json: JSON = getJSON()) {
         }
         quitDialog(exitCode: appDefaults.exitNow.code)
     }
+    if appArguments.inspectSchema.present {
+        writeLog("\(appArguments.inspectSchema.long) called", logLevel: .info)
+
+        guard let schemaURL = Bundle.main.url(forResource: "inspect-config.schema", withExtension: "json"),
+              let schemaData = try? Data(contentsOf: schemaURL),
+              let schemaString = String(data: schemaData, encoding: .utf8) else {
+            print("Error: Schema file not found in bundle")
+            quitDialog(exitCode: appDefaults.exitNow.code)
+            return
+        }
+
+        if appArguments.inspectSchema.value.isEmpty {
+            // Print to stdout
+            print(schemaString)
+        } else {
+            // Save to file
+            do {
+                try schemaString.write(toFile: appArguments.inspectSchema.value, atomically: true, encoding: .utf8)
+                print("Schema written to: \(appArguments.inspectSchema.value)")
+            } catch {
+                print("Error writing schema: \(error.localizedDescription)")
+            }
+        }
+        quitDialog(exitCode: appDefaults.exitNow.code)
+    }
     if appArguments.getVersion.present {
         writeLog("\(appArguments.getVersion.long) called")
         printVersionString()
