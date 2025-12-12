@@ -169,6 +169,16 @@ struct InspectConfig: Codable {
         let cornerRadius: Double?               // Corner radius for background (default: 8)
     }
 
+    /// Configuration for intro/outro full-screen layout styling
+    /// Used with stepType: "intro" or "outro" to display welcome/completion pages
+    struct IntroLayoutConfig: Codable {
+        let heroImageShape: String?             // "circle" (default) | "roundedSquare" | "square"
+        let heroImageSize: Double?              // Size in points (default: 200)
+        let logoImage: String?                  // Bottom branding logo path
+        let logoPosition: String?               // "bottomLeft" (default) | "bottomRight"
+        let logoMaxWidth: Double?               // Maximum logo width in points (default: 120)
+    }
+
     struct ItemConfig: Codable {
         let id: String
         let displayName: String
@@ -247,6 +257,9 @@ struct InspectConfig: Codable {
 
         // Validation target badge - auto-update a status-badge when plist/json validation runs
         let validationTargetBadge: ValidationTargetBadge? // Specifies which badge to update with validation result
+
+        // Intro/outro layout configuration (for stepType: "intro" or "outro")
+        let introLayoutConfig: IntroLayoutConfig? // Optional styling for full-screen welcome/completion pages
 
         // Target badge configuration for validation results (plistKey + evaluation)
         struct ValidationTargetBadge: Codable {

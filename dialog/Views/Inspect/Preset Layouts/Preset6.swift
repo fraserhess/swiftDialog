@@ -131,6 +131,36 @@ struct Preset6View: View, InspectLayoutProtocol {
         cachedBannerImage != nil || (inspectState.uiConfiguration.bannerTitle?.isEmpty == false)
     }
 
+    // MARK: - Intro/Outro Detection
+
+    /// Whether current step is an intro step (first item with stepType: "intro")
+    private var isIntroStep: Bool {
+        guard let firstItem = inspectState.items.first else { return false }
+        return currentStep == 0 && firstItem.stepType == "intro"
+    }
+
+    /// Whether current step is an outro step (last item with stepType: "outro")
+    private var isOutroStep: Bool {
+        guard let lastItem = inspectState.items.last else { return false }
+        return currentStep == inspectState.items.count - 1 && lastItem.stepType == "outro"
+    }
+
+    /// Real steps excluding intro/outro (for step counting)
+    private var realSteps: [InspectConfig.ItemConfig] {
+        inspectState.items.filter { $0.stepType != "intro" && $0.stepType != "outro" }
+    }
+
+    /// Current real step index (for "Step X of Y" display, excluding intro/outro)
+    private var currentRealStepIndex: Int {
+        let hasIntro = inspectState.items.first?.stepType == "intro"
+        return hasIntro ? currentStep - 1 : currentStep
+    }
+
+    /// Minimum step index (can't go back past intro)
+    private var minimumStepIndex: Int {
+        inspectState.items.first?.stepType == "intro" ? 1 : 0
+    }
+
     init(inspectState: InspectState) {
         self.inspectState = inspectState
     }
@@ -148,36 +178,41 @@ struct Preset6View: View, InspectLayoutProtocol {
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                HStack(alignment: .top, spacing: 12) {
-                    // Left side: Compact progress stepper
-                    minimalProgressStepper()
-                        .frame(width: 240 * scaleFactor)
-                        .background(
-                            .ultraThinMaterial,
-                            in: .rect(
-                                topLeadingRadius: 12,
-                                bottomLeadingRadius: 12,
-                                bottomTrailingRadius: 0,
-                                topTrailingRadius: 12
+            // Show intro/outro full-screen view OR normal two-column layout
+            if isIntroStep || isOutroStep {
+                introOutroView(isOutro: isOutroStep)
+            } else {
+                VStack(spacing: 0) {
+                    HStack(alignment: .top, spacing: 12) {
+                        // Left side: Compact progress stepper
+                        minimalProgressStepper()
+                            .frame(width: 240 * scaleFactor)
+                            .background(
+                                .ultraThinMaterial,
+                                in: .rect(
+                                    topLeadingRadius: 12,
+                                    bottomLeadingRadius: 12,
+                                    bottomTrailingRadius: 0,
+                                    topTrailingRadius: 12
+                                )
                             )
-                        )
-                        .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 1)
+                            .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 1)
 
-                    // Right side: Clean content panel
-                    minimalContentPanel()
-                        .frame(maxWidth: .infinity)
+                        // Right side: Clean content panel
+                        minimalContentPanel()
+                            .frame(maxWidth: .infinity)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 0)
+
+                    // Bottom progress bar (Migration Assistant style) - reusable component
+                    InspectBottomProgressBar(
+                        inspectState: inspectState,
+                        completedSteps: $completedSteps,
+                        currentStep: currentStep,
+                        scaleFactor: scaleFactor
+                    )
                 }
-                .padding(.horizontal, 12)
-                .padding(.top, 0)
-
-                // Bottom progress bar (Migration Assistant style) - reusable component
-                InspectBottomProgressBar(
-                    inspectState: inspectState,
-                    completedSteps: $completedSteps,
-                    currentStep: currentStep,
-                    scaleFactor: scaleFactor
-                )
             }
 
             // Instruction banner (top overlay)
@@ -373,6 +408,136 @@ struct Preset6View: View, InspectLayoutProtocol {
         )
     }
 
+    // MARK: - Intro/Outro Full-Screen View
+
+    /// Full-screen intro or outro view replacing the normal sidebar + content layout
+    @ViewBuilder
+    private func introOutroView(isOutro: Bool) -> some View {
+        let item = isOutro ? inspectState.items.last : inspectState.items.first
+        let config = item?.introLayoutConfig
+
+        VStack(spacing: 0) {
+            Spacer()
+
+            // Hero Image (uses item.icon with configurable shape)
+            if let iconPath = item?.icon {
+                introHeroImage(path: iconPath, config: config)
+                    .padding(.bottom, 24)
+            }
+
+            // Title (uses guidanceTitle)
+            if let title = item?.guidanceTitle {
+                Text(title)
+                    .font(.system(size: 28 * scaleFactor, weight: .bold))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+            }
+
+            // Content (uses guidanceContent - text blocks rendered centered)
+            if let content = item?.guidanceContent {
+                VStack(spacing: 12) {
+                    ForEach(content.indices, id: \.self) { index in
+                        let block = content[index]
+                        if block.type == "text" {
+                            Text(block.content ?? "")
+                                .font(.system(size: 15 * scaleFactor))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                    }
+                }
+                .padding(.horizontal, 60)
+                .padding(.top, 16)
+            }
+
+            Spacer()
+
+            // Bottom bar: Logo + Button
+            HStack {
+                // Optional branding logo (left side)
+                if let logoPath = config?.logoImage {
+                    introLogoView(path: logoPath, maxWidth: config?.logoMaxWidth ?? 120)
+                }
+
+                Spacer()
+
+                // Continue/Finish button
+                Button(item?.continueButtonText ?? (isOutro ? "Finish" : "Continue")) {
+                    if isOutro {
+                        quitDialog(exitCode: appDefaults.exit0.code)
+                    } else {
+                        navigateToNextStep()
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Hero image for intro/outro view with configurable shape
+    @ViewBuilder
+    private func introHeroImage(path: String, config: InspectConfig.IntroLayoutConfig?) -> some View {
+        let size = config?.heroImageSize ?? 200
+        let shape = config?.heroImageShape ?? "circle"
+
+        Group {
+            if path.hasPrefix("SF=") {
+                // SF Symbol
+                let symbolName = String(path.dropFirst(3))
+                Image(systemName: symbolName)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: size, height: size)
+                    .foregroundStyle(.blue)
+            } else {
+                // Image file - load directly using NSImage
+                if let nsImage = NSImage(contentsOfFile: path) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: size, height: size)
+                } else {
+                    // Fallback placeholder for missing images
+                    Image(systemName: "photo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: size, height: size)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .clipShape(introImageClipShape(shape))
+        .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
+    }
+
+    /// Returns the clip shape for intro hero image based on configuration
+    private func introImageClipShape(_ shape: String) -> some Shape {
+        switch shape {
+        case "roundedSquare":
+            return AnyShape(RoundedRectangle(cornerRadius: 24))
+        case "square":
+            return AnyShape(Rectangle())
+        default: // "circle"
+            return AnyShape(Circle())
+        }
+    }
+
+    /// Branding logo view for intro/outro bottom bar
+    @ViewBuilder
+    private func introLogoView(path: String, maxWidth: Double) -> some View {
+        if let nsImage = NSImage(contentsOfFile: path) {
+            Image(nsImage: nsImage)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(maxWidth: maxWidth)
+        } else {
+            EmptyView()
+        }
+    }
 
     @ViewBuilder
     private func minimalProgressStepper() -> some View {
@@ -1790,16 +1955,20 @@ struct Preset6View: View, InspectLayoutProtocol {
     }
 
     private func navigateToPreviousStep() {
-        guard currentStep > 0 else { 
-            logUserInteraction("navigate_back_blocked", details: ["reason": "already_at_first_step"])
-            return 
+        // Use minimumStepIndex to prevent navigating back to intro
+        guard currentStep > minimumStepIndex else {
+            logUserInteraction("navigate_back_blocked", details: [
+                "reason": currentStep == minimumStepIndex ? "at_minimum_step" : "already_at_first_step",
+                "minimumStepIndex": minimumStepIndex
+            ])
+            return
         }
 
         let oldStep = currentStep
         withAnimation(.spring()) {
             currentStep -= 1
         }
-        
+
         logStepTransition(from: oldStep, to: currentStep, reason: "navigation_back")
         logUserInteraction("navigate_back", details: ["newStepIndex": currentStep])
         writeInteractionLog("navigate_previous", step: "step_\(currentStep)")
