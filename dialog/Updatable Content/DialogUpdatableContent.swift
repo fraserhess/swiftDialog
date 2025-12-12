@@ -303,7 +303,7 @@ class FileReader {
                 }
                 observedData.args.mainImage.present = false
                 observedData.args.mainImageCaption.present = false
-                observedData.args.listItem.present = false
+                // observedData.args.listItem.present = false
 
             // Message Position
             case "alignment:":
