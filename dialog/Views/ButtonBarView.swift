@@ -95,6 +95,7 @@ struct ButtonBarView: View {
                 )),
                 // Default Primary button
                 AnyView(NewButton(label: observedData.args.button1TextOption.value == "nil" ? "" : observedData.args.button1TextOption.value,
+                          isVisible: (observedData.args.button1TextOption.value != "none"),
                           isDisabled: observedData.args.button1Disabled.present,
                           enableOnTimer: (observedData.args.timerBar.present && !observedData.args.hideTimerBar.present),
                           enableOnChangeOf: $observedData.args.button1Disabled.present,
