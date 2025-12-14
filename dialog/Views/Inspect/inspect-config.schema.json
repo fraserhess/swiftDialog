@@ -593,6 +593,24 @@
           "type": "string",
           "description": "Unit label (e.g., '%', 'GB', 'minutes')"
         },
+        "discreteSteps": {
+          "type": "array",
+          "description": "Array of discrete step values with labels for slider. When defined, slider snaps to these values instead of continuous range.",
+          "items": {
+            "type": "object",
+            "required": ["value", "label"],
+            "properties": {
+              "value": {
+                "type": "number",
+                "description": "Numeric value for this step"
+              },
+              "label": {
+                "type": "string",
+                "description": "Display label (e.g., '1 minute', '1 hour', 'Never')"
+              }
+            }
+          }
+        },
         "action": {
           "type": "string",
           "enum": ["url", "shell", "request", "custom"],
