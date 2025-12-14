@@ -264,11 +264,17 @@ struct Preset3View: View, InspectLayoutProtocol {
         .frame(width: windowSize.width, height: windowSize.height)
         .overlay {
             // Help button (positioned according to config)
+            // Supports action types: overlay (default), url, custom
             if let helpButtonConfig = inspectState.config?.helpButton,
                helpButtonConfig.enabled ?? true {
                 PositionedHelpButton(
                     config: helpButtonConfig,
-                    action: { showDetailOverlay = true },
+                    action: {
+                        handleHelpButtonAction(
+                            config: helpButtonConfig,
+                            showOverlay: $showDetailOverlay
+                        )
+                    },
                     padding: 16
                 )
             }

@@ -1,8 +1,9 @@
 //
-//  InfoView.swift
+//  HelpView.swift
 //  dialog
 //
 //  Created by Bart Reardon on 11/12/2022.
+//  Refactored to standalone view for reusability
 //
 
 import SwiftUI
@@ -56,7 +57,7 @@ struct HelpView: View {
             .padding(settings.sidePadding)
             .keyboardShortcut(.defaultAction)
         }
-        //.frame(width: observedData.appProperties.windowWidth-100)
+        .frame(minWidth: 400)
         .fixedSize()
     }
 }

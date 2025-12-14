@@ -1164,7 +1164,7 @@ class Validation: ObservableObject {
                 writeLog("ValidationService: Key '\(key)', Evaluation 'range' requires format 'min-max'", logLevel: .error)
                 return false
             }
-            
+
             let rangeParts = expectedValue.components(separatedBy: "-")
             guard rangeParts.count == 2,
                   let minValue = Double(rangeParts[0]),
@@ -1172,7 +1172,7 @@ class Validation: ObservableObject {
                 writeLog("ValidationService: Key '\(key)', Invalid range format '\(expectedValue)'", logLevel: .error)
                 return false
             }
-            
+
             let actualNumber: Double?
             if let intVal = value as? Int {
                 actualNumber = Double(intVal)
@@ -1186,15 +1186,94 @@ class Validation: ObservableObject {
                 writeLog("ValidationService: Key '\(key)', Evaluation 'range' requires numeric value, got: \(type(of: value))", logLevel: .error)
                 return false
             }
-            
+
             guard let number = actualNumber else {
                 return false
             }
-            
+
             let result = number >= minValue && number <= maxValue
             writeLog("ValidationService: Key '\(key)', Value \(number) in range \(minValue)-\(maxValue), Result: \(result)", logLevel: .info)
             return result
-            
+
+        case "withinseconds", "within_seconds", "recentseconds", "recent":
+            // Check if date/timestamp is within X seconds of now
+            // expectedValue = number of seconds (e.g., "300" for 5 minutes)
+            guard let expectedValue = expectedValue, let maxSeconds = Double(expectedValue) else {
+                writeLog("ValidationService: Key '\(key)', Evaluation 'withinSeconds' requires numeric expectedValue (seconds)", logLevel: .error)
+                return false
+            }
+
+            // Parse the value as a date
+            let now = Date()
+            var parsedDate: Date?
+
+            // Handle native Date type from plist
+            if let dateValue = value as? Date {
+                parsedDate = dateValue
+            }
+
+            // Try Unix timestamp (Double seconds since 1970)
+            if parsedDate == nil, let timestamp = value as? Double {
+                parsedDate = Date(timeIntervalSince1970: timestamp)
+            }
+            if parsedDate == nil, let timestamp = value as? Int {
+                parsedDate = Date(timeIntervalSince1970: Double(timestamp))
+            }
+            if parsedDate == nil, let nsNumber = value as? NSNumber {
+                parsedDate = Date(timeIntervalSince1970: nsNumber.doubleValue)
+            }
+
+            // Try string date formats
+            if parsedDate == nil, let stringValue = value as? String {
+                // Try ISO8601 with fractional seconds
+                let iso8601Formatter = ISO8601DateFormatter()
+                iso8601Formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                parsedDate = iso8601Formatter.date(from: stringValue)
+
+                // Try ISO8601 without fractional seconds
+                if parsedDate == nil {
+                    iso8601Formatter.formatOptions = [.withInternetDateTime]
+                    parsedDate = iso8601Formatter.date(from: stringValue)
+                }
+
+                // Try common plist date formats
+                if parsedDate == nil {
+                    let dateFormatter = DateFormatter()
+                    dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+
+                    let formats = [
+                        "yyyy-MM-dd'T'HH:mm:ssZ",
+                        "yyyy-MM-dd HH:mm:ss Z",
+                        "yyyy-MM-dd HH:mm:ss",
+                        "MMM d, yyyy 'at' h:mm:ss a",
+                        "MMM d, yyyy, h:mm:ss a"
+                    ]
+
+                    for format in formats {
+                        dateFormatter.dateFormat = format
+                        if let date = dateFormatter.date(from: stringValue) {
+                            parsedDate = date
+                            break
+                        }
+                    }
+                }
+
+                // Try parsing as Unix timestamp string
+                if parsedDate == nil, let timestamp = Double(stringValue) {
+                    parsedDate = Date(timeIntervalSince1970: timestamp)
+                }
+            }
+
+            guard let date = parsedDate else {
+                writeLog("ValidationService: Key '\(key)', Evaluation 'withinSeconds' could not parse date from '\(value)'", logLevel: .error)
+                return false
+            }
+
+            let secondsAgo = now.timeIntervalSince(date)
+            let isWithin = secondsAgo >= 0 && secondsAgo <= maxSeconds
+            writeLog("ValidationService: Key '\(key)', withinSeconds check - date=\(date), secondsAgo=\(secondsAgo), maxSeconds=\(maxSeconds), pass=\(isWithin)", logLevel: .debug)
+            return isWithin
+
         default: // "equals" and any other unknown types
             // Default: exact string comparison (backward compatible)
             guard let expectedValue = expectedValue else {
@@ -1262,8 +1341,13 @@ class Validation: ObservableObject {
             return String(floatValue)
         } else if let nsNumber = value as? NSNumber {
             return nsNumber.stringValue
+        } else if let dateValue = value as? Date {
+            // Format dates with ISO8601 including timezone for reliable parsing
+            let iso8601Formatter = ISO8601DateFormatter()
+            iso8601Formatter.formatOptions = [.withInternetDateTime]
+            return iso8601Formatter.string(from: dateValue)
         }
-        
+
         // Safe fallback for any other types
         return String(describing: value)
     }

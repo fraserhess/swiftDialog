@@ -118,12 +118,14 @@ struct ButtonBarView: View {
             
             // Help Button
             if !buttonStackStyle && !buttonCentreStyle {
-                HelpButton(showHelpButton: observedData.args.helpMessage.present,
-                           showHelpSheet: $observedData.showSheet,
-                           helpMessage: observedData.args.helpMessage.value,
-                           alignment: observedData.appProperties.helpAlignment ,
-                           helpImagePath: observedData.args.helpImage.value,
-                           helpSheetButtonText: observedData.args.helpSheetButton.value)
+                HelpButton(
+                    showHelpButton: observedData.args.helpMessage.present,
+                    showHelpSheet: $observedData.appProperties.showHelpMessage,
+                    helpMessage: observedData.args.helpMessage.value,
+                    alignment: observedData.appProperties.helpAlignment,
+                    helpImagePath: observedData.args.helpImage.present ? observedData.args.helpImage.value : "",
+                    helpSheetButtonText: observedData.args.helpSheetButton.value
+                )
             }
             
             if buttonCentreStyle {
@@ -136,12 +138,12 @@ struct ButtonBarView: View {
 }
 
 struct HelpButton: View {
-    var showHelpButton: Bool
+    let showHelpButton: Bool
     @Binding var showHelpSheet: Bool
-    var helpMessage: String
-    var alignment: TextAlignment
-    var helpImagePath: String
-    var helpSheetButtonText: String
+    let helpMessage: String
+    let alignment: TextAlignment
+    let helpImagePath: String
+    let helpSheetButtonText: String
 
     var body: some View {
         if showHelpButton {
@@ -163,18 +165,19 @@ struct HelpButton: View {
             .focusable(false)
             .buttonStyle(HelpButtonStyle())
             .sheet(isPresented: $showHelpSheet) {
-                HelpView(helpMessage: helpMessage,
-                         alignment: alignment,
-                         helpImagePath: helpImagePath,
-                         helpSheetButtonText: helpSheetButtonText,
-                         showHelp: $showHelpSheet)
-                    .background(WindowAccessor { window in
-                        window?.canBecomeVisibleWithoutLogin = true
-                    })
+                HelpView(
+                    helpMessage: helpMessage,
+                    alignment: alignment,
+                    helpImagePath: helpImagePath,
+                    helpSheetButtonText: helpSheetButtonText,
+                    showHelpSheet: $showHelpSheet
+                )
+                .background(WindowAccessor { window in
+                    window?.canBecomeVisibleWithoutLogin = true
+                })
             }
         }
     }
-
 }
 
 struct HelpButtonStyle: ButtonStyle {

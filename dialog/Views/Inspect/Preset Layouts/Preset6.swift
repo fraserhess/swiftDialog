@@ -131,6 +131,36 @@ struct Preset6View: View, InspectLayoutProtocol {
         cachedBannerImage != nil || (inspectState.uiConfiguration.bannerTitle?.isEmpty == false)
     }
 
+    // MARK: - Intro/Outro Detection
+
+    /// Whether current step is an intro step (first item with stepType: "intro")
+    private var isIntroStep: Bool {
+        guard let firstItem = inspectState.items.first else { return false }
+        return currentStep == 0 && firstItem.stepType == "intro"
+    }
+
+    /// Whether current step is an outro step (last item with stepType: "outro")
+    private var isOutroStep: Bool {
+        guard let lastItem = inspectState.items.last else { return false }
+        return currentStep == inspectState.items.count - 1 && lastItem.stepType == "outro"
+    }
+
+    /// Real steps excluding intro/outro (for step counting)
+    private var realSteps: [InspectConfig.ItemConfig] {
+        inspectState.items.filter { $0.stepType != "intro" && $0.stepType != "outro" }
+    }
+
+    /// Current real step index (for "Step X of Y" display, excluding intro/outro)
+    private var currentRealStepIndex: Int {
+        let hasIntro = inspectState.items.first?.stepType == "intro"
+        return hasIntro ? currentStep - 1 : currentStep
+    }
+
+    /// Minimum step index (can't go back past intro)
+    private var minimumStepIndex: Int {
+        inspectState.items.first?.stepType == "intro" ? 1 : 0
+    }
+
     init(inspectState: InspectState) {
         self.inspectState = inspectState
     }
@@ -148,36 +178,41 @@ struct Preset6View: View, InspectLayoutProtocol {
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                HStack(alignment: .top, spacing: 12) {
-                    // Left side: Compact progress stepper
-                    minimalProgressStepper()
-                        .frame(width: 240 * scaleFactor)
-                        .background(
-                            .ultraThinMaterial,
-                            in: .rect(
-                                topLeadingRadius: 12,
-                                bottomLeadingRadius: 12,
-                                bottomTrailingRadius: 0,
-                                topTrailingRadius: 12
+            // Show intro/outro full-screen view OR normal two-column layout
+            if isIntroStep || isOutroStep {
+                introOutroView(isOutro: isOutroStep)
+            } else {
+                VStack(spacing: 0) {
+                    HStack(alignment: .top, spacing: 12) {
+                        // Left side: Compact progress stepper
+                        minimalProgressStepper()
+                            .frame(width: 240 * scaleFactor)
+                            .background(
+                                .ultraThinMaterial,
+                                in: .rect(
+                                    topLeadingRadius: 12,
+                                    bottomLeadingRadius: 12,
+                                    bottomTrailingRadius: 0,
+                                    topTrailingRadius: 12
+                                )
                             )
-                        )
-                        .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 1)
+                            .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 1)
 
-                    // Right side: Clean content panel
-                    minimalContentPanel()
-                        .frame(maxWidth: .infinity)
+                        // Right side: Clean content panel
+                        minimalContentPanel()
+                            .frame(maxWidth: .infinity)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 0)
+
+                    // Bottom progress bar (Migration Assistant style) - reusable component
+                    InspectBottomProgressBar(
+                        inspectState: inspectState,
+                        completedSteps: $completedSteps,
+                        currentStep: currentStep,
+                        scaleFactor: scaleFactor
+                    )
                 }
-                .padding(.horizontal, 12)
-                .padding(.top, 0)
-
-                // Bottom progress bar (Migration Assistant style) - reusable component
-                InspectBottomProgressBar(
-                    inspectState: inspectState,
-                    completedSteps: $completedSteps,
-                    currentStep: currentStep,
-                    scaleFactor: scaleFactor
-                )
             }
 
             // Instruction banner (top overlay)
@@ -316,6 +351,10 @@ struct Preset6View: View, InspectLayoutProtocol {
                 writeLog("Preset6: Cancelled pending auto-navigation due to step change (\(oldStep) → \(newStep))", logLevel: .debug)
             }
         }
+        .onChange(of: inspectState.plistValidationResults) { _, newResults in
+            // Update validation target badges when validation results change
+            updateValidationTargetBadges(results: newResults)
+        }
         .sheet(isPresented: $showOverrideDialog) {
             // Progressive override dialog
             if let stepId = processingState.stepId {
@@ -342,11 +381,17 @@ struct Preset6View: View, InspectLayoutProtocol {
         }
         .overlay {
             // Help button (positioned according to config)
+            // Supports action types: overlay (default), url, custom
             if let helpButtonConfig = inspectState.config?.helpButton,
                helpButtonConfig.enabled ?? true {
                 PositionedHelpButton(
                     config: helpButtonConfig,
-                    action: { showDetailOverlay = true },
+                    action: {
+                        handleHelpButtonAction(
+                            config: helpButtonConfig,
+                            showOverlay: $showDetailOverlay
+                        )
+                    },
                     padding: 16
                 )
             }
@@ -363,6 +408,136 @@ struct Preset6View: View, InspectLayoutProtocol {
         )
     }
 
+    // MARK: - Intro/Outro Full-Screen View
+
+    /// Full-screen intro or outro view replacing the normal sidebar + content layout
+    @ViewBuilder
+    private func introOutroView(isOutro: Bool) -> some View {
+        let item = isOutro ? inspectState.items.last : inspectState.items.first
+        let config = item?.introLayoutConfig
+
+        VStack(spacing: 0) {
+            Spacer()
+
+            // Hero Image (uses item.icon with configurable shape)
+            if let iconPath = item?.icon {
+                introHeroImage(path: iconPath, config: config)
+                    .padding(.bottom, 24)
+            }
+
+            // Title (uses guidanceTitle)
+            if let title = item?.guidanceTitle {
+                Text(title)
+                    .font(.system(size: 28 * scaleFactor, weight: .bold))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+            }
+
+            // Content (uses guidanceContent - text blocks rendered centered)
+            if let content = item?.guidanceContent {
+                VStack(spacing: 12) {
+                    ForEach(content.indices, id: \.self) { index in
+                        let block = content[index]
+                        if block.type == "text" {
+                            Text(block.content ?? "")
+                                .font(.system(size: 15 * scaleFactor))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                    }
+                }
+                .padding(.horizontal, 60)
+                .padding(.top, 16)
+            }
+
+            Spacer()
+
+            // Bottom bar: Logo + Button
+            HStack {
+                // Optional branding logo (left side)
+                if let logoPath = config?.logoImage {
+                    introLogoView(path: logoPath, maxWidth: config?.logoMaxWidth ?? 120)
+                }
+
+                Spacer()
+
+                // Continue/Finish button
+                Button(item?.continueButtonText ?? (isOutro ? "Finish" : "Continue")) {
+                    if isOutro {
+                        quitDialog(exitCode: appDefaults.exit0.code)
+                    } else {
+                        navigateToNextStep()
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Hero image for intro/outro view with configurable shape
+    @ViewBuilder
+    private func introHeroImage(path: String, config: InspectConfig.IntroLayoutConfig?) -> some View {
+        let size = config?.heroImageSize ?? 200
+        let shape = config?.heroImageShape ?? "circle"
+
+        Group {
+            if path.hasPrefix("SF=") {
+                // SF Symbol
+                let symbolName = String(path.dropFirst(3))
+                Image(systemName: symbolName)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: size, height: size)
+                    .foregroundStyle(.blue)
+            } else {
+                // Image file - load directly using NSImage
+                if let nsImage = NSImage(contentsOfFile: path) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: size, height: size)
+                } else {
+                    // Fallback placeholder for missing images
+                    Image(systemName: "photo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: size, height: size)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .clipShape(introImageClipShape(shape))
+        .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
+    }
+
+    /// Returns the clip shape for intro hero image based on configuration
+    private func introImageClipShape(_ shape: String) -> some Shape {
+        switch shape {
+        case "roundedSquare":
+            return AnyShape(RoundedRectangle(cornerRadius: 24))
+        case "square":
+            return AnyShape(Rectangle())
+        default: // "circle"
+            return AnyShape(Circle())
+        }
+    }
+
+    /// Branding logo view for intro/outro bottom bar
+    @ViewBuilder
+    private func introLogoView(path: String, maxWidth: Double) -> some View {
+        if let nsImage = NSImage(contentsOfFile: path) {
+            Image(nsImage: nsImage)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(maxWidth: maxWidth)
+        } else {
+            EmptyView()
+        }
+    }
 
     @ViewBuilder
     private func minimalProgressStepper() -> some View {
@@ -577,31 +752,6 @@ struct Preset6View: View, InspectLayoutProtocol {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.horizontal, 32)
-
-            // Help button integrated into banner (top-right)
-            if let extraButton = inspectState.config?.extraButton,
-               extraButton.visible ?? true {
-                Button(action: {
-                    handleExtraButtonAction(extraButton)
-                }) {
-                    ZStack {
-                        // Semi-transparent white background with better contrast
-                        Circle()
-                            .fill(Color.white.opacity(0.3))
-                            .frame(width: 36 * scaleFactor, height: 36 * scaleFactor)
-
-                        // Text fallback with highlight color (works where SF Symbols don't)
-                        Text("?")
-                            .font(.system(size: 22 * scaleFactor, weight: .bold))
-                            .foregroundStyle(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor))
-                    }
-                    .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
-                }
-                .buttonStyle(.plain)
-                .help(extraButton.text)
-                .padding(.top, 12 * scaleFactor)
-                .padding(.trailing, 16 * scaleFactor)
-            }
         }
         .frame(maxWidth: .infinity, maxHeight: CGFloat(inspectState.uiConfiguration.bannerHeight) * scaleFactor)
         .clipShape(
@@ -647,31 +797,6 @@ struct Preset6View: View, InspectLayoutProtocol {
                 .padding([.top, .trailing], 16 * scaleFactor)
             }
 
-            // Help button (only show when no banner present)
-            if !hasBanner,
-               let extraButton = inspectState.config?.extraButton,
-               extraButton.visible ?? true {
-                Button(action: {
-                    handleExtraButtonAction(extraButton)
-                }) {
-                    ZStack {
-                        // Semi-transparent white background with better contrast
-                        Circle()
-                            .fill(Color.white.opacity(0.3))
-                            .frame(width: 36 * scaleFactor, height: 36 * scaleFactor)
-
-                        // Text fallback with highlight color (works where SF Symbols don't)
-                        Text("?")
-                            .font(.system(size: 22 * scaleFactor, weight: .bold))
-                            .foregroundStyle(Color(hex: inspectState.config?.highlightColor ?? inspectState.uiConfiguration.highlightColor))
-                    }
-                    .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
-                }
-                .buttonStyle(.plain)
-                .help(extraButton.text)
-                .padding(.top, 12 * scaleFactor)
-                .padding(.trailing, 16 * scaleFactor)
-            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -680,13 +805,30 @@ struct Preset6View: View, InspectLayoutProtocol {
     private func guidanceContentView(for item: InspectConfig.ItemConfig) -> some View {
         ScrollView(.vertical, showsIndicators: true) {
             VStack(alignment: .leading, spacing: 16 * scaleFactor) {
-                // Step heading
+                // Step heading with optional info button
                 VStack(alignment: .leading, spacing: 4 * scaleFactor) {
                     if let guidanceTitle = item.guidanceTitle {
-                        Text(guidanceTitle)
-                            .font(.system(size: 20 * scaleFactor, weight: .semibold))
-                            .foregroundStyle(.primary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(spacing: 8) {
+                            Text(guidanceTitle)
+                                .font(.system(size: 20 * scaleFactor, weight: .semibold))
+                                .foregroundStyle(.primary)
+
+                            // Info button - only show if item has itemOverlay configured
+                            if item.itemOverlay != nil {
+                                Button(action: {
+                                    selectedItemForDetail = item
+                                    showItemDetailOverlay = true
+                                }) {
+                                    Image(systemName: "info.circle.fill")
+                                        .font(.system(size: 16 * scaleFactor))
+                                        .foregroundStyle(.blue)
+                                }
+                                .buttonStyle(.plain)
+                                .help("View details about \(item.displayName)")
+                            }
+
+                            Spacer()
+                        }
                     }
                 }
                 .padding(.bottom, 8 * scaleFactor)
@@ -703,7 +845,11 @@ struct Preset6View: View, InspectLayoutProtocol {
                         scaleFactor: scaleFactor,
                         iconBasePath: inspectState.uiConfiguration.iconBasePath,
                         inspectState: inspectState,
-                        itemId: item.id
+                        itemId: item.id,
+                        onOverlayTap: item.itemOverlay != nil ? {
+                            selectedItemForDetail = item
+                            showItemDetailOverlay = true
+                        } : nil
                     )
                     // No longer need .id() modifier - @Published guarantees updates
                 }
@@ -956,6 +1102,9 @@ struct Preset6View: View, InspectLayoutProtocol {
                 imageWidth: block.imageWidth,
                 imageBorder: block.imageBorder,
                 caption: block.caption,
+                autoplay: block.autoplay,
+                videoHeight: block.videoHeight,
+                webHeight: block.webHeight,
                 id: block.id,
                 required: block.required,
                 options: block.options,
@@ -965,10 +1114,15 @@ struct Preset6View: View, InspectLayoutProtocol {
                 max: block.max,
                 step: block.step,
                 unit: block.unit,
+                discreteSteps: block.discreteSteps,
                 action: block.action,
                 url: block.url,
                 shell: block.shell,
+                shellTimeout: block.shellTimeout,
+                requestId: block.requestId,
+                targetBadge: block.targetBadge,
                 buttonStyle: block.buttonStyle,
+                opensOverlay: block.opensOverlay,
                 label: block.label,
                 state: block.state,
                 icon: block.icon,
@@ -1031,6 +1185,9 @@ struct Preset6View: View, InspectLayoutProtocol {
             imageWidth: block.imageWidth,
             imageBorder: block.imageBorder,
             caption: block.caption,
+            autoplay: block.autoplay,
+            videoHeight: block.videoHeight,
+            webHeight: block.webHeight,
             id: block.id,
             required: block.required,
             options: block.options,
@@ -1040,10 +1197,15 @@ struct Preset6View: View, InspectLayoutProtocol {
             max: block.max,
             step: block.step,
             unit: block.unit,
+            discreteSteps: block.discreteSteps,
             action: block.action,
             url: block.url,
             shell: block.shell,
+            shellTimeout: block.shellTimeout,
+            requestId: block.requestId,
+            targetBadge: block.targetBadge,
             buttonStyle: block.buttonStyle,
+            opensOverlay: block.opensOverlay,
             label: props["label"] ?? block.label,
             state: props["state"] ?? block.state,
             icon: props["icon"] ?? block.icon,
@@ -1408,6 +1570,18 @@ struct Preset6View: View, InspectLayoutProtocol {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: workItem)
         default:
             handleStepCompletion(item: item)
+            // Check if we should auto-advance after marking complete (default: true for better UX)
+            let shouldAutoAdvance = item.autoAdvanceOnComplete
+                ?? inspectState.config?.autoAdvanceOnComplete
+                ?? true
+            if shouldAutoAdvance && currentStep < inspectState.items.count - 1 {
+                autoNavigationWorkItem?.cancel()
+                let workItem = DispatchWorkItem {
+                    self.navigateToNextStep()
+                }
+                autoNavigationWorkItem = workItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: workItem)
+            }
         }
     }
 
@@ -1783,16 +1957,20 @@ struct Preset6View: View, InspectLayoutProtocol {
     }
 
     private func navigateToPreviousStep() {
-        guard currentStep > 0 else { 
-            logUserInteraction("navigate_back_blocked", details: ["reason": "already_at_first_step"])
-            return 
+        // Use minimumStepIndex to prevent navigating back to intro
+        guard currentStep > minimumStepIndex else {
+            logUserInteraction("navigate_back_blocked", details: [
+                "reason": currentStep == minimumStepIndex ? "at_minimum_step" : "already_at_first_step",
+                "minimumStepIndex": minimumStepIndex
+            ])
+            return
         }
 
         let oldStep = currentStep
         withAnimation(.spring()) {
             currentStep -= 1
         }
-        
+
         logStepTransition(from: oldStep, to: currentStep, reason: "navigation_back")
         logUserInteraction("navigate_back", details: ["newStepIndex": currentStep])
         writeInteractionLog("navigate_previous", step: "step_\(currentStep)")
@@ -1824,6 +2002,7 @@ struct Preset6View: View, InspectLayoutProtocol {
             currentStep = 0
             scrollOffset = 0
             inspectState.completedItems.removeAll()
+            inspectState.plistValidationResults.removeAll()
         }
 
         // Clear all dynamic state from MVVM state manager
@@ -1883,6 +2062,17 @@ struct Preset6View: View, InspectLayoutProtocol {
             )
         }
 
+        // Re-run validation for items with plistKey + evaluation
+        for item in inspectState.items {
+            if item.plistKey != nil && item.evaluation != nil {
+                // Validate the item fresh
+                _ = inspectState.validatePlistItem(item)
+            }
+        }
+
+        // Update validation target badges after re-evaluation
+        updateValidationTargetBadges(results: inspectState.plistValidationResults)
+
         // Restart file monitoring for external triggers
         setupFileMonitoring()
 
@@ -1915,25 +2105,6 @@ struct Preset6View: View, InspectLayoutProtocol {
         // Perform the reset after a brief delay to show visual feedback
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             self.resetSteps()
-        }
-    }
-
-    private func handleExtraButtonAction(_ buttonConfig: InspectConfig.ExtraButtonConfig) {
-        switch buttonConfig.action {
-        case "reset":
-            resetSteps()
-        case "url":
-            if let urlString = buttonConfig.url, let url = URL(string: urlString) {
-                NSWorkspace.shared.open(url)
-                logUserInteraction("extra_button_url", details: ["url": urlString])
-            }
-        case "custom":
-            // Write to interaction log for external script monitoring
-            writeToInteractionLog("extra_button:\(buttonConfig.text)")
-            logUserInteraction("extra_button_custom", details: ["text": buttonConfig.text])
-            writeLog("Preset6: Custom extra button action triggered: \(buttonConfig.text)", logLevel: .info)
-        default:
-            writeLog("Preset6: Unknown extra button action: \(buttonConfig.action)", logLevel: .error)
         }
     }
 
@@ -2442,6 +2613,34 @@ struct Preset6View: View, InspectLayoutProtocol {
             "property": property,
             "value": value
         ])
+    }
+
+    /// Update validation target badges when plistValidationResults change
+    /// Items with validationTargetBadge config will have their specified badge updated
+    private func updateValidationTargetBadges(results: [String: Bool]) {
+        for item in inspectState.items {
+            guard let badgeConfig = item.validationTargetBadge,
+                  let isValid = results[item.id] else {
+                continue
+            }
+
+            // Determine the state based on validation result and config
+            let state = isValid
+                ? (badgeConfig.successState ?? "success")
+                : (badgeConfig.failState ?? "fail")
+
+            // Update the badge state
+            withAnimation(.easeInOut(duration: 0.3)) {
+                dynamicState.updateGuidanceProperty(
+                    stepId: item.id,
+                    blockIndex: badgeConfig.blockIndex,
+                    property: "state",
+                    value: state
+                )
+            }
+
+            writeLog("Preset6: Validation badge updated for '\(item.id)' → \(state) (valid=\(isValid), blockIndex=\(badgeConfig.blockIndex))", logLevel: .debug)
+        }
     }
 
     /// Unified handler for step completion triggers (success/failure)

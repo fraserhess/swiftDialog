@@ -31,8 +31,8 @@ struct InspectView: View {
                     onRetry: {
                         inspectState.retryConfiguration()
                     },
-                    onUseDefault: {
-                        inspectState.retryConfiguration()
+                    onQuit: {
+                        quitDialog(exitCode: appDefaults.exit202.code, exitMessage: "Configuration error")
                     }
                 )
                 .onAppear {
@@ -126,35 +126,199 @@ private struct CoordinatedLoadingView: View {
 private struct CoordinatedConfigErrorView: View {
     let errorMessage: String
     let onRetry: () -> Void
-    let onUseDefault: () -> Void
+    let onQuit: () -> Void
+
+    /// Parse error message into structured components for better display
+    // swiftlint:disable:next large_tuple
+    private var parsedError: (filePath: String?, errorType: String, details: String?, lineNumber: Int?, jsonSnippet: String?, hint: String?) {
+        // Extract file path from message like "Invalid JSON in configuration file /path/file.json: ..."
+        var filePath: String?
+        var errorType = errorMessage
+        var details: String?
+        var lineNumber: Int?
+        var jsonSnippet: String?
+        var hint: String?
+
+        // Check for "Invalid JSON in configuration file" pattern
+        if let fileRange = errorMessage.range(of: "Invalid JSON in configuration file ") {
+            let afterFile = errorMessage[fileRange.upperBound...]
+            if let colonIndex = afterFile.firstIndex(of: ":") {
+                filePath = String(afterFile[..<colonIndex])
+                let remainder = String(afterFile[afterFile.index(after: colonIndex)...]).trimmingCharacters(in: .whitespaces)
+
+                // Check for hint marker (with emoji from Config.swift)
+                if let hintRange = remainder.range(of: "\n\n💡 Hint: ") {
+                    hint = String(remainder[hintRange.upperBound...])
+                    let beforeHint = String(remainder[..<hintRange.lowerBound])
+
+                    // Check for JSON snippet marker in the part before hint
+                    if let snippetRange = beforeHint.range(of: "\n\n📍") {
+                        errorType = String(beforeHint[..<snippetRange.lowerBound])
+                        jsonSnippet = String(beforeHint[snippetRange.lowerBound...])
+                            .replacingOccurrences(of: "\n\n📍 ", with: "")
+                    } else {
+                        errorType = beforeHint
+                    }
+                } else if let snippetRange = remainder.range(of: "\n\n📍") {
+                    // No hint, just snippet
+                    errorType = String(remainder[..<snippetRange.lowerBound])
+                    jsonSnippet = String(remainder[snippetRange.lowerBound...])
+                        .replacingOccurrences(of: "\n\n📍 ", with: "")
+                } else {
+                    errorType = remainder
+                }
+            }
+        }
+
+        // Extract line number from error type (e.g., "(line 5)")
+        if let lineRange = errorType.range(of: "\\(line \\d+\\)", options: .regularExpression) {
+            let lineStr = errorType[lineRange]
+            // Extract number from "(line X)"
+            if let numRange = lineStr.range(of: "\\d+", options: .regularExpression) {
+                lineNumber = Int(lineStr[numRange])
+            }
+            // Remove the line number part from error type
+            errorType = errorType.replacingCharacters(in: lineRange, with: "").trimmingCharacters(in: .whitespaces)
+        }
+
+        // Extract details from error type (e.g., "at 'items.Index 0'")
+        if let atRange = errorType.range(of: " at '") {
+            details = String(errorType[atRange.upperBound...]).replacingOccurrences(of: "'", with: "")
+            errorType = String(errorType[..<atRange.lowerBound])
+        }
+
+        return (filePath, errorType, details, lineNumber, jsonSnippet, hint)
+    }
 
     var body: some View {
-        VStack(spacing: 20) {
+        let error = parsedError
+
+        VStack(spacing: 16) {
+            // Header
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 48))
+                .font(.system(size: 40))
                 .foregroundStyle(.orange)
 
             Text("Configuration Error")
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text(errorMessage)
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
+            // Structured error info
+            VStack(alignment: .leading, spacing: 12) {
+                // Error type (main message)
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.red)
+                    Text(error.errorType)
+                        .font(.body)
+                        .fontWeight(.medium)
+                }
 
+                // Location/path details
+                if let details = error.details {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "location.circle.fill")
+                            .foregroundStyle(.blue)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Location:")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(details)
+                                .font(.system(.body, design: .monospaced))
+                        }
+                    }
+                }
+
+                // File path with line number
+                if let filePath = error.filePath {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "doc.fill")
+                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("File:")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if let lineNum = error.lineNumber {
+                                Text("\(filePath):\(lineNum)")
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text(filePath)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+
+                // JSON snippet (if available)
+                if let snippet = error.jsonSnippet {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left.forwardslash.chevron.right")
+                                .foregroundStyle(.orange)
+                            Text(snippet.hasPrefix("Error location") ? "Error location:" : "Around error:")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        // Extract just the code lines from snippet
+                        let codeLines = snippet
+                            .components(separatedBy: "\n")
+                            .filter { $0.contains(":") && $0.trimmingCharacters(in: .whitespaces).first?.isNumber == true }
+                            .joined(separator: "\n")
+
+                        if !codeLines.isEmpty {
+                            ScrollView {
+                                Text(codeLines)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(8)
+                            }
+                            .frame(maxHeight: 120)
+                            .background(Color(NSColor.textBackgroundColor).opacity(0.5))
+                            .cornerRadius(6)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                            )
+                        }
+                    }
+                }
+
+                // Hint for fixing the error
+                if let hint = error.hint {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "lightbulb.fill")
+                            .foregroundStyle(.yellow)
+                        Text(hint)
+                            .font(.callout)
+                            .foregroundStyle(.primary)
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.yellow.opacity(0.1))
+                    .cornerRadius(6)
+                }
+            }
+            .padding()
+            .frame(maxWidth: 500)
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(10)
+
+            // Buttons
             HStack(spacing: 12) {
                 Button("Retry") {
                     onRetry()
                 }
                 .buttonStyle(.bordered)
 
-                Button("Use Default") {
-                    onUseDefault()
+                Button("Quit") {
+                    onQuit()
                 }
                 .buttonStyle(.borderedProminent)
             }
+            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()

@@ -154,6 +154,7 @@ struct CommandLineArguments {
     // Inspect Mode Arguments
     var inspectMode               = CommandlineArgument(long: "inspect-mode", isbool: true)
     var inspectConfig             = CommandlineArgument(long: "inspect-config")
+    var inspectSchema             = CommandlineArgument(long: "inspect-schema")
 }
 
 extension CommandlineArgument {
@@ -345,6 +346,7 @@ extension CommandLineArguments {
                     case "notificationIdentifier": self.notificationIdentifier = argument
                     case "inspectMode": self.inspectMode = argument
                     case "inspectConfig": self.inspectConfig = argument
+                    case "inspectSchema": self.inspectSchema = argument
                     case "callingPid": self.callingPid = argument
                     case "playSound": self.playSound = argument
                     case "showSoundControls": self.showSoundControls = argument

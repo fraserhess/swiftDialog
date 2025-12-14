@@ -1,0 +1,1645 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/swiftDialog/swiftDialog/inspect-config.schema.json",
+  "title": "swiftDialog Inspect Mode Configuration",
+  "description": "Configuration schema for swiftDialog's Inspect mode presets (preset1-preset9)",
+  "type": "object",
+  "required": ["preset", "items"],
+  "properties": {
+    "preset": {
+      "type": "string",
+      "enum": [
+        "preset1", "1", "deployment",
+        "preset2", "2", "cards",
+        "preset3", "3", "compact",
+        "preset4", "4", "compliance",
+        "preset5", "5", "dashboard",
+        "preset6", "6", "guidance",
+        "preset7", "7", "guide",
+        "preset8", "8", "onboarding",
+        "preset9", "9", "display"
+      ],
+      "description": "The preset layout to use. Each preset has three aliases: preset1/1/deployment (full layout), preset2/2/cards (card grid), preset3/3/compact (minimal list), preset4/4/compliance (plist monitoring), preset5/5/dashboard (status dashboard), preset6/6/guidance (step-by-step wizard), preset7/7/guide (multi-page guide), preset8/8/onboarding (image carousel), preset9/9/display (detailed content viewer)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Window title"
+    },
+    "message": {
+      "type": "string",
+      "description": "Main message text"
+    },
+    "infobox": {
+      "type": "string",
+      "description": "Info box content"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Icon path or SF Symbol (e.g., 'SF=shield.checkered')"
+    },
+    "iconsize": {
+      "type": "integer",
+      "description": "Icon size in pixels"
+    },
+    "iconBasePath": {
+      "type": "string",
+      "description": "Base path for relative icon paths"
+    },
+    "overlayicon": {
+      "type": "string",
+      "description": "Overlay icon for brand identity badges"
+    },
+    "banner": {
+      "type": "string",
+      "description": "Banner image path (overrides icon in some presets)"
+    },
+    "bannerHeight": {
+      "type": "integer",
+      "default": 100,
+      "description": "Banner height in pixels"
+    },
+    "bannerTitle": {
+      "type": "string",
+      "description": "Title overlay on banner"
+    },
+    "width": {
+      "type": "integer",
+      "description": "Custom window width"
+    },
+    "height": {
+      "type": "integer",
+      "description": "Custom window height"
+    },
+    "size": {
+      "type": "string",
+      "enum": ["compact", "standard", "large"],
+      "description": "Window size mode"
+    },
+    "scanInterval": {
+      "type": "integer",
+      "description": "File scan interval in seconds"
+    },
+    "cachePaths": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Paths to cache for validation"
+    },
+    "sideMessage": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Rotating side messages"
+    },
+    "sideInterval": {
+      "type": "integer",
+      "description": "Side message rotation interval in seconds"
+    },
+    "style": {
+      "type": "string",
+      "description": "Visual style override"
+    },
+    "liststyle": {
+      "type": "string",
+      "description": "List display style"
+    },
+    "highlightColor": {
+      "type": "string",
+      "description": "Accent/highlight color (hex format, e.g., '#61BB46')"
+    },
+    "secondaryColor": {
+      "type": "string",
+      "description": "Secondary accent color (hex format)"
+    },
+    "backgroundColor": {
+      "type": "string",
+      "description": "Background color (hex format)"
+    },
+    "backgroundImage": {
+      "type": "string",
+      "description": "Background image path"
+    },
+    "backgroundOpacity": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Background opacity (0.0-1.0)"
+    },
+    "textOverlayColor": {
+      "type": "string",
+      "description": "Text overlay color (hex format)"
+    },
+    "gradientColors": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Gradient colors array (hex strings)"
+    },
+    "button1Text": {
+      "type": "string",
+      "description": "Primary button text"
+    },
+    "button1Disabled": {
+      "type": "boolean",
+      "description": "Disable primary button initially"
+    },
+    "button2Text": {
+      "type": "string",
+      "description": "Secondary button text"
+    },
+    "button2Visible": {
+      "type": "boolean",
+      "description": "Show secondary button"
+    },
+    "autoEnableButton": {
+      "type": "boolean",
+      "description": "Auto-enable button when conditions met"
+    },
+    "autoEnableButtonText": {
+      "type": "string",
+      "description": "Button text when auto-enabled"
+    },
+    "finalButtonText": {
+      "type": "string",
+      "description": "Button text when all items complete"
+    },
+    "hideSystemDetails": {
+      "type": "boolean",
+      "description": "Hide system details in popovers"
+    },
+    "observeOnly": {
+      "type": "boolean",
+      "default": false,
+      "description": "Global observe-only mode - disables all user interactions"
+    },
+    "autoAdvanceOnComplete": {
+      "type": "boolean",
+      "default": true,
+      "description": "Preset6: Auto-navigate to next step after marking complete"
+    },
+    "enableStatusColors": {
+      "type": "boolean",
+      "default": false,
+      "description": "Enable status-based colors"
+    },
+    "showCompletionState": {
+      "type": "boolean",
+      "description": "Show green when all steps complete"
+    },
+    "showBlockingState": {
+      "type": "boolean",
+      "description": "Show orange for blocking/required items"
+    },
+    "rotatingImages": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Array of image paths for rotation"
+    },
+    "imageRotationInterval": {
+      "type": "number",
+      "description": "Interval for auto-rotation in seconds"
+    },
+    "imageShape": {
+      "type": "string",
+      "enum": ["rectangle", "square", "circle"],
+      "description": "Image clipping shape"
+    },
+    "imageSyncMode": {
+      "type": "string",
+      "enum": ["manual", "sync", "auto"],
+      "description": "Image synchronization mode"
+    },
+    "stepStyle": {
+      "type": "string",
+      "enum": ["plain", "colored", "cards"],
+      "description": "Step display style"
+    },
+    "listIndicatorStyle": {
+      "type": "string",
+      "enum": ["letters", "numbers", "roman"],
+      "description": "List indicator format"
+    },
+    "actionPipe": {
+      "type": "string",
+      "description": "Optional FIFO path for instant script request delivery"
+    },
+    "items": {
+      "type": "array",
+      "description": "Array of item configurations",
+      "items": { "$ref": "#/definitions/ItemConfig" }
+    },
+    "plistSources": {
+      "type": "array",
+      "description": "Plist configurations to monitor (compliance dashboards)",
+      "items": { "$ref": "#/definitions/PlistSourceConfig" }
+    },
+    "categoryHelp": {
+      "type": "array",
+      "description": "Help popovers for categories",
+      "items": { "$ref": "#/definitions/CategoryHelp" }
+    },
+    "uiLabels": { "$ref": "#/definitions/UILabels" },
+    "complianceLabels": { "$ref": "#/definitions/ComplianceLabels" },
+    "pickerConfig": { "$ref": "#/definitions/PickerConfig" },
+    "pickerLabels": { "$ref": "#/definitions/PickerLabels" },
+    "instructionBanner": { "$ref": "#/definitions/InstructionBannerConfig" },
+    "progressBarConfig": { "$ref": "#/definitions/ProgressBarConfig" },
+    "logoConfig": { "$ref": "#/definitions/LogoConfig" },
+    "detailOverlay": { "$ref": "#/definitions/DetailOverlayConfig" },
+    "helpButton": { "$ref": "#/definitions/HelpButtonConfig" },
+    "colorThresholds": { "$ref": "#/definitions/ColorThresholds" },
+    "colors": { "$ref": "#/definitions/ProgressBarColors" }
+  },
+  "definitions": {
+    "ItemConfig": {
+      "type": "object",
+      "required": ["id", "displayName", "guiIndex", "paths"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the item"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name shown to user"
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "Subtitle text (used in preset6 checklist)"
+        },
+        "guiIndex": {
+          "type": "integer",
+          "description": "Display order index"
+        },
+        "paths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "File paths to monitor for validation"
+        },
+        "icon": {
+          "type": "string",
+          "description": "Icon path or SF Symbol"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status icon for list items (supports dynamic updates)"
+        },
+        "banner": {
+          "type": "string",
+          "description": "Banner image path for card-style presets"
+        },
+        "plistKey": {
+          "type": "string",
+          "description": "Plist key to check (compliance dashboards)"
+        },
+        "expectedValue": {
+          "type": "string",
+          "description": "Expected value for the key"
+        },
+        "evaluation": {
+          "type": "string",
+          "enum": ["equals", "boolean", "exists", "contains", "range"],
+          "description": "Evaluation type for plist validation"
+        },
+        "plistRecheckInterval": {
+          "type": "integer",
+          "description": "Interval in seconds to recheck plist (0 = once)"
+        },
+        "useUserDefaults": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use UserDefaults for instant notification-based monitoring"
+        },
+        "category": {
+          "type": "string",
+          "description": "Custom category name"
+        },
+        "categoryIcon": {
+          "type": "string",
+          "description": "Custom category icon"
+        },
+        "guidanceTitle": {
+          "type": "string",
+          "description": "Main title for step-by-step workflow"
+        },
+        "guidanceContent": {
+          "type": "array",
+          "description": "Rich content blocks for the step",
+          "items": { "$ref": "#/definitions/GuidanceContent" }
+        },
+        "stepType": {
+          "type": "string",
+          "enum": ["info", "confirmation", "processing", "completion"],
+          "description": "Step type for workflow"
+        },
+        "autoAdvanceOnComplete": {
+          "type": "boolean",
+          "description": "Per-item override for auto-navigation"
+        },
+        "actionButtonText": {
+          "type": "string",
+          "description": "Custom button text for this step's action"
+        },
+        "continueButtonText": {
+          "type": "string",
+          "description": "Custom button text after step completes"
+        },
+        "finalButtonText": {
+          "type": "string",
+          "description": "Custom button text when step is complete"
+        },
+        "processingDuration": {
+          "type": "integer",
+          "description": "Duration in seconds for processing steps"
+        },
+        "processingMessage": {
+          "type": "string",
+          "description": "Message shown during processing"
+        },
+        "blocking": {
+          "type": "boolean",
+          "description": "Mark item as blocking further progress"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Mark item as required for completion"
+        },
+        "observeOnly": {
+          "type": "boolean",
+          "description": "Per-item observe-only override"
+        },
+        "completedStatus": {
+          "type": "string",
+          "description": "Custom text for completed state"
+        },
+        "downloadingStatus": {
+          "type": "string",
+          "description": "Custom text for downloading state"
+        },
+        "pendingStatus": {
+          "type": "string",
+          "description": "Custom text for pending state"
+        },
+        "info": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Simple bullet-point list for cards"
+        },
+        "bentoSize": {
+          "type": "string",
+          "enum": ["small", "medium", "large", "wide", "tall"],
+          "default": "medium",
+          "description": "Card size for bento layouts"
+        },
+        "cardLayout": {
+          "type": "string",
+          "enum": ["vertical-image-below", "horizontal-image-left", "horizontal-image-right", "pattern", "gradient"],
+          "default": "vertical-image-below",
+          "description": "Card layout style"
+        },
+        "gradientColors": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Custom gradient colors for this card"
+        },
+        "verticalSpacing": {
+          "type": "string",
+          "enum": ["compact", "balanced", "generous"],
+          "default": "balanced",
+          "description": "Vertical spacing mode for Preset7"
+        },
+        "keyPointsText": {
+          "type": "string",
+          "description": "Custom paragraph text for Key Points section (Preset9)"
+        },
+        "highlightColor": {
+          "type": "string",
+          "description": "Per-item accent/highlight color (hex string)"
+        },
+        "successMessage": {
+          "type": "string",
+          "description": "Message shown when step completes successfully"
+        },
+        "failureMessage": {
+          "type": "string",
+          "description": "Message shown when step fails"
+        },
+        "waitWarningTime": {
+          "type": "integer",
+          "default": 120,
+          "description": "Show warning after X seconds waiting"
+        },
+        "waitSmallOverrideTime": {
+          "type": "integer",
+          "default": 30,
+          "description": "Show small override link after X seconds"
+        },
+        "waitLargeOverrideTime": {
+          "type": "integer",
+          "default": 60,
+          "description": "Show large override button after X seconds"
+        },
+        "overrideButtonText": {
+          "type": "string",
+          "default": "Override",
+          "description": "Custom text for override button"
+        },
+        "allowOverride": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable override capability"
+        },
+        "allowNavigationDuringProcessing": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow Continue/Back buttons while processing"
+        },
+        "processingMode": {
+          "type": "string",
+          "enum": ["simple", "progressive"],
+          "default": "simple",
+          "description": "Processing mode: simple auto-completes, progressive waits for triggers"
+        },
+        "autoAdvance": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-navigate after simple mode completes"
+        },
+        "autoResult": {
+          "type": "string",
+          "enum": ["success", "failure"],
+          "default": "success",
+          "description": "Force result in simple mode"
+        },
+        "waitForExternalTrigger": {
+          "type": "boolean",
+          "default": false,
+          "description": "Never auto-complete - always wait for success:/failure: command"
+        },
+        "plistMonitors": {
+          "type": "array",
+          "description": "Plist monitors that auto-update guidance components",
+          "items": { "$ref": "#/definitions/PlistMonitor" }
+        },
+        "jsonMonitors": {
+          "type": "array",
+          "description": "JSON monitors that auto-update guidance components",
+          "items": { "$ref": "#/definitions/JsonMonitor" }
+        },
+        "itemOverlay": { "$ref": "#/definitions/DetailOverlayConfig" },
+        "validationTargetBadge": { "$ref": "#/definitions/ValidationTargetBadge" }
+      }
+    },
+    "GuidanceContent": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "text", "highlight", "warning", "info", "success", "bullets", "arrow",
+            "image", "image-carousel", "video", "webcontent",
+            "checkbox", "dropdown", "radio", "toggle", "slider", "button",
+            "status-badge", "comparison-table", "phase-tracker", "progress-bar",
+            "compliance-card", "compliance-header"
+          ],
+          "description": "Content block type"
+        },
+        "content": {
+          "type": "string",
+          "description": "Text content or button label"
+        },
+        "color": {
+          "type": "string",
+          "description": "Optional color override (hex format)"
+        },
+        "bold": {
+          "type": "boolean",
+          "description": "Display in bold"
+        },
+        "visible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show/hide this block dynamically"
+        },
+        "imageShape": {
+          "type": "string",
+          "enum": ["rectangle", "square", "circle"],
+          "description": "Image clipping shape"
+        },
+        "imageWidth": {
+          "type": "number",
+          "default": 400,
+          "description": "Custom width in points"
+        },
+        "imageBorder": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show border/shadow around image"
+        },
+        "caption": {
+          "type": "string",
+          "description": "Caption text below image"
+        },
+        "autoplay": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-play video on load"
+        },
+        "videoHeight": {
+          "type": "number",
+          "default": 300,
+          "description": "Video player height in points"
+        },
+        "webHeight": {
+          "type": "number",
+          "default": 400,
+          "description": "Web view height in points"
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for storing user input"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether this input is required for step completion"
+        },
+        "options": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Options for dropdown/radio selections"
+        },
+        "value": {
+          "type": "string",
+          "description": "Default/current value"
+        },
+        "helpText": {
+          "type": "string",
+          "description": "Help text displayed in info popover"
+        },
+        "min": {
+          "type": "number",
+          "default": 0,
+          "description": "Minimum value for slider"
+        },
+        "max": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum value for slider"
+        },
+        "step": {
+          "type": "number",
+          "default": 1,
+          "description": "Step increment for slider"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit label (e.g., '%', 'GB', 'minutes')"
+        },
+        "discreteSteps": {
+          "type": "array",
+          "description": "Array of discrete step values with labels for slider. When defined, slider snaps to these values instead of continuous range.",
+          "items": {
+            "type": "object",
+            "required": ["value", "label"],
+            "properties": {
+              "value": {
+                "type": "number",
+                "description": "Numeric value for this step"
+              },
+              "label": {
+                "type": "string",
+                "description": "Display label (e.g., '1 minute', '1 hour', 'Never')"
+              }
+            }
+          }
+        },
+        "action": {
+          "type": "string",
+          "enum": ["url", "shell", "request", "custom"],
+          "description": "Button action type"
+        },
+        "url": {
+          "type": "string",
+          "description": "URL to open (for action: url)"
+        },
+        "shell": {
+          "type": "string",
+          "description": "Shell command to execute (for action: shell)"
+        },
+        "shellTimeout": {
+          "type": "integer",
+          "default": 30,
+          "description": "Timeout in seconds for shell command"
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Abstract identifier for script callback (for action: request)"
+        },
+        "targetBadge": { "$ref": "#/definitions/TargetBadgeConfig" },
+        "buttonStyle": {
+          "type": "string",
+          "enum": ["bordered", "borderedProminent", "plain"],
+          "default": "bordered",
+          "description": "Button visual style"
+        },
+        "opensOverlay": {
+          "type": "boolean",
+          "default": false,
+          "description": "Clicking opens the item's overlay"
+        },
+        "label": {
+          "type": "string",
+          "description": "Display label for status components"
+        },
+        "state": {
+          "type": "string",
+          "description": "Current state (e.g., 'enabled', 'disabled', 'success', 'fail', 'pending')"
+        },
+        "icon": {
+          "type": "string",
+          "description": "SF Symbol icon name"
+        },
+        "autoColor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-assign colors based on state"
+        },
+        "expected": {
+          "type": "string",
+          "description": "Expected value for comparison-table"
+        },
+        "actual": {
+          "type": "string",
+          "description": "Actual value for comparison-table"
+        },
+        "expectedLabel": {
+          "type": "string",
+          "default": "Expected",
+          "description": "Label for expected column"
+        },
+        "actualLabel": {
+          "type": "string",
+          "default": "Actual",
+          "description": "Label for actual column"
+        },
+        "expectedIcon": {
+          "type": "string",
+          "description": "SF Symbol for expected value"
+        },
+        "actualIcon": {
+          "type": "string",
+          "description": "SF Symbol for actual value"
+        },
+        "comparisonStyle": {
+          "type": "string",
+          "enum": ["stacked", "columns"],
+          "default": "stacked",
+          "description": "Comparison layout style"
+        },
+        "highlightCells": {
+          "type": "boolean",
+          "default": false,
+          "description": "Bold/larger text in columns mode"
+        },
+        "expectedColor": {
+          "type": "string",
+          "description": "Custom color for expected column (hex)"
+        },
+        "actualColor": {
+          "type": "string",
+          "description": "Custom color for actual column (hex)"
+        },
+        "category": {
+          "type": "string",
+          "description": "Category name for grouping"
+        },
+        "currentPhase": {
+          "type": "integer",
+          "description": "Current phase number (1-based) for phase-tracker"
+        },
+        "phases": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Phase labels for phase-tracker"
+        },
+        "style": {
+          "type": "string",
+          "enum": ["stepper", "progress", "checklist", "indeterminate", "determinate"],
+          "description": "Display style for phase-tracker or progress-bar"
+        },
+        "progress": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Progress value (0.0 to 1.0)"
+        },
+        "images": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Image paths for carousel"
+        },
+        "captions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Captions for carousel images"
+        },
+        "imageHeight": {
+          "type": "number",
+          "default": 300,
+          "description": "Height for gallery images"
+        },
+        "showDots": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show dot page indicators"
+        },
+        "showArrows": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show navigation arrows"
+        },
+        "autoAdvance": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable automatic slide advancement"
+        },
+        "autoAdvanceDelay": {
+          "type": "number",
+          "default": 3.0,
+          "description": "Seconds between auto-advances"
+        },
+        "transitionStyle": {
+          "type": "string",
+          "enum": ["slide", "fade"],
+          "default": "slide",
+          "description": "Transition animation style"
+        },
+        "currentIndex": {
+          "type": "integer",
+          "description": "Current image index (0-based)"
+        },
+        "categoryName": {
+          "type": "string",
+          "description": "Category name for compliance-card"
+        },
+        "passed": {
+          "type": "integer",
+          "description": "Number of passed items"
+        },
+        "total": {
+          "type": "integer",
+          "description": "Total number of items"
+        },
+        "cardIcon": {
+          "type": "string",
+          "description": "SF Symbol icon for card header"
+        },
+        "checkDetails": {
+          "type": "string",
+          "description": "Compact bullet-point details (newline-separated)"
+        }
+      }
+    },
+    "TargetBadgeConfig": {
+      "type": "object",
+      "required": ["blockIndex"],
+      "properties": {
+        "blockIndex": {
+          "type": "integer",
+          "description": "Index in guidanceContent array to update"
+        },
+        "successState": {
+          "type": "string",
+          "default": "success",
+          "description": "State on exit 0"
+        },
+        "failState": {
+          "type": "string",
+          "default": "fail",
+          "description": "State on non-zero exit"
+        },
+        "pendingState": {
+          "type": "string",
+          "default": "pending",
+          "description": "State while running"
+        }
+      }
+    },
+    "ValidationTargetBadge": {
+      "type": "object",
+      "required": ["blockIndex"],
+      "properties": {
+        "blockIndex": {
+          "type": "integer",
+          "description": "Index in guidanceContent array to update"
+        },
+        "successState": {
+          "type": "string",
+          "default": "success",
+          "description": "State when validation passes"
+        },
+        "failState": {
+          "type": "string",
+          "default": "fail",
+          "description": "State when validation fails"
+        }
+      }
+    },
+    "PlistMonitor": {
+      "type": "object",
+      "required": ["path", "key", "guidanceBlockIndex", "targetProperty", "recheckInterval"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Plist file path (supports glob patterns)"
+        },
+        "key": {
+          "type": "string",
+          "description": "Plist key to monitor (supports dot notation)"
+        },
+        "guidanceBlockIndex": {
+          "type": "integer",
+          "description": "Index of guidance component to update (0-based)"
+        },
+        "targetProperty": {
+          "type": "string",
+          "enum": ["state", "actual", "currentPhase", "progress", "label"],
+          "description": "Property to update"
+        },
+        "valueMap": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Value transformation map (e.g., {'1': 'enabled', '0': 'disabled'})"
+        },
+        "recheckInterval": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "description": "Polling interval in seconds"
+        },
+        "useUserDefaults": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use UserDefaults for faster reads"
+        },
+        "evaluation": {
+          "type": "string",
+          "enum": ["equals", "boolean", "exists", "contains", "range"],
+          "description": "Evaluation type"
+        },
+        "completionTrigger": { "$ref": "#/definitions/CompletionTrigger" }
+      }
+    },
+    "JsonMonitor": {
+      "type": "object",
+      "required": ["path", "key", "guidanceBlockIndex", "targetProperty", "recheckInterval"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "JSON file path (supports glob patterns)"
+        },
+        "key": {
+          "type": "string",
+          "description": "JSON key path to monitor (supports dot notation)"
+        },
+        "guidanceBlockIndex": {
+          "type": "integer",
+          "description": "Index of guidance component to update (0-based)"
+        },
+        "targetProperty": {
+          "type": "string",
+          "enum": ["state", "actual", "currentPhase", "progress", "label"],
+          "description": "Property to update"
+        },
+        "valueMap": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Value transformation map"
+        },
+        "recheckInterval": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "description": "Polling interval in seconds"
+        },
+        "evaluation": {
+          "type": "string",
+          "enum": ["equals", "boolean", "exists", "contains", "range"],
+          "description": "Evaluation type"
+        },
+        "completionTrigger": { "$ref": "#/definitions/CompletionTrigger" }
+      }
+    },
+    "CompletionTrigger": {
+      "type": "object",
+      "required": ["condition", "result"],
+      "properties": {
+        "condition": {
+          "type": "string",
+          "enum": ["equals", "notEquals", "exists", "match", "greaterThan", "lessThan"],
+          "description": "Trigger condition"
+        },
+        "value": {
+          "type": "string",
+          "description": "Expected value for comparison"
+        },
+        "result": {
+          "type": "string",
+          "enum": ["success", "failure"],
+          "description": "Completion result type"
+        },
+        "message": {
+          "type": "string",
+          "description": "Custom completion message"
+        },
+        "delay": {
+          "type": "number",
+          "default": 0,
+          "description": "Delay before triggering (seconds)"
+        }
+      }
+    },
+    "PlistSourceConfig": {
+      "type": "object",
+      "required": ["path", "type", "displayName"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to plist file"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["compliance", "health", "licenses", "preferences", "custom"],
+          "description": "Plist source type"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Human-readable name"
+        },
+        "icon": {
+          "type": "string",
+          "description": "SF Symbol icon name"
+        },
+        "keyMappings": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/KeyMapping" },
+          "description": "How to interpret plist keys"
+        },
+        "successValues": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Values that indicate success"
+        },
+        "criticalKeys": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Keys considered critical"
+        },
+        "categoryPrefix": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Map prefixes to category names"
+        },
+        "maxCheckDetails": {
+          "type": "integer",
+          "default": 15,
+          "description": "Max check items per category"
+        }
+      }
+    },
+    "KeyMapping": {
+      "type": "object",
+      "required": ["key"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Original plist key"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Human-readable name"
+        },
+        "category": {
+          "type": "string",
+          "description": "Override category"
+        },
+        "isCritical": {
+          "type": "boolean",
+          "description": "Override critical status"
+        }
+      }
+    },
+    "CategoryHelp": {
+      "type": "object",
+      "required": ["category", "description"],
+      "properties": {
+        "category": {
+          "type": "string",
+          "description": "Category name to match"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the category"
+        },
+        "recommendations": {
+          "type": "string",
+          "description": "Recommendations if not compliant"
+        },
+        "icon": {
+          "type": "string",
+          "description": "Custom icon for the category"
+        },
+        "statusLabel": {
+          "type": "string",
+          "description": "Custom label for 'Compliance Status'"
+        },
+        "recommendationsLabel": {
+          "type": "string",
+          "description": "Custom label for 'Recommended Actions'"
+        }
+      }
+    },
+    "UILabels": {
+      "type": "object",
+      "properties": {
+        "completedStatus": {
+          "type": "string",
+          "default": "Completed",
+          "description": "Label for completed items"
+        },
+        "downloadingStatus": {
+          "type": "string",
+          "default": "Installing...",
+          "description": "Label for downloading items"
+        },
+        "pendingStatus": {
+          "type": "string",
+          "default": "Pending",
+          "description": "Label for pending items"
+        },
+        "failedStatus": {
+          "type": "string",
+          "default": "Failed",
+          "description": "Label for failed items"
+        },
+        "progressFormat": {
+          "type": "string",
+          "default": "{completed} of {total} completed",
+          "description": "Progress bar text format"
+        },
+        "stepCounterFormat": {
+          "type": "string",
+          "default": "Step {current} of {total}",
+          "description": "Step counter text format"
+        },
+        "completionMessage": {
+          "type": "string",
+          "default": "All Complete!",
+          "description": "Main completion message"
+        },
+        "completionSubtitle": {
+          "type": "string",
+          "default": "Setup complete!",
+          "description": "Subtitle completion message"
+        },
+        "sectionHeaderCompleted": {
+          "type": "string",
+          "default": "Completed",
+          "description": "Completed section header"
+        },
+        "sectionHeaderPending": {
+          "type": "string",
+          "default": "Pending Installation",
+          "description": "Pending section header"
+        },
+        "sectionHeaderFailed": {
+          "type": "string",
+          "default": "Installation Failed",
+          "description": "Failed section header"
+        },
+        "statusConditionMet": {
+          "type": "string",
+          "default": "Condition Met",
+          "description": "Status when validation passes"
+        },
+        "statusConditionNotMet": {
+          "type": "string",
+          "default": "Condition Not Met",
+          "description": "Status when validation fails"
+        },
+        "statusChecking": {
+          "type": "string",
+          "default": "Checking...",
+          "description": "Status during validation"
+        },
+        "statusReadyToStart": {
+          "type": "string",
+          "default": "Ready to Start",
+          "description": "Initial state status"
+        },
+        "statusInProgress": {
+          "type": "string",
+          "default": "In Progress",
+          "description": "Active step status"
+        },
+        "welcomeTitle": {
+          "type": "string",
+          "default": "Welcome",
+          "description": "Welcome page title"
+        },
+        "welcomeBadge": {
+          "type": "string",
+          "default": "GETTING STARTED",
+          "description": "Welcome badge text"
+        },
+        "welcomeParagraph1": {
+          "type": "string",
+          "description": "Main welcome paragraph"
+        },
+        "welcomeParagraph2": {
+          "type": "string",
+          "description": "Secondary welcome paragraph"
+        },
+        "guideInformationLabel": {
+          "type": "string",
+          "default": "Guide Information",
+          "description": "Sidebar section header"
+        },
+        "sectionsLabel": {
+          "type": "string",
+          "default": "SECTIONS",
+          "description": "Page counter label"
+        },
+        "keyPointsLabel": {
+          "type": "string",
+          "default": "Key Points",
+          "description": "Content card header"
+        },
+        "getStartedTitle": {
+          "type": "string",
+          "default": "Get Started",
+          "description": "Minimal welcome title"
+        },
+        "getStartedSubtitle": {
+          "type": "string",
+          "default": "Follow the steps to complete setup",
+          "description": "Minimal welcome subtitle"
+        },
+        "imageNotAvailable": {
+          "type": "string",
+          "default": "Image not available",
+          "description": "Image error message"
+        }
+      }
+    },
+    "ComplianceLabels": {
+      "type": "object",
+      "properties": {
+        "complianceStatus": {
+          "type": "string",
+          "description": "Label for 'Compliance Status'"
+        },
+        "recommendedActions": {
+          "type": "string",
+          "description": "Label for 'Recommended Actions'"
+        },
+        "securityDetails": {
+          "type": "string",
+          "description": "Label for 'Security Details'"
+        },
+        "lastCheck": {
+          "type": "string",
+          "description": "Label for 'Last Check'"
+        },
+        "passed": {
+          "type": "string",
+          "description": "Label for 'passed'"
+        },
+        "failed": {
+          "type": "string",
+          "description": "Label for 'failed'"
+        },
+        "checksPassed": {
+          "type": "string",
+          "description": "Format for 'X of Y checks passed' (use {passed}, {total})"
+        }
+      }
+    },
+    "PickerConfig": {
+      "type": "object",
+      "properties": {
+        "selectionMode": {
+          "type": "string",
+          "enum": ["single", "multi", "none"],
+          "default": "none",
+          "description": "Selection mode for picker"
+        },
+        "returnSelections": {
+          "type": "boolean",
+          "default": false,
+          "description": "Write selections to output plist"
+        },
+        "outputPath": {
+          "type": "string",
+          "default": "/tmp/picker_selections.plist",
+          "description": "Custom output plist path"
+        },
+        "allowContinueWithoutSelection": {
+          "type": "boolean",
+          "description": "Allow finishing without selection"
+        }
+      }
+    },
+    "PickerLabels": {
+      "type": "object",
+      "properties": {
+        "selectButtonText": {
+          "type": "string",
+          "default": "Select This",
+          "description": "Selection button text"
+        },
+        "selectedButtonText": {
+          "type": "string",
+          "default": "✓ Selected",
+          "description": "Selected state button text"
+        },
+        "deselectButtonText": {
+          "type": "string",
+          "default": "Deselect",
+          "description": "Deselect button text for multi-mode"
+        },
+        "continueButton": {
+          "type": "string",
+          "default": "Continue",
+          "description": "Continue button text"
+        },
+        "finishButton": {
+          "type": "string",
+          "default": "Finish",
+          "description": "Finish button text"
+        },
+        "backButton": {
+          "type": "string",
+          "default": "Previous",
+          "description": "Back button text"
+        },
+        "pageCounterFormat": {
+          "type": "string",
+          "default": "{current} / {total}",
+          "description": "Page indicator format"
+        },
+        "selectionPrompt": {
+          "type": "string",
+          "description": "Top-level prompt text"
+        },
+        "selectionRequired": {
+          "type": "string",
+          "description": "Error message when selection required"
+        },
+        "multiSelectHint": {
+          "type": "string",
+          "default": "You can select multiple items",
+          "description": "Hint for multi-select mode"
+        }
+      }
+    },
+    "InstructionBannerConfig": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "Banner message text"
+        },
+        "icon": {
+          "type": "string",
+          "description": "SF Symbol icon name"
+        },
+        "autoDismiss": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-hide after delay"
+        },
+        "dismissDelay": {
+          "type": "number",
+          "default": 5.0,
+          "description": "Seconds before auto-hide"
+        },
+        "showOnce": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show only on first page/step"
+        }
+      }
+    },
+    "ProgressBarConfig": {
+      "type": "object",
+      "properties": {
+        "enableStatusColors": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable status-based colors"
+        },
+        "showCompletionState": {
+          "type": "boolean",
+          "description": "Show green when complete"
+        },
+        "showBlockingState": {
+          "type": "boolean",
+          "description": "Show orange for blocking items"
+        }
+      }
+    },
+    "ProgressBarColors": {
+      "type": "object",
+      "properties": {
+        "normal": {
+          "type": "string",
+          "default": "#007AFF",
+          "description": "Default color (blue)"
+        },
+        "complete": {
+          "type": "string",
+          "default": "#34C759",
+          "description": "Complete color (green)"
+        },
+        "blocking": {
+          "type": "string",
+          "default": "#FF9500",
+          "description": "Blocking color (orange)"
+        },
+        "error": {
+          "type": "string",
+          "default": "#FF3B30",
+          "description": "Error color (red)"
+        }
+      }
+    },
+    "LogoConfig": {
+      "type": "object",
+      "required": ["imagePath"],
+      "properties": {
+        "imagePath": {
+          "type": "string",
+          "description": "Path to logo image file"
+        },
+        "position": {
+          "type": "string",
+          "enum": ["topleft", "topright", "bottomleft", "bottomright"],
+          "default": "topleft",
+          "description": "Logo position"
+        },
+        "padding": {
+          "type": "number",
+          "default": 20,
+          "description": "Padding from edges in points"
+        },
+        "maxWidth": {
+          "type": "number",
+          "default": 80,
+          "description": "Maximum width in points"
+        },
+        "maxHeight": {
+          "type": "number",
+          "default": 80,
+          "description": "Maximum height in points"
+        },
+        "backgroundColor": {
+          "type": "string",
+          "description": "Background tint color (hex)"
+        },
+        "backgroundOpacity": {
+          "type": "number",
+          "default": 0.2,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Background opacity (0.0-1.0)"
+        },
+        "cornerRadius": {
+          "type": "number",
+          "default": 8,
+          "description": "Corner radius for background"
+        }
+      }
+    },
+    "DetailOverlayConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable overlay"
+        },
+        "size": {
+          "type": "string",
+          "enum": ["small", "medium", "large", "full"],
+          "default": "medium",
+          "description": "Overlay size"
+        },
+        "title": {
+          "type": "string",
+          "default": "Help",
+          "description": "Overlay title"
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "Subtitle below title"
+        },
+        "icon": {
+          "type": "string",
+          "description": "SF Symbol or image path for header"
+        },
+        "overlayIcon": {
+          "type": "string",
+          "description": "Overlay icon for header (badge style)"
+        },
+        "content": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/GuidanceContent" },
+          "description": "Rich content blocks"
+        },
+        "showSystemInfo": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include system info section"
+        },
+        "showProgressInfo": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include progress/installation info"
+        },
+        "closeButtonText": {
+          "type": "string",
+          "default": "Close",
+          "description": "Close button text"
+        },
+        "backgroundColor": {
+          "type": "string",
+          "description": "Background color override (hex)"
+        },
+        "showDividers": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show section dividers"
+        },
+        "presentationMode": {
+          "type": "string",
+          "enum": ["standard", "gallery"],
+          "default": "standard",
+          "description": "Layout mode"
+        },
+        "galleryImages": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Image paths for gallery mode"
+        },
+        "galleryCaptions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Captions for gallery images"
+        },
+        "galleryLayout": {
+          "type": "string",
+          "enum": ["carousel", "grid", "sideBySide"],
+          "default": "carousel",
+          "description": "Gallery display style"
+        },
+        "gallerySideContent": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/GuidanceContent" },
+          "description": "Content for sideBySide layout"
+        },
+        "showStepCounter": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show step counter in gallery"
+        },
+        "showNavigationArrows": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show navigation arrows"
+        },
+        "showThumbnails": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show thumbnail strip"
+        },
+        "imageHeight": {
+          "type": "number",
+          "default": 400,
+          "description": "Max height for gallery images"
+        },
+        "thumbnailSize": {
+          "type": "number",
+          "default": 60,
+          "description": "Thumbnail dimensions"
+        },
+        "allowImageZoom": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow fullscreen image view"
+        }
+      }
+    },
+    "HelpButtonConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show help button"
+        },
+        "icon": {
+          "type": "string",
+          "default": "questionmark.circle",
+          "description": "SF Symbol icon"
+        },
+        "label": {
+          "type": "string",
+          "description": "Button label text"
+        },
+        "tooltip": {
+          "type": "string",
+          "default": "Get Help",
+          "description": "Hover tooltip text"
+        },
+        "style": {
+          "type": "string",
+          "enum": ["floating", "inline", "toolbar"],
+          "default": "floating",
+          "description": "Button style"
+        },
+        "action": {
+          "type": "string",
+          "enum": ["overlay", "url", "custom"],
+          "default": "overlay",
+          "description": "Button action"
+        },
+        "url": {
+          "type": "string",
+          "description": "URL to open (for action: url)"
+        },
+        "customId": {
+          "type": "string",
+          "description": "Custom identifier for interaction log"
+        },
+        "position": {
+          "type": "string",
+          "enum": ["topRight", "topLeft", "bottomRight", "bottomLeft"],
+          "default": "topRight",
+          "description": "Button position"
+        }
+      }
+    },
+    "ColorThresholds": {
+      "type": "object",
+      "properties": {
+        "excellent": {
+          "type": "number",
+          "default": 90,
+          "description": "Threshold for excellent (90%+)"
+        },
+        "good": {
+          "type": "number",
+          "default": 70,
+          "description": "Threshold for good (70%+)"
+        },
+        "warning": {
+          "type": "number",
+          "default": 50,
+          "description": "Threshold for warning (50%+)"
+        },
+        "excellentLabel": {
+          "type": "string",
+          "description": "Label for excellent range"
+        },
+        "goodLabel": {
+          "type": "string",
+          "description": "Label for good range"
+        },
+        "warningLabel": {
+          "type": "string",
+          "description": "Label for warning range"
+        },
+        "criticalLabel": {
+          "type": "string",
+          "description": "Label for critical range"
+        },
+        "excellentColor": {
+          "type": "string",
+          "description": "Color for excellent range (hex)"
+        },
+        "goodColor": {
+          "type": "string",
+          "description": "Color for good range (hex)"
+        },
+        "warningColor": {
+          "type": "string",
+          "description": "Color for warning range (hex)"
+        },
+        "criticalColor": {
+          "type": "string",
+          "description": "Color for critical range (hex)"
+        }
+      }
+    }
+  }
+}

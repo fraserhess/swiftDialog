@@ -23,8 +23,9 @@ protocol InspectPersistableState: Codable {
 /// - Non-blocking: Uses background queue for all I/O operations
 /// - Type-safe: Enforces Codable conformance at compile time
 /// - Flexible: Each preset defines its own state structure
+/// - Customizable: Supports custom filenames via parameter or environment variable
 ///
-/// Usage:
+/// **Basic Usage:**
 /// ```swift
 /// struct MyPresetState: InspectPersistableState {
 ///     let completedItems: Set<String>
@@ -32,9 +33,26 @@ protocol InspectPersistableState: Codable {
 ///     let timestamp: Date
 /// }
 ///
+/// // Default filename: preset3_state.plist
 /// let persistence = InspectPersistence<MyPresetState>(presetName: "preset3")
 /// persistence.saveState(myState)
 /// if let state = persistence.loadState() { ... }
+/// ```
+///
+/// **Custom Filename:**
+/// ```swift
+/// // Custom filename for multi-instance support
+/// let persistence = InspectPersistence<MyPresetState>(
+///     presetName: "preset3",
+///     customFileName: "onboarding_user1.plist"
+/// )
+/// ```
+///
+/// **Environment Variable:**
+/// ```bash
+/// export DIALOG_PERSIST_FILENAME="custom_state.plist"
+/// export DIALOG_PERSIST_PATH="/var/lib/dialog"
+/// # Results in: /var/lib/dialog/custom_state.plist
 /// ```
 class InspectPersistence<T: InspectPersistableState> {
 
@@ -47,13 +65,43 @@ class InspectPersistence<T: InspectPersistableState> {
     // MARK: - Initialization
 
     /// Initialize persistence for a specific preset
-    /// - Parameter presetName: Unique preset identifier (e.g., "preset7", "preset3")
-    init(presetName: String) {
+    /// - Parameters:
+    ///   - presetName: Unique preset identifier (e.g., "preset7", "preset3")
+    ///   - customFileName: Optional custom filename (overrides default naming)
+    ///
+    /// **Filename Resolution Priority:**
+    /// 1. `customFileName` parameter (if provided)
+    /// 2. `DIALOG_PERSIST_FILENAME` environment variable (if set)
+    /// 3. Default pattern: `{presetName}_state.plist`
+    ///
+    /// **Examples:**
+    /// ```swift
+    /// // Default: preset6_state.plist
+    /// let p1 = InspectPersistence<State>(presetName: "preset6")
+    ///
+    /// // Custom: onboarding.plist
+    /// let p2 = InspectPersistence<State>(presetName: "preset6", customFileName: "onboarding.plist")
+    ///
+    /// // Multi-instance: preset6_user1.plist
+    /// let p3 = InspectPersistence<State>(presetName: "preset6", customFileName: "preset6_user1.plist")
+    /// ```
+    init(presetName: String, customFileName: String? = nil) {
         self.presetName = presetName
-        self.stateFileName = "\(presetName)_state.plist"
+        
+        // Filename resolution priority: parameter > env var > default
+        if let customFileName = customFileName {
+            self.stateFileName = customFileName
+            writeLog("InspectPersistence<\(T.self)>: Using custom filename '\(customFileName)'", logLevel: .debug)
+        } else if let envFileName = ProcessInfo.processInfo.environment["DIALOG_PERSIST_FILENAME"] {
+            self.stateFileName = envFileName
+            writeLog("InspectPersistence<\(T.self)>: Using filename from DIALOG_PERSIST_FILENAME: '\(envFileName)'", logLevel: .info)
+        } else {
+            self.stateFileName = "\(presetName)_state.plist"
+            writeLog("InspectPersistence<\(T.self)>: Using default filename '\(self.stateFileName)'", logLevel: .debug)
+        }
+        
         self.queue = DispatchQueue(label: "dialog.inspect.\(presetName).persistence", qos: .background)
-
-        writeLog("InspectPersistence<\(T.self)>: Initialized for '\(presetName)'", logLevel: .debug)
+        writeLog("InspectPersistence<\(T.self)>: Initialized for '\(presetName)' with file '\(self.stateFileName)'", logLevel: .debug)
     }
 
     // MARK: - File Location Strategy
@@ -63,6 +111,25 @@ class InspectPersistence<T: InspectPersistableState> {
     /// 2. Working directory .dialog subdirectory (portable/project-specific)
     /// 3. User's Application Support directory (standard macOS location)
     /// 4. Temp directory (last resort fallback)
+    ///
+    /// **Filename Customization:**
+    /// - Custom filename via `init` parameter takes highest priority
+    /// - `DIALOG_PERSIST_FILENAME` environment variable (if no custom parameter)
+    /// - Default: `{presetName}_state.plist`
+    ///
+    /// **Examples:**
+    /// ```
+    /// Default:
+    ///   ~/Library/Application Support/Dialog/preset6_state.plist
+    ///
+    /// Custom via parameter:
+    ///   ~/Library/Application Support/Dialog/onboarding.plist
+    ///
+    /// Custom via environment:
+    ///   export DIALOG_PERSIST_PATH="/opt/dialog"
+    ///   export DIALOG_PERSIST_FILENAME="deployment.plist"
+    ///   → /opt/dialog/deployment.plist
+    /// ```
     private var stateFileURL: URL? {
         // Option 1: Environment variable override
         if let customPath = ProcessInfo.processInfo.environment["DIALOG_PERSIST_PATH"] {
@@ -221,12 +288,12 @@ class InspectPersistence<T: InspectPersistableState> {
     }
 }
 
-// MARK: - Example State Structures
+// MARK: - Example State Structures & Usage
 
 /// Example state structure for reference
 /// Presets should define their own states conforming to InspectPersistableState
 ///
-/// Example for Preset7:
+/// **Example 1: Basic Preset State (Preset7)**
 /// ```swift
 /// struct Preset7State: InspectPersistableState {
 ///     let completedSteps: Set<String>
@@ -234,13 +301,47 @@ class InspectPersistence<T: InspectPersistableState> {
 ///     let currentStep: Int
 ///     let timestamp: Date
 /// }
+///
+/// // Default filename: preset7_state.plist
+/// let persistence = InspectPersistence<Preset7State>(presetName: "preset7")
 /// ```
 ///
-/// Example for Preset3:
+/// **Example 2: Custom Filename for Multi-Instance Support**
 /// ```swift
-/// struct Preset3State: InspectPersistableState {
-///     let selectedItems: [String]
-///     let downloadProgress: Double
-///     let timestamp: Date
-/// }
+/// // Support multiple users on same Mac with isolated state
+/// let username = ProcessInfo.processInfo.environment["USER"] ?? "default"
+/// let persistence = InspectPersistence<Preset6State>(
+///     presetName: "preset6",
+///     customFileName: "preset6_\(username).plist"
+/// )
+/// // Results in: preset6_johndoe.plist
+/// ```
+///
+/// **Example 3: Corporate Naming Standards**
+/// ```swift
+/// // Use descriptive filenames matching enterprise requirements
+/// let persistence = InspectPersistence<OnboardingState>(
+///     presetName: "onboarding",
+///     customFileName: "corporate_onboarding_progress.plist"
+/// )
+/// ```
+///
+/// **Example 4: Environment Variable Override**
+/// ```bash
+/// # Set custom filename via environment variable
+/// export DIALOG_PERSIST_FILENAME="deployment_state.plist"
+/// export DIALOG_PERSIST_PATH="/var/lib/dialog/state"
+///
+/// # Results in: /var/lib/dialog/state/deployment_state.plist
+/// ./dialog --inspect-mode
+/// ```
+///
+/// **Example 5: Testing with Isolated State**
+/// ```swift
+/// // Use unique filenames for unit tests to avoid conflicts
+/// let testPersistence = InspectPersistence<Preset3State>(
+///     presetName: "preset3",
+///     customFileName: "preset3_test_\(UUID().uuidString).plist"
+/// )
+/// // Results in: preset3_test_A1B2C3D4-E5F6-7890-ABCD-EF1234567890.plist
 /// ```

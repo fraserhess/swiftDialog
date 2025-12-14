@@ -8,6 +8,8 @@
 //
 
 import SwiftUI
+import AVKit
+import WebViewKit
 
 // MARK: - Icon Cache Manager
 class PresetIconCache: ObservableObject {
@@ -417,14 +419,16 @@ struct GuidanceContentView: View {
     let iconBasePath: String?  // Optional base path for resolving relative image paths
     @ObservedObject var inspectState: InspectState
     let itemId: String
+    let onOverlayTap: (() -> Void)?  // Optional callback when a block with opensOverlay=true is tapped
 
     // Initialize with required parameters for interactive form support
-    init(contentBlocks: [InspectConfig.GuidanceContent], scaleFactor: CGFloat, iconBasePath: String? = nil, inspectState: InspectState, itemId: String) {
+    init(contentBlocks: [InspectConfig.GuidanceContent], scaleFactor: CGFloat, iconBasePath: String? = nil, inspectState: InspectState, itemId: String, onOverlayTap: (() -> Void)? = nil) {
         self.contentBlocks = contentBlocks
         self.scaleFactor = scaleFactor
         self.iconBasePath = iconBasePath
         self.inspectState = inspectState
         self.itemId = itemId
+        self.onOverlayTap = onOverlayTap
 
         // Initialize form state for this item asynchronously to avoid publishing during view updates
         DispatchQueue.main.async {
@@ -503,10 +507,33 @@ struct GuidanceContentView: View {
                 } else {
                     // Render individual blocks normally
                     ForEach(Array(group.items.enumerated()), id: \.offset) { _, block in
-                        contentBlockView(for: block)
+                        wrappedContentBlockView(for: block)
                     }
                 }
             }
+        }
+    }
+
+    /// Wraps content block with overlay tap gesture if opensOverlay is true
+    @ViewBuilder
+    private func wrappedContentBlockView(for block: InspectConfig.GuidanceContent) -> some View {
+        if block.opensOverlay == true, let onTap = onOverlayTap {
+            // Make the content clickable to open overlay
+            contentBlockView(for: block)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    onTap()
+                }
+                .overlay(alignment: .trailing) {
+                    // Add subtle indicator that this is clickable
+                    Image(systemName: "chevron.right.circle.fill")
+                        .font(.system(size: 12 * scaleFactor))
+                        .foregroundStyle(.secondary.opacity(0.5))
+                        .padding(.trailing, 8 * scaleFactor)
+                }
+                .help("Click for more details")
+        } else {
+            contentBlockView(for: block)
         }
     }
 
@@ -770,6 +797,51 @@ struct GuidanceContentView: View {
                 }
             }
 
+        case "video":
+            // Video player - reuses main dialog's VideoView
+            if let videoPath = block.content, !videoPath.isEmpty {
+                VStack(spacing: 4 * scaleFactor) {
+                    let videoHeight = CGFloat(block.videoHeight ?? 300) * scaleFactor
+                    let autoPlay = block.autoplay ?? false
+
+                    VideoView(
+                        videourl: videoPath,
+                        autoplay: autoPlay,
+                        caption: block.caption ?? ""
+                    )
+                    .frame(height: videoHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
+                    .padding(.vertical, 4 * scaleFactor)
+                }
+            }
+
+        case "webcontent":
+            // Embedded web content - simplified version for overlay use
+            if let webURL = block.content, !webURL.isEmpty, let url = URL(string: webURL) {
+                VStack(spacing: 4 * scaleFactor) {
+                    let webHeight = CGFloat(block.webHeight ?? 400) * scaleFactor
+
+                    WebView(url: url) { _ in }
+                        .frame(height: webHeight)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                        )
+                        .padding(.vertical, 4 * scaleFactor)
+
+                    if let caption = block.caption {
+                        Text(caption)
+                            .font(.system(size: 11 * scaleFactor))
+                            .foregroundStyle(.secondary)
+                            .italic()
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 2 * scaleFactor)
+                    }
+                }
+            }
+
         case "checkbox":
             VStack(alignment: .leading, spacing: 6 * scaleFactor) {
                 HStack {
@@ -1009,43 +1081,82 @@ struct GuidanceContentView: View {
                         let currentValue = inspectState.guidanceFormInputs[itemId]?.sliders[fieldId] ??
                                           Double(block.value ?? "0") ?? 0.0
 
-                        HStack(spacing: 4 * scaleFactor) {
-                            Text("\(Int(currentValue))")
+                        // Show label from discreteSteps if available, otherwise show numeric value
+                        if let steps = block.discreteSteps,
+                           let matchingStep = steps.first(where: { $0.value == currentValue }) {
+                            Text(matchingStep.label)
                                 .font(.system(size: 13 * scaleFactor, weight: .medium))
                                 .foregroundStyle(.secondary)
-
-                            if let unit = block.unit {
-                                Text(unit)
-                                    .font(.system(size: 12 * scaleFactor))
+                        } else {
+                            HStack(spacing: 4 * scaleFactor) {
+                                Text("\(Int(currentValue))")
+                                    .font(.system(size: 13 * scaleFactor, weight: .medium))
                                     .foregroundStyle(.secondary)
+
+                                if let unit = block.unit {
+                                    Text(unit)
+                                        .font(.system(size: 12 * scaleFactor))
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
                     }
                 }
 
                 if let fieldId = block.id {
-                    let minValue = block.min ?? 0.0
-                    let maxValue = block.max ?? 100.0
-                    let stepValue = block.step ?? 1.0
+                    // Check if discrete steps are defined
+                    if let steps = block.discreteSteps, steps.count >= 2 {
+                        // Discrete steps mode - slider moves between step indices
+                        let stepCount = steps.count
+                        let sortedSteps = steps.sorted { $0.value < $1.value }
 
-                    let sliderBinding = Binding(
-                        get: {
-                            inspectState.guidanceFormInputs[itemId]?.sliders[fieldId] ??
-                            Double(block.value ?? "\(minValue)") ?? minValue
-                        },
-                        set: { newValue in
-                            if inspectState.guidanceFormInputs[itemId] == nil {
-                                inspectState.initializeGuidanceFormState(for: itemId)
+                        let discreteBinding = Binding(
+                            get: {
+                                let value = inspectState.guidanceFormInputs[itemId]?.sliders[fieldId] ??
+                                           Double(block.value ?? "\(sortedSteps[0].value)") ?? sortedSteps[0].value
+                                return Double(sortedSteps.firstIndex { $0.value == value } ?? 0)
+                            },
+                            set: { newIndex in
+                                let clampedIndex = Int(max(0, min(newIndex, Double(stepCount - 1))))
+                                let newValue = sortedSteps[clampedIndex].value
+
+                                if inspectState.guidanceFormInputs[itemId] == nil {
+                                    inspectState.initializeGuidanceFormState(for: itemId)
+                                }
+                                inspectState.guidanceFormInputs[itemId]?.sliders[fieldId] = newValue
+                                writeLog("GuidanceContentView: Slider '\(fieldId)' set to \(newValue) (\(sortedSteps[clampedIndex].label))", logLevel: .info)
+
+                                // Write to interaction log for script monitoring
+                                inspectState.writeToInteractionLog("slider:\(itemId):\(fieldId):\(newValue)")
                             }
-                            inspectState.guidanceFormInputs[itemId]?.sliders[fieldId] = newValue
-                            writeLog("GuidanceContentView: Slider '\(fieldId)' set to \(newValue)", logLevel: .info)
+                        )
 
-                            // Write to interaction log for script monitoring
-                            inspectState.writeToInteractionLog("slider:\(itemId):\(fieldId):\(newValue)")
-                        }
-                    )
+                        Slider(value: discreteBinding, in: 0...Double(stepCount - 1), step: 1)
+                    } else {
+                        // Standard continuous slider mode
+                        let minValue = block.min ?? 0.0
+                        let maxValue = block.max ?? 100.0
+                        let stepValue = block.step ?? 1.0
 
-                    Slider(value: sliderBinding, in: minValue...maxValue, step: stepValue)
+                        let sliderBinding = Binding(
+                            get: {
+                                inspectState.guidanceFormInputs[itemId]?.sliders[fieldId] ??
+                                Double(block.value ?? "\(minValue)") ?? minValue
+                            },
+                            set: { newValue in
+                                if inspectState.guidanceFormInputs[itemId] == nil {
+                                    inspectState.initializeGuidanceFormState(for: itemId)
+                                }
+                                inspectState.guidanceFormInputs[itemId]?.sliders[fieldId] = newValue
+                                writeLog("GuidanceContentView: Slider '\(fieldId)' set to \(newValue)", logLevel: .info)
+
+                                // Write to interaction log for script monitoring
+                                inspectState.writeToInteractionLog("slider:\(itemId):\(fieldId):\(newValue)")
+                            }
+                        )
+
+                        Slider(value: sliderBinding, in: minValue...maxValue, step: stepValue)
+                    }
                 }
             }
             .padding(.vertical, 4 * scaleFactor)
@@ -2920,34 +3031,62 @@ private func handleButtonAction(block: InspectConfig.GuidanceContent, itemId: St
         }
 
     case "shell":
-        if let shellCommand = block.shell {
-            // Execute shell command in background
-            DispatchQueue.global(qos: .userInitiated).async {
-                let task = Process()
-                task.launchPath = "/bin/bash"
-                task.arguments = ["-c", shellCommand]
-
-                do {
-                    try task.run()
-                    writeLog("Button: Executed shell command: \(shellCommand)", logLevel: .info)
-                    DispatchQueue.main.async {
-                        inspectState.writeToInteractionLog("button:\(itemId):\(block.content ?? "button"):shell:\(shellCommand)")
-                    }
-                } catch {
-                    writeLog("Button: Failed to execute shell command: \(error)", logLevel: .error)
-                }
-            }
-        } else {
-            writeLog("Button: No shell command specified for action='shell'", logLevel: .error)
-        }
+        // Shell execution is not supported - log and ignore
+        writeLog("Button: Shell action is not supported", logLevel: .info)
+        inspectState.writeToInteractionLog("button:\(itemId):\(block.content ?? "button"):shell:NOT_SUPPORTED")
 
     case "custom":
         // Write to interaction log for script monitoring
         inspectState.writeToInteractionLog("button:\(itemId):\(block.content ?? "button"):custom")
         writeLog("Button: Custom action triggered for '\(block.content ?? "button")'", logLevel: .info)
 
+    case "request":
+        // Script callback pattern - Dialog writes request, script handles execution
+        // Format: request:<requestId>:<itemId>:<badgeIndex>
+        let requestId = block.requestId ?? "unknown"
+        let badgeIndex = block.targetBadge?.blockIndex ?? 0
+        let requestLine = "request:\(requestId):\(itemId):\(badgeIndex)"
+
+        // Always write to interaction log (backwards compatible)
+        inspectState.writeToInteractionLog(requestLine)
+
+        // Optionally write to FIFO if configured (for instant delivery)
+        if let pipePath = inspectState.config?.actionPipe {
+            writeToPipeIfExists(path: pipePath, content: requestLine)
+        }
+
+        writeLog("Button: Request '\(requestId)' sent for item '\(itemId)'", logLevel: .info)
+
     default:
         writeLog("Button: Unknown action '\(action)'", logLevel: .error)
+    }
+}
+
+/// Write content to a FIFO (named pipe) if it exists
+/// Non-blocking: dispatches write to background queue to avoid blocking UI
+/// - Parameters:
+///   - path: Path to the FIFO file
+///   - content: Content to write (newline will be appended)
+private func writeToPipeIfExists(path: String, content: String) {
+    // Check if path exists and is a FIFO
+    var statInfo = stat()
+    guard stat(path, &statInfo) == 0,
+          (statInfo.st_mode & S_IFMT) == S_IFIFO else {
+        writeLog("FIFO not found or not a pipe: \(path)", logLevel: .debug)
+        return
+    }
+
+    // Write asynchronously to avoid blocking UI if no reader is waiting
+    DispatchQueue.global(qos: .userInitiated).async {
+        guard let handle = FileHandle(forWritingAtPath: path) else {
+            writeLog("FIFO: Could not open for writing: \(path)", logLevel: .error)
+            return
+        }
+        defer { handle.closeFile() }
+
+        let data = (content + "\n").data(using: .utf8)!
+        handle.write(data)
+        writeLog("FIFO: Wrote request to \(path)", logLevel: .debug)
     }
 }
 
@@ -3382,6 +3521,52 @@ private func applyButtonStyle(_ button: some View, styleString: String?) -> some
     }
 }
 
+// MARK: - Help Button Action Handler
+
+/// Handles help button actions based on config (overlay, url, custom)
+/// - Parameters:
+///   - config: The help button configuration
+///   - showOverlay: Binding to toggle overlay visibility (for action: "overlay")
+///   - interactionLogPath: Path to write interaction log (for action: "custom")
+func handleHelpButtonAction(
+    config: InspectConfig.HelpButtonConfig,
+    showOverlay: Binding<Bool>? = nil,
+    interactionLogPath: String = "/var/tmp/dialog-inspect-interactions.log"
+) {
+    let actionType = config.action ?? "overlay"
+
+    switch actionType {
+    case "url":
+        if let urlString = config.url, let url = URL(string: urlString) {
+            NSWorkspace.shared.open(url)
+            writeLog("HelpButton: Opened URL: \(urlString)", logLevel: .info)
+        } else {
+            writeLog("HelpButton: Invalid or missing URL for action 'url'", logLevel: .error)
+        }
+
+    case "custom":
+        let customId = config.customId ?? config.label ?? "help"
+        let message = "helpbutton:custom:\(customId)"
+        // Write to interaction log for external script monitoring
+        if let data = (message + "\n").data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: interactionLogPath) {
+                if let handle = FileHandle(forWritingAtPath: interactionLogPath) {
+                    handle.seekToEndOfFile()
+                    handle.write(data)
+                    handle.closeFile()
+                }
+            } else {
+                FileManager.default.createFile(atPath: interactionLogPath, contents: data, attributes: nil)
+            }
+        }
+        writeLog("HelpButton: Custom action triggered: \(customId)", logLevel: .info)
+
+    case "overlay", _:
+        // Default: show overlay
+        showOverlay?.wrappedValue = true
+    }
+}
+
 // MARK: - Detail Overlay Help Button
 
 /// A configurable help button that triggers the detail overlay
@@ -3430,10 +3615,583 @@ struct DetailOverlayHelpButton: View {
     }
 }
 
+// MARK: - Gallery Presentation Components
+
+/// Individual image slide in gallery carousel
+/// Cache for preloading gallery images
+class GalleryImageCache: ObservableObject {
+    @Published var images: [String: NSImage] = [:]
+    @Published var loadingComplete: Bool = false
+
+    func preloadImages(paths: [String]) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            var loadedImages: [String: NSImage] = [:]
+            for path in paths {
+                if let image = NSImage(contentsOfFile: path) {
+                    loadedImages[path] = image
+                }
+            }
+            DispatchQueue.main.async {
+                self?.images = loadedImages
+                self?.loadingComplete = true
+            }
+        }
+    }
+
+    func image(for path: String) -> NSImage? {
+        images[path]
+    }
+}
+
+/// Individual image slide in gallery carousel - uses cached images
+struct GalleryImageSlide: View {
+    let imagePath: String
+    let caption: String?
+    let imageHeight: Double
+    let allowZoom: Bool
+    let onImageTap: () -> Void
+    let cachedImage: NSImage?
+    var maxWidth: CGFloat?  // Optional max width constraint
+
+    var body: some View {
+        VStack(spacing: 12) {
+            // Main image area
+            ZStack {
+                if let image = cachedImage {
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: maxWidth, maxHeight: imageHeight)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                        .onTapGesture {
+                            if allowZoom {
+                                onImageTap()
+                            }
+                        }
+                        .help(allowZoom ? "Click to view fullscreen" : "")
+                } else {
+                    // Loading or error state
+                    VStack(spacing: 8) {
+                        Image(systemName: "photo.fill")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.secondary)
+                        Text("Image not available")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: maxWidth ?? .infinity, maxHeight: imageHeight)
+                }
+            }
+
+            // Caption (if provided)
+            if let caption = caption, !caption.isEmpty {
+                Text(caption)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+            }
+        }
+    }
+}
+
+/// Thumbnail view for gallery navigation - uses cached images
+struct GalleryThumbnail: View {
+    let imagePath: String
+    let thumbnailSize: Double
+    let isSelected: Bool
+    let action: () -> Void
+    let cachedImage: NSImage?
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                if let thumbnail = cachedImage {
+                    Image(nsImage: thumbnail)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: thumbnailSize, height: thumbnailSize)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                } else {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: thumbnailSize, height: thumbnailSize)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .overlay(
+                            ProgressView()
+                                .scaleEffect(0.6)
+                        )
+                }
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 3)
+            )
+            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Gallery presentation view (carousel mode) with preloaded image cache
+struct GalleryCarouselView: View {
+    let config: InspectConfig.DetailOverlayConfig
+    let onClose: () -> Void
+
+    @State private var currentIndex: Int = 0
+    @State private var showFullscreen: Bool = false
+    @StateObject private var imageCache = GalleryImageCache()
+
+    private var images: [String] {
+        config.galleryImages ?? []
+    }
+
+    private var imageHeight: Double {
+        config.imageHeight ?? 400
+    }
+
+    private var thumbnailSize: Double {
+        config.thumbnailSize ?? 60
+    }
+
+    private var showStepCounter: Bool {
+        config.showStepCounter ?? true
+    }
+
+    private var showNavigationArrows: Bool {
+        config.showNavigationArrows ?? true
+    }
+
+    private var showThumbnails: Bool {
+        config.showThumbnails ?? true
+    }
+
+    private var allowZoom: Bool {
+        config.allowImageZoom ?? false
+    }
+
+    private var isSideBySide: Bool {
+        config.galleryLayout == "sideBySide" && getSizeWidth() >= 800
+    }
+
+    private var hasSideContent: Bool {
+        config.gallerySideContent != nil && !(config.gallerySideContent?.isEmpty ?? true)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(config.title ?? "Instructions")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+
+                    if let subtitle = config.subtitle {
+                        Text(subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Spacer()
+
+                // Step counter
+                if showStepCounter && images.count > 1 {
+                    Text("Step \(currentIndex + 1) of \(images.count)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(Color.gray.opacity(0.1))
+                        )
+                }
+
+                Button(config.closeButtonText ?? "Close") {
+                    onClose()
+                }
+                .keyboardShortcut(.cancelAction)
+            }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
+
+            Divider()
+
+            // Main content area
+            if !imageCache.loadingComplete {
+                // Loading state
+                VStack {
+                    Spacer()
+                    ProgressView("Loading images...")
+                        .scaleEffect(1.2)
+                    Spacer()
+                }
+            } else if isSideBySide && hasSideContent {
+                // Side-by-side layout: image on left, content on right
+                sideBySideContent
+            } else {
+                // Standard carousel layout
+                standardCarouselContent
+            }
+        }
+        .frame(width: getSizeWidth(), height: getSizeHeight())
+        .background(Color(NSColor.windowBackgroundColor))
+        .onAppear {
+            // Preload all images when view appears
+            imageCache.preloadImages(paths: images)
+        }
+    }
+
+    // MARK: - Standard Carousel Layout
+
+    private var standardCarouselContent: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // Carousel with navigation
+                HStack(spacing: 16) {
+                    // Previous button
+                    if showNavigationArrows && images.count > 1 {
+                        Button(action: previousImage) {
+                            Image(systemName: "chevron.left.circle.fill")
+                                .font(.system(size: 32))
+                                .foregroundStyle(currentIndex > 0 ? Color.accentColor : Color.gray.opacity(0.3))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(currentIndex == 0)
+                        .help("Previous")
+                    }
+
+                    // Current image - use cached image with smooth transition
+                    if currentIndex < images.count {
+                        GalleryImageSlide(
+                            imagePath: images[currentIndex],
+                            caption: config.galleryCaptions?[safe: currentIndex],
+                            imageHeight: imageHeight,
+                            allowZoom: allowZoom,
+                            onImageTap: {
+                                if allowZoom {
+                                    showFullscreen = true
+                                }
+                            },
+                            cachedImage: imageCache.image(for: images[currentIndex])
+                        )
+                        .id(currentIndex) // Force view identity for smooth transitions
+                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                    }
+
+                    // Next button
+                    if showNavigationArrows && images.count > 1 {
+                        Button(action: nextImage) {
+                            Image(systemName: "chevron.right.circle.fill")
+                                .font(.system(size: 32))
+                                .foregroundStyle(currentIndex < images.count - 1 ? Color.accentColor : Color.gray.opacity(0.3))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(currentIndex >= images.count - 1)
+                        .help("Next")
+                    }
+                }
+                .padding(.horizontal, showNavigationArrows ? 16 : 32)
+                .padding(.vertical, 20)
+                .animation(.easeInOut(duration: 0.25), value: currentIndex)
+
+                // Thumbnail strip
+                if showThumbnails && images.count > 1 {
+                    Divider()
+                        .padding(.horizontal)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(images.indices, id: \.self) { index in
+                                GalleryThumbnail(
+                                    imagePath: images[index],
+                                    thumbnailSize: thumbnailSize,
+                                    isSelected: currentIndex == index,
+                                    action: {
+                                        withAnimation(.easeInOut(duration: 0.25)) {
+                                            currentIndex = index
+                                        }
+                                    },
+                                    cachedImage: imageCache.image(for: images[index])
+                                )
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Side-by-Side Layout
+
+    private var sideBySideContent: some View {
+        HStack(alignment: .top, spacing: 0) {
+            // Left side: Image carousel (60% width)
+            VStack(spacing: 16) {
+                // Navigation arrows + image
+                HStack(spacing: 12) {
+                    // Previous button
+                    if showNavigationArrows && images.count > 1 {
+                        Button(action: previousImage) {
+                            Image(systemName: "chevron.left.circle.fill")
+                                .font(.system(size: 28))
+                                .foregroundStyle(currentIndex > 0 ? Color.accentColor : Color.gray.opacity(0.3))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(currentIndex == 0)
+                        .help("Previous")
+                    }
+
+                    // Current image
+                    if currentIndex < images.count {
+                        GalleryImageSlide(
+                            imagePath: images[currentIndex],
+                            caption: config.galleryCaptions?[safe: currentIndex],
+                            imageHeight: imageHeight * 0.85,
+                            allowZoom: allowZoom,
+                            onImageTap: {
+                                if allowZoom {
+                                    showFullscreen = true
+                                }
+                            },
+                            cachedImage: imageCache.image(for: images[currentIndex]),
+                            maxWidth: getSizeWidth() * 0.55
+                        )
+                        .id(currentIndex)
+                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                    }
+
+                    // Next button
+                    if showNavigationArrows && images.count > 1 {
+                        Button(action: nextImage) {
+                            Image(systemName: "chevron.right.circle.fill")
+                                .font(.system(size: 28))
+                                .foregroundStyle(currentIndex < images.count - 1 ? Color.accentColor : Color.gray.opacity(0.3))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(currentIndex >= images.count - 1)
+                        .help("Next")
+                    }
+                }
+                .animation(.easeInOut(duration: 0.25), value: currentIndex)
+
+                // Step counter below image
+                if showStepCounter && images.count > 1 {
+                    Text("Step \(currentIndex + 1) of \(images.count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(Color.gray.opacity(0.1))
+                        )
+                }
+
+                // Thumbnail strip
+                if showThumbnails && images.count > 1 {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(images.indices, id: \.self) { index in
+                                GalleryThumbnail(
+                                    imagePath: images[index],
+                                    thumbnailSize: thumbnailSize * 0.8,
+                                    isSelected: currentIndex == index,
+                                    action: {
+                                        withAnimation(.easeInOut(duration: 0.25)) {
+                                            currentIndex = index
+                                        }
+                                    },
+                                    cachedImage: imageCache.image(for: images[index])
+                                )
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                    }
+                }
+
+                Spacer()
+            }
+            .padding()
+            .frame(width: getSizeWidth() * 0.6)
+
+            // Divider
+            Divider()
+
+            // Right side: Content blocks (40% width)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if let sideContent = config.gallerySideContent {
+                        ForEach(Array(sideContent.enumerated()), id: \.offset) { _, block in
+                            GallerySideContentBlock(block: block, scaleFactor: 1.0)
+                        }
+                    }
+                }
+                .padding()
+            }
+            .frame(width: getSizeWidth() * 0.4)
+        }
+    }
+
+    private func previousImage() {
+        if currentIndex > 0 {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                currentIndex -= 1
+            }
+        }
+    }
+
+    private func nextImage() {
+        if currentIndex < images.count - 1 {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                currentIndex += 1
+            }
+        }
+    }
+
+    private func getSizeWidth() -> CGFloat {
+        switch config.size {
+        case "small": return 600
+        case "large": return 1000
+        case "full": return 1200
+        default: return 800  // medium
+        }
+    }
+
+    private func getSizeHeight() -> CGFloat {
+        switch config.size {
+        case "small": return 500
+        case "large": return 700
+        case "full": return 900
+        default: return 600  // medium
+        }
+    }
+}
+
+// MARK: - Gallery Side Content Block
+
+/// Renders a single content block for the side panel in sideBySide gallery layout
+struct GallerySideContentBlock: View {
+    let block: InspectConfig.GuidanceContent
+    let scaleFactor: CGFloat
+
+    var body: some View {
+        switch block.type {
+        case "text":
+            Text(block.content ?? "")
+                .font(.system(size: 13 * scaleFactor, weight: block.bold == true ? .semibold : .regular))
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+
+        case "highlight":
+            Text(block.content ?? "")
+                .font(.system(size: 14 * scaleFactor, weight: .semibold))
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 12 * scaleFactor)
+                .padding(.vertical, 6 * scaleFactor)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(hex: block.color ?? "#007AFF").opacity(0.15))
+                )
+
+        case "bullets":
+            if let content = block.content {
+                VStack(alignment: .leading, spacing: 6 * scaleFactor) {
+                    ForEach(content.components(separatedBy: "\n"), id: \.self) { line in
+                        if !line.isEmpty {
+                            HStack(alignment: .top, spacing: 8 * scaleFactor) {
+                                Text("•")
+                                    .font(.system(size: 13 * scaleFactor))
+                                    .foregroundStyle(.secondary)
+                                Text(line)
+                                    .font(.system(size: 13 * scaleFactor))
+                                    .foregroundStyle(.primary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+            }
+
+        case "info":
+            HStack(alignment: .top, spacing: 8 * scaleFactor) {
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 13 * scaleFactor))
+                    .foregroundStyle(.blue)
+                Text(block.content ?? "")
+                    .font(.system(size: 13 * scaleFactor))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(10 * scaleFactor)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.blue.opacity(0.1))
+            )
+
+        case "warning":
+            HStack(alignment: .top, spacing: 8 * scaleFactor) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 13 * scaleFactor))
+                    .foregroundStyle(.orange)
+                Text(block.content ?? "")
+                    .font(.system(size: 13 * scaleFactor))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(10 * scaleFactor)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.orange.opacity(0.1))
+            )
+
+        case "success":
+            HStack(alignment: .top, spacing: 8 * scaleFactor) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 13 * scaleFactor))
+                    .foregroundStyle(.green)
+                Text(block.content ?? "")
+                    .font(.system(size: 13 * scaleFactor))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(10 * scaleFactor)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.green.opacity(0.1))
+            )
+
+        case "arrow":
+            HStack(spacing: 6 * scaleFactor) {
+                Text(block.content ?? "")
+                    .font(.system(size: 13 * scaleFactor, weight: .medium))
+                    .foregroundStyle(.primary)
+            }
+
+        default:
+            // Fallback for unsupported types
+            if let content = block.content {
+                Text(content)
+                    .font(.system(size: 13 * scaleFactor))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+// NOTE: DetailOverlayView is defined in dialog/Views/Inspect/Utilities/DetailOverlayView.swift
+// with proper system info styling including device icon
+
 // MARK: - Detail Overlay View Modifier
 
 /// View modifier for adding detail overlay support to any preset
-/// Always uses sheet presentation for a slide-in experience
+/// Supports both standard text-based content and gallery presentation mode
+/// Set `presentationMode: "gallery"` in config to display images in carousel format
 struct DetailOverlayModifier: ViewModifier {
     @ObservedObject var inspectState: InspectState
     @Binding var showOverlay: Bool
@@ -3444,11 +4202,21 @@ struct DetailOverlayModifier: ViewModifier {
         content
             .sheet(isPresented: $showOverlay) {
                 if let config = config {
-                    DetailOverlayView(
-                        inspectState: inspectState,
-                        config: config,
-                        onClose: { showOverlay = false }
-                    )
+                    // Check presentation mode
+                    if config.presentationMode == "gallery" {
+                        // Gallery mode - show carousel
+                        GalleryCarouselView(
+                            config: config,
+                            onClose: { showOverlay = false }
+                        )
+                    } else {
+                        // Standard mode - show traditional content overlay
+                        DetailOverlayView(
+                            inspectState: inspectState,
+                            config: config,
+                            onClose: { showOverlay = false }
+                        )
+                    }
                 }
             }
     }
@@ -3510,26 +4278,35 @@ struct ItemDetailOverlayModifier: ViewModifier {
                     // Use item-specific overlay config if available, otherwise fall back to global
                     let config = item.itemOverlay ?? inspectState.config?.detailOverlay
                     if let config = config {
-                        // Create an item-specific config with the item's display name as title
-                        let itemConfig = InspectConfig.DetailOverlayConfig(
-                            enabled: config.enabled,
-                            size: config.size,
-                            title: item.displayName,
-                            subtitle: config.subtitle,
-                            icon: item.icon ?? config.icon,
-                            overlayIcon: config.overlayIcon,
-                            content: config.content,
-                            showSystemInfo: config.showSystemInfo,
-                            showProgressInfo: false,  // Don't show progress for item-specific
-                            closeButtonText: config.closeButtonText,
-                            backgroundColor: config.backgroundColor,
-                            showDividers: config.showDividers
-                        )
-                        DetailOverlayView(
-                            inspectState: inspectState,
-                            config: itemConfig,
-                            onClose: { showOverlay = false }
-                        )
+                        // Check presentation mode - gallery mode uses carousel view
+                        if config.presentationMode == "gallery" {
+                            GalleryCarouselView(
+                                config: config,
+                                onClose: { showOverlay = false }
+                            )
+                        } else {
+                            // Standard mode - show traditional content overlay
+                            // Create an item-specific config with the item's display name as title
+                            let itemConfig = InspectConfig.DetailOverlayConfig(
+                                enabled: config.enabled,
+                                size: config.size,
+                                title: config.title ?? item.displayName,
+                                subtitle: config.subtitle,
+                                icon: config.icon ?? item.icon,
+                                overlayIcon: config.overlayIcon,
+                                content: config.content,
+                                showSystemInfo: config.showSystemInfo,
+                                showProgressInfo: false,  // Don't show progress for item-specific
+                                closeButtonText: config.closeButtonText,
+                                backgroundColor: config.backgroundColor,
+                                showDividers: config.showDividers
+                            )
+                            DetailOverlayView(
+                                inspectState: inspectState,
+                                config: itemConfig,
+                                onClose: { showOverlay = false }
+                            )
+                        }
                     }
                 }
             }
@@ -3553,7 +4330,8 @@ extension View {
 
 // MARK: - Positioned Help Button Wrapper
 
-/// Positions the help button according to config (topRight, topLeft, bottomRight, bottomLeft)
+/// Positions the help button according to config
+/// Supports: topRight, topLeft, bottomRight, bottomLeft, sidebar, buttonBar
 struct PositionedHelpButton: View {
     let config: InspectConfig.HelpButtonConfig
     let action: () -> Void
@@ -3563,18 +4341,31 @@ struct PositionedHelpButton: View {
         config.position ?? "bottomRight"
     }
 
+    /// Whether this position uses floating overlay positioning
+    var isFloatingPosition: Bool {
+        !["sidebar", "buttonBar"].contains(position)
+    }
+
     var body: some View {
-        DetailOverlayHelpButton(config: config, action: action)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
-            .padding(padding)
+        if isFloatingPosition {
+            // Floating positions use full-frame overlay with alignment
+            DetailOverlayHelpButton(config: config, action: action)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
+                .padding(padding)
+        } else {
+            // Non-floating positions (sidebar, buttonBar) are rendered inline
+            // The parent view handles actual positioning
+            DetailOverlayHelpButton(config: config, action: action)
+        }
     }
 
     private var alignment: Alignment {
         switch position {
         case "topLeft": return .topLeading
+        case "topRight": return .topTrailing
         case "bottomLeft": return .bottomLeading
         case "bottomRight": return .bottomTrailing
-        default: return .bottomTrailing  // bottomRight is default (macOS 26 style)
+        default: return .bottomTrailing
         }
     }
 }

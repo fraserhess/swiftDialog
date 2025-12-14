@@ -81,7 +81,7 @@ struct InspectConfig: Codable {
     let sideInterval: Int?
     let style: String?
     let liststyle: String?
-    let preset: String?
+    let preset: String
     let popupButton: String?
     let highlightColor: String?
     let secondaryColor: String?
@@ -99,6 +99,7 @@ struct InspectConfig: Codable {
     let finalButtonText: String?        // Optional text for final button when all items complete (overrides button1Text)
     let hideSystemDetails: Bool?
     let observeOnly: Bool?                  // Global observe-only mode - disables all user interactions (default: false/interactive)
+    let autoAdvanceOnComplete: Bool?        // Preset6: Auto-navigate to next step after marking complete (default: true, set false for two-click flow)
     let colorThresholds: ColorThresholds?   // WIP: Configurable color thresholds for visualizations
     let plistSources: [PlistSourceConfig]?  // Array of plist configurations to monitor - used in compliance dashboards like preset5
     let categoryHelp: [CategoryHelp]?       // Optional help popovers for categories - used in compliance dashboards like preset5
@@ -116,23 +117,13 @@ struct InspectConfig: Codable {
     let imageSyncMode: String?              // "manual" | "sync" | "auto"
     let stepStyle: String?                  // "plain" | "colored" | "cards"
     let listIndicatorStyle: String?         // "letters" | "numbers" | "roman" - list indicator format
-    let extraButton: ExtraButtonConfig?     // Optional extra button (e.g., Reset, Help, Info)
     let progressBarConfig: ProgressBarConfig? // Optional progress bar visual configuration
     let logoConfig: LogoConfig?             // Optional logo overlay configuration (Preset9, etc.)
     let detailOverlay: DetailOverlayConfig? // Optional detail flyout overlay configuration
     let helpButton: HelpButtonConfig?       // Optional help button configuration
+    let actionPipe: String?                 // Optional FIFO path for instant script request delivery
 
     let items: [ItemConfig]
-
-    // Extra button configuration for optional actions in presets
-    struct ExtraButtonConfig: Codable {
-        let text: String                    // Button text (e.g., "Reset", "Help", "Info")
-        let action: String                  // Action type: "reset", "url", "custom"
-        let url: String?                    // URL to open (for action: "url")
-        let visible: Bool?                  // Show/hide button (default: true)
-        let position: String?               // "sidebar" | "bottom" (default: "sidebar")
-        let icon: String?                   // SF Symbol icon name (e.g., "star.fill")
-    }
 
     // Progress bar configuration for status visualization
     struct ProgressBarConfig: Codable {
@@ -178,6 +169,16 @@ struct InspectConfig: Codable {
         let cornerRadius: Double?               // Corner radius for background (default: 8)
     }
 
+    /// Configuration for intro/outro full-screen layout styling
+    /// Used with stepType: "intro" or "outro" to display welcome/completion pages
+    struct IntroLayoutConfig: Codable {
+        let heroImageShape: String?             // "circle" (default) | "roundedSquare" | "square"
+        let heroImageSize: Double?              // Size in points (default: 200)
+        let logoImage: String?                  // Bottom branding logo path
+        let logoPosition: String?               // "bottomLeft" (default) | "bottomRight"
+        let logoMaxWidth: Double?               // Maximum logo width in points (default: 120)
+    }
+
     struct ItemConfig: Codable {
         let id: String
         let displayName: String
@@ -199,6 +200,7 @@ struct InspectConfig: Codable {
         let guidanceTitle: String?      // Main title for the step by step workflow
         let guidanceContent: [GuidanceContent]? // Rich content blocks for the step
         let stepType: String?           // "info" | "confirmation" | "processing" | "completion"
+        let autoAdvanceOnComplete: Bool? // Per-item override: Auto-navigate to next step after marking complete (overrides global setting)
         let actionButtonText: String?   // Custom button text for this step's action (e.g., "Start", "Confirm", "Install")
         let continueButtonText: String? // Custom button text after step completes to navigate to next step (e.g., "Next", "Proceed")
         let finalButtonText: String?    // Custom button text when this step is complete (e.g., "Finish" for completion step)
@@ -252,6 +254,19 @@ struct InspectConfig: Codable {
 
         // Per-item detail overlay override (overrides global detailOverlay for this item)
         let itemOverlay: DetailOverlayConfig? // Optional per-item detail overlay content
+
+        // Validation target badge - auto-update a status-badge when plist/json validation runs
+        let validationTargetBadge: ValidationTargetBadge? // Specifies which badge to update with validation result
+
+        // Intro/outro layout configuration (for stepType: "intro" or "outro")
+        let introLayoutConfig: IntroLayoutConfig? // Optional styling for full-screen welcome/completion pages
+
+        // Target badge configuration for validation results (plistKey + evaluation)
+        struct ValidationTargetBadge: Codable {
+            let blockIndex: Int             // Index in guidanceContent array to update
+            let successState: String?       // State when validation passes (default: "success")
+            let failState: String?          // State when validation fails (default: "fail")
+        }
     }
 
     // Completion trigger - defines automatic step completion when plist condition met
@@ -290,7 +305,7 @@ struct InspectConfig: Codable {
 
     // Guidance content blocks for rich text display eg. used in Preset6
     struct GuidanceContent: Codable {
-        let type: String                // "text" | "highlight" | "warning" | "info" | "success" | "bullets" | "arrow" | "image" | "image-carousel" | "checkbox" | "dropdown" | "radio" | "toggle" | "slider" | "button" | "status-badge" | "comparison-table" | "phase-tracker" | "progress-bar" | "compliance-card" | "compliance-header"
+        let type: String                // "text" | "highlight" | "warning" | "info" | "success" | "bullets" | "arrow" | "image" | "image-carousel" | "video" | "webcontent" | "checkbox" | "dropdown" | "radio" | "toggle" | "slider" | "button" | "status-badge" | "comparison-table" | "phase-tracker" | "progress-bar" | "compliance-card" | "compliance-header"
         let content: String?            // The actual text content (or button label for type="button") - optional for status monitoring types
         let color: String?              // Optional color override (hex format)
         let bold: Bool?                 // Whether to display in bold
@@ -301,6 +316,13 @@ struct InspectConfig: Codable {
         let imageWidth: Double?         // Custom width in points (default: 400)
         let imageBorder: Bool?          // Show border/shadow around image (default: true)
         let caption: String?            // Caption text displayed below the image
+
+        // Video-specific fields (for type="video")
+        let autoplay: Bool?             // Auto-play video on load (default: false)
+        let videoHeight: Double?        // Video player height in points (default: 300)
+
+        // Webcontent-specific fields (for type="webcontent")
+        let webHeight: Double?          // Web view height in points (default: 400)
 
         // Interactive element fields (for type="checkbox" | "dropdown" | "radio" | "toggle" | "slider")
         let id: String?                 // Unique identifier for storing user input
@@ -314,12 +336,33 @@ struct InspectConfig: Codable {
         let max: Double?                // Maximum value for slider (default: 100)
         let step: Double?               // Step increment for slider (default: 1)
         let unit: String?               // Unit label to display (e.g., "%", "GB", "minutes")
+        let discreteSteps: [SliderStep]? // Optional array of discrete step values with labels
+
+        // Slider discrete step configuration
+        struct SliderStep: Codable {
+            let value: Double           // Numeric value for this step
+            let label: String           // Display label (e.g., "1 minute", "30 minutes", "1 hour")
+        }
 
         // Button-specific fields (for type="button")
-        let action: String?             // Button action: "url", "shell", "custom" (triggers callback)
+        let action: String?             // Button action: "url", "shell", "request", "custom" (triggers callback)
         let url: String?                // URL to open (for action="url")
         let shell: String?              // Shell command to execute (for action="shell")
+        let shellTimeout: Int?          // Timeout in seconds for shell command (default: 30)
+        let requestId: String?          // Abstract identifier for script callback (for action="request", e.g., "profiles-install")
+        let targetBadge: TargetBadgeConfig?  // Badge to update with shell command result
         let buttonStyle: String?        // Button style: "bordered" (default), "borderedProminent", "plain"
+
+        // Target badge configuration for shell commands
+        struct TargetBadgeConfig: Codable {
+            let blockIndex: Int             // Index in guidanceContent array to update
+            let successState: String?       // State on exit 0 (default: "success")
+            let failState: String?          // State on non-zero exit (default: "fail")
+            let pendingState: String?       // State while running (default: "pending")
+        }
+
+        // Overlay trigger (for any content type)
+        let opensOverlay: Bool?         // When true, clicking this content block opens the item's overlay (default: false)
 
         // Status monitoring fields (for type="status-badge" | "comparison-table" | "phase-tracker" | "progress-bar")
         let label: String?              // Display label for status components
@@ -496,6 +539,10 @@ struct InspectConfig: Codable {
     /// Detail overlay configuration (Global - all presets)
     /// Provides a customizable flyout/sheet overlay for help, support info, or detailed content
     /// Can display rich content using GuidanceContent blocks, system info, and template variables
+    ///
+    /// **Gallery Presentation Mode:**
+    /// Set `presentationMode: "gallery"` to display images in a carousel/grid format
+    /// Perfect for visual step-by-step instructions, before/after comparisons, or screenshot guides
     struct DetailOverlayConfig: Codable {
         let enabled: Bool?                  // Enable overlay (default: true when config present)
         let size: String?                   // "small" | "medium" | "large" | "full" (default: "medium")
@@ -509,17 +556,105 @@ struct InspectConfig: Codable {
         let closeButtonText: String?        // Close button text (default: "Close")
         let backgroundColor: String?        // Optional background color override (hex)
         let showDividers: Bool?             // Show section dividers (default: true)
+        
+        // Gallery presentation mode (for visual instructions)
+        let presentationMode: String?       // "standard" (default) | "gallery" - switches between text and image-focused layouts
+        let galleryImages: [String]?        // Array of image paths for gallery mode (required when presentationMode: "gallery")
+        let galleryCaptions: [String]?      // Optional captions for each image (1:1 mapping with galleryImages)
+        let galleryLayout: String?          // "carousel" (default) | "grid" | "sideBySide" - gallery display style
+        let gallerySideContent: [GuidanceContent]?  // Content blocks shown on right side in sideBySide layout
+        let showStepCounter: Bool?          // Show "Step 2 of 5" counter in gallery mode (default: true)
+        let showNavigationArrows: Bool?     // Show prev/next arrow buttons in carousel mode (default: true)
+        let showThumbnails: Bool?           // Show thumbnail strip below main image for quick navigation (default: true)
+        let imageHeight: Double?            // Maximum height for gallery images in points (default: 400)
+        let thumbnailSize: Double?          // Thumbnail dimensions in points (default: 60)
+        let allowImageZoom: Bool?           // Allow clicking image to view fullscreen (default: false)
+        
+        /// Manual initializer for creating configs programmatically (needed for item-specific overlays)
+        init(
+            enabled: Bool? = nil,
+            size: String? = nil,
+            title: String? = nil,
+            subtitle: String? = nil,
+            icon: String? = nil,
+            overlayIcon: String? = nil,
+            content: [GuidanceContent]? = nil,
+            showSystemInfo: Bool? = nil,
+            showProgressInfo: Bool? = nil,
+            closeButtonText: String? = nil,
+            backgroundColor: String? = nil,
+            showDividers: Bool? = nil,
+            presentationMode: String? = nil,
+            galleryImages: [String]? = nil,
+            galleryCaptions: [String]? = nil,
+            galleryLayout: String? = nil,
+            gallerySideContent: [GuidanceContent]? = nil,
+            showStepCounter: Bool? = nil,
+            showNavigationArrows: Bool? = nil,
+            showThumbnails: Bool? = nil,
+            imageHeight: Double? = nil,
+            thumbnailSize: Double? = nil,
+            allowImageZoom: Bool? = nil
+        ) {
+            self.enabled = enabled
+            self.size = size
+            self.title = title
+            self.subtitle = subtitle
+            self.icon = icon
+            self.overlayIcon = overlayIcon
+            self.content = content
+            self.showSystemInfo = showSystemInfo
+            self.showProgressInfo = showProgressInfo
+            self.closeButtonText = closeButtonText
+            self.backgroundColor = backgroundColor
+            self.showDividers = showDividers
+            self.presentationMode = presentationMode
+            self.galleryImages = galleryImages
+            self.galleryCaptions = galleryCaptions
+            self.galleryLayout = galleryLayout
+            self.gallerySideContent = gallerySideContent
+            self.showStepCounter = showStepCounter
+            self.showNavigationArrows = showNavigationArrows
+            self.showThumbnails = showThumbnails
+            self.imageHeight = imageHeight
+            self.thumbnailSize = thumbnailSize
+            self.allowImageZoom = allowImageZoom
+        }
     }
 
     /// Help button configuration (Global - all presets)
-    /// Displays a floating or inline help button that triggers the detail overlay
+    /// Displays a floating or inline help button that can trigger overlay, open URL, or custom action
     struct HelpButtonConfig: Codable {
+        // Display properties
         let enabled: Bool?                  // Show help button (default: true when config present)
         let icon: String?                   // SF Symbol icon (default: "questionmark.circle")
-        let position: String?               // "topRight" | "topLeft" | "bottomRight" | "bottomLeft" (default: "bottomRight")
         let label: String?                  // Optional button label text (e.g., "Help")
         let tooltip: String?                // Hover tooltip text (default: "Get Help")
         let style: String?                  // "floating" | "inline" | "toolbar" (default: "floating")
+
+        // Action properties
+        let action: String?                 // "overlay" (default) | "url" | "custom"
+        let url: String?                    // URL to open (for action: "url")
+        let customId: String?               // Custom identifier for interaction log (for action: "custom")
+
+        // Position properties
+        let position: String?               // "topRight" | "topLeft" | "bottomRight" | "bottomLeft" |
+                                            // "sidebar" | "buttonBar" (default: "bottomRight")
+
+        /// Memberwise initializer for programmatic creation
+        init(enabled: Bool? = nil, icon: String? = nil, label: String? = nil,
+             tooltip: String? = nil, style: String? = nil, action: String? = nil,
+             url: String? = nil, customId: String? = nil, position: String? = nil) {
+            self.enabled = enabled
+            self.icon = icon
+            self.label = label
+            self.tooltip = tooltip
+            self.style = style
+            self.action = action
+            self.url = url
+            self.customId = customId
+            self.position = position
+        }
     }
 
     // Generic color threshold system for all presets
@@ -673,11 +808,11 @@ struct InspectConfig: Codable {
         try container.encodeIfPresent(imageSyncMode, forKey: .imageSyncMode)
         try container.encodeIfPresent(stepStyle, forKey: .stepStyle)
         try container.encodeIfPresent(listIndicatorStyle, forKey: .listIndicatorStyle)
-        try container.encodeIfPresent(extraButton, forKey: .extraButton)
         try container.encodeIfPresent(progressBarConfig, forKey: .progressBarConfig)
         try container.encodeIfPresent(logoConfig, forKey: .logoConfig)
         try container.encodeIfPresent(detailOverlay, forKey: .detailOverlay)
         try container.encodeIfPresent(helpButton, forKey: .helpButton)
+        try container.encodeIfPresent(actionPipe, forKey: .actionPipe)
         try container.encode(items, forKey: .items)
     }
 
@@ -709,7 +844,7 @@ struct InspectConfig: Codable {
         sideInterval = try container.decodeIfPresent(Int.self, forKey: .sideInterval)
         style = try container.decodeIfPresent(String.self, forKey: .style)
         liststyle = try container.decodeIfPresent(String.self, forKey: .liststyle)
-        preset = try container.decodeIfPresent(String.self, forKey: .preset)
+        preset = try container.decode(String.self, forKey: .preset)
         popupButton = try container.decodeIfPresent(String.self, forKey: .popupButton)
         highlightColor = try container.decodeIfPresent(String.self, forKey: .highlightColor)
         secondaryColor = try container.decodeIfPresent(String.self, forKey: .secondaryColor)
@@ -736,6 +871,7 @@ struct InspectConfig: Codable {
         autoEnableButtonText = try container.decodeIfPresent(String.self, forKey: .autoEnableButtonText)
         hideSystemDetails = try container.decodeIfPresent(Bool.self, forKey: .hideSystemDetails)
         observeOnly = try container.decodeIfPresent(Bool.self, forKey: .observeOnly)
+        autoAdvanceOnComplete = try container.decodeIfPresent(Bool.self, forKey: .autoAdvanceOnComplete)
         colorThresholds = try container.decodeIfPresent(ColorThresholds.self, forKey: .colorThresholds)
         plistSources = try container.decodeIfPresent([PlistSourceConfig].self, forKey: .plistSources)
         categoryHelp = try container.decodeIfPresent([CategoryHelp].self, forKey: .categoryHelp)
@@ -759,11 +895,11 @@ struct InspectConfig: Codable {
         imageSyncMode = try container.decodeIfPresent(String.self, forKey: .imageSyncMode)
         stepStyle = try container.decodeIfPresent(String.self, forKey: .stepStyle)
         listIndicatorStyle = try container.decodeIfPresent(String.self, forKey: .listIndicatorStyle)
-        extraButton = try container.decodeIfPresent(ExtraButtonConfig.self, forKey: .extraButton)
         progressBarConfig = try container.decodeIfPresent(ProgressBarConfig.self, forKey: .progressBarConfig)
         logoConfig = try container.decodeIfPresent(LogoConfig.self, forKey: .logoConfig)
         detailOverlay = try container.decodeIfPresent(DetailOverlayConfig.self, forKey: .detailOverlay)
         helpButton = try container.decodeIfPresent(HelpButtonConfig.self, forKey: .helpButton)
+        actionPipe = try container.decodeIfPresent(String.self, forKey: .actionPipe)
 
         // Default to empty array if items not provided
         items = try container.decodeIfPresent([ItemConfig].self, forKey: .items) ?? []
@@ -791,16 +927,14 @@ struct InspectConfig: Codable {
         // Backward compatibility: Field is decoded but ignored
         // Removal timeline: v3.0.0 (post Presets 5-9 public release)
         case buttonStyle
-        case autoEnableButton, autoEnableButtonText, hideSystemDetails, observeOnly, colorThresholds, plistSources, categoryHelp, uiLabels, complianceLabels, pickerConfig, instructionBanner, pickerLabels, items
+        case autoEnableButton, autoEnableButtonText, hideSystemDetails, observeOnly, autoAdvanceOnComplete, colorThresholds, plistSources, categoryHelp, uiLabels, complianceLabels, pickerConfig, instructionBanner, pickerLabels, items
         // Preset6 specific properties
         case iconBasePath, overlayicon, rotatingImages, imageRotationInterval, imageShape, imageSyncMode, stepStyle, listIndicatorStyle
-        // Extra button configuration
-        case extraButton
         // Progress bar configuration
         case progressBarConfig
         // Logo overlay configuration
         case logoConfig
-        // Detail overlay and help button configuration
-        case detailOverlay, helpButton
+        // Detail overlay, help button, and action pipe configuration
+        case detailOverlay, helpButton, actionPipe
     }
 }
