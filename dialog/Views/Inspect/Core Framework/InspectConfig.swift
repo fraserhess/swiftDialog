@@ -336,6 +336,13 @@ struct InspectConfig: Codable {
         let max: Double?                // Maximum value for slider (default: 100)
         let step: Double?               // Step increment for slider (default: 1)
         let unit: String?               // Unit label to display (e.g., "%", "GB", "minutes")
+        let discreteSteps: [SliderStep]? // Optional array of discrete step values with labels
+
+        // Slider discrete step configuration
+        struct SliderStep: Codable {
+            let value: Double           // Numeric value for this step
+            let label: String           // Display label (e.g., "1 minute", "30 minutes", "1 hour")
+        }
 
         // Button-specific fields (for type="button")
         let action: String?             // Button action: "url", "shell", "request", "custom" (triggers callback)

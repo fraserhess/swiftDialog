@@ -1081,43 +1081,82 @@ struct GuidanceContentView: View {
                         let currentValue = inspectState.guidanceFormInputs[itemId]?.sliders[fieldId] ??
                                           Double(block.value ?? "0") ?? 0.0
 
-                        HStack(spacing: 4 * scaleFactor) {
-                            Text("\(Int(currentValue))")
+                        // Show label from discreteSteps if available, otherwise show numeric value
+                        if let steps = block.discreteSteps,
+                           let matchingStep = steps.first(where: { $0.value == currentValue }) {
+                            Text(matchingStep.label)
                                 .font(.system(size: 13 * scaleFactor, weight: .medium))
                                 .foregroundStyle(.secondary)
-
-                            if let unit = block.unit {
-                                Text(unit)
-                                    .font(.system(size: 12 * scaleFactor))
+                        } else {
+                            HStack(spacing: 4 * scaleFactor) {
+                                Text("\(Int(currentValue))")
+                                    .font(.system(size: 13 * scaleFactor, weight: .medium))
                                     .foregroundStyle(.secondary)
+
+                                if let unit = block.unit {
+                                    Text(unit)
+                                        .font(.system(size: 12 * scaleFactor))
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
                     }
                 }
 
                 if let fieldId = block.id {
-                    let minValue = block.min ?? 0.0
-                    let maxValue = block.max ?? 100.0
-                    let stepValue = block.step ?? 1.0
+                    // Check if discrete steps are defined
+                    if let steps = block.discreteSteps, steps.count >= 2 {
+                        // Discrete steps mode - slider moves between step indices
+                        let stepCount = steps.count
+                        let sortedSteps = steps.sorted { $0.value < $1.value }
 
-                    let sliderBinding = Binding(
-                        get: {
-                            inspectState.guidanceFormInputs[itemId]?.sliders[fieldId] ??
-                            Double(block.value ?? "\(minValue)") ?? minValue
-                        },
-                        set: { newValue in
-                            if inspectState.guidanceFormInputs[itemId] == nil {
-                                inspectState.initializeGuidanceFormState(for: itemId)
+                        let discreteBinding = Binding(
+                            get: {
+                                let value = inspectState.guidanceFormInputs[itemId]?.sliders[fieldId] ??
+                                           Double(block.value ?? "\(sortedSteps[0].value)") ?? sortedSteps[0].value
+                                return Double(sortedSteps.firstIndex { $0.value == value } ?? 0)
+                            },
+                            set: { newIndex in
+                                let clampedIndex = Int(max(0, min(newIndex, Double(stepCount - 1))))
+                                let newValue = sortedSteps[clampedIndex].value
+
+                                if inspectState.guidanceFormInputs[itemId] == nil {
+                                    inspectState.initializeGuidanceFormState(for: itemId)
+                                }
+                                inspectState.guidanceFormInputs[itemId]?.sliders[fieldId] = newValue
+                                writeLog("GuidanceContentView: Slider '\(fieldId)' set to \(newValue) (\(sortedSteps[clampedIndex].label))", logLevel: .info)
+
+                                // Write to interaction log for script monitoring
+                                inspectState.writeToInteractionLog("slider:\(itemId):\(fieldId):\(newValue)")
                             }
-                            inspectState.guidanceFormInputs[itemId]?.sliders[fieldId] = newValue
-                            writeLog("GuidanceContentView: Slider '\(fieldId)' set to \(newValue)", logLevel: .info)
+                        )
 
-                            // Write to interaction log for script monitoring
-                            inspectState.writeToInteractionLog("slider:\(itemId):\(fieldId):\(newValue)")
-                        }
-                    )
+                        Slider(value: discreteBinding, in: 0...Double(stepCount - 1), step: 1)
+                    } else {
+                        // Standard continuous slider mode
+                        let minValue = block.min ?? 0.0
+                        let maxValue = block.max ?? 100.0
+                        let stepValue = block.step ?? 1.0
 
-                    Slider(value: sliderBinding, in: minValue...maxValue, step: stepValue)
+                        let sliderBinding = Binding(
+                            get: {
+                                inspectState.guidanceFormInputs[itemId]?.sliders[fieldId] ??
+                                Double(block.value ?? "\(minValue)") ?? minValue
+                            },
+                            set: { newValue in
+                                if inspectState.guidanceFormInputs[itemId] == nil {
+                                    inspectState.initializeGuidanceFormState(for: itemId)
+                                }
+                                inspectState.guidanceFormInputs[itemId]?.sliders[fieldId] = newValue
+                                writeLog("GuidanceContentView: Slider '\(fieldId)' set to \(newValue)", logLevel: .info)
+
+                                // Write to interaction log for script monitoring
+                                inspectState.writeToInteractionLog("slider:\(itemId):\(fieldId):\(newValue)")
+                            }
+                        )
+
+                        Slider(value: sliderBinding, in: minValue...maxValue, step: stepValue)
+                    }
                 }
             }
             .padding(.vertical, 4 * scaleFactor)
