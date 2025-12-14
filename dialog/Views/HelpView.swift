@@ -10,14 +10,14 @@ import SwiftUI
 import MarkdownUI
 
 struct HelpView: View {
-    let helpMessage: String
-    let alignment: TextAlignment
-    let helpImagePath: String
-    let helpSheetButtonText: String
-    @Binding var showHelpSheet: Bool
+    var helpMessage: String
+    var alignment: TextAlignment
+    var helpImagePath: String
+    var helpSheetButtonText: String
+    @Binding var showHelp: Bool
 
     var settings: AppDefaults = .init()
-
+    
     var body: some View {
         VStack {
             Image(systemName: "questionmark.circle.fill")
@@ -50,7 +50,7 @@ struct HelpView: View {
             }
             Spacer()
             Button(action: {
-                showHelpSheet = false
+                showHelp = false
             }, label: {
                 Text(helpSheetButtonText)
             })
