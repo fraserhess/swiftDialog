@@ -93,7 +93,7 @@ class Validation: ObservableObject {
         // Process items with controlled concurrency and timeout protection
         await withTaskGroup(of: (String, Bool).self, returning: Void.self) { group in
             // Limit concurrent tasks to avoid overwhelming the system
-            let maxConcurrency = min(4, items.count)
+            let maxConcurrency = min(12, items.count)  // High concurrency for fast validation
             var currentIndex = 0
             
             // Start initial batch of tasks
@@ -180,9 +180,86 @@ class Validation: ObservableObject {
     func validateItemsBatch(_ items: [InspectConfig.ItemConfig],
                            plistSources: [InspectConfig.PlistSourceConfig]? = nil,
                            completion: @escaping ([String: Bool]) -> Void) {
-        
+
         Task { @MainActor in
             let results = await validateItemsBatch(items, plistSources: plistSources)
+            completion(results)
+        }
+    }
+
+    /// STREAMING: Batch validation with per-item callbacks for progressive UI updates
+    /// Each validation result is emitted immediately via onItemValidated callback
+    func validateItemsBatchStreaming(_ items: [InspectConfig.ItemConfig],
+                                    plistSources: [InspectConfig.PlistSourceConfig]? = nil,
+                                    onItemValidated: @escaping (String, Bool) -> Void,
+                                    completion: @escaping ([String: Bool]) -> Void) {
+
+        Task { @MainActor in
+            isValidating = true
+            validationProgress = 0.0
+
+            defer {
+                isValidating = false
+                validationProgress = 1.0
+            }
+
+            // Pre-cache all unique plist files
+            await withTimeout(seconds: 30.0) { [weak self] in
+                await self?.preCachePlistsAsync(from: items, and: plistSources)
+            }
+
+            let totalItems = items.count
+            var results = [String: Bool]()
+
+            // Process items with controlled concurrency
+            await withTaskGroup(of: (String, Bool).self, returning: Void.self) { group in
+                let maxConcurrency = min(12, items.count)  // High concurrency for fast validation
+                var currentIndex = 0
+
+                // Start initial batch
+                for _ in 0..<min(maxConcurrency, items.count) where currentIndex < items.count {
+                    let item = items[currentIndex]
+                    currentIndex += 1
+
+                    group.addTask(priority: .userInitiated) { [weak self] in
+                        guard let self = self else { return (item.id, false) }
+                        let result = await withTimeout(seconds: 10.0) { [weak self] in
+                            guard let self = self else { return ValidationResult(itemId: item.id, isValid: false, validationType: .fileExistence, details: nil) }
+                            let request = ValidationRequest(item: item, plistSources: plistSources)
+                            return await self.validateItemCachedAsync(request)
+                        }
+                        return (item.id, result?.isValid ?? false)
+                    }
+                }
+
+                // Process results as they complete - emit each one immediately
+                while let (itemId, isValid) = await group.next() {
+                    results[itemId] = isValid
+
+                    // STREAM: Emit this result immediately for per-card progress
+                    await MainActor.run {
+                        onItemValidated(itemId, isValid)
+                        self.validationProgress = Double(results.count) / Double(totalItems)
+                    }
+
+                    // Add next task if available
+                    if currentIndex < items.count {
+                        let nextItem = items[currentIndex]
+                        currentIndex += 1
+
+                        group.addTask(priority: .userInitiated) { [weak self] in
+                            guard let self = self else { return (nextItem.id, false) }
+                            let result = await withTimeout(seconds: 10.0) { [weak self] in
+                                guard let self = self else { return ValidationResult(itemId: nextItem.id, isValid: false, validationType: .fileExistence, details: nil) }
+                                let request = ValidationRequest(item: nextItem, plistSources: plistSources)
+                                return await self.validateItemCachedAsync(request)
+                            }
+                            return (nextItem.id, result?.isValid ?? false)
+                        }
+                    }
+                }
+            }
+
             completion(results)
         }
     }

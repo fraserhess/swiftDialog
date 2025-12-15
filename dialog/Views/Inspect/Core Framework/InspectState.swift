@@ -183,24 +183,12 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                 guard let self = self else { return }
                 
                 let loadedConfig = configResult.config
-                
+
                 // Set core configuration
                 self.config = loadedConfig
-                self.items = loadedConfig.items.sorted { $0.guiIndex < $1.guiIndex }
-                
-                // Set plist sources from config - required inpreset5
-                self.plistSources = loadedConfig.plistSources
-                
-                // Set color thresholds from config or use defaults
-                if let colorThresholds = loadedConfig.colorThresholds {
-                    self.colorThresholds = colorThresholds
-                    writeLog("InspectState: Using custom color thresholds - Excellent: \(colorThresholds.excellent), Good: \(colorThresholds.good), Warning: \(colorThresholds.warning)", logLevel: .info)
-                } else {
-                    self.colorThresholds = InspectConfig.ColorThresholds.default
-                    writeLog("InspectState: Using default color thresholds", logLevel: .info)
-                }
-                
-                // Use configuration service to extract grouped configurations
+
+                // PRIORITY: Set UI configuration FIRST before items
+                // This ensures button text, title, etc. are ready before view transitions from loading
                 print("InspectState: About to extract configurations")
                 print("InspectState: loadedConfig.banner = \(loadedConfig.banner ?? "nil")")
                 print("InspectState: loadedConfig.listIndicatorStyle = \(loadedConfig.listIndicatorStyle ?? "nil")")
@@ -212,6 +200,21 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                 print("InspectState: After extraction - uiConfiguration.stepStyle = \(self.uiConfiguration.stepStyle)")
                 self.backgroundConfiguration = self.configurationService.extractBackgroundConfiguration(from: loadedConfig)
                 self.buttonConfiguration = self.configurationService.extractButtonConfiguration(from: loadedConfig)
+
+                // Set plist sources from config - required in preset5
+                self.plistSources = loadedConfig.plistSources
+
+                // Set color thresholds from config or use defaults
+                if let colorThresholds = loadedConfig.colorThresholds {
+                    self.colorThresholds = colorThresholds
+                    writeLog("InspectState: Using custom color thresholds - Excellent: \(colorThresholds.excellent), Good: \(colorThresholds.good), Warning: \(colorThresholds.warning)", logLevel: .info)
+                } else {
+                    self.colorThresholds = InspectConfig.ColorThresholds.default
+                    writeLog("InspectState: Using default color thresholds", logLevel: .info)
+                }
+
+                // Set items LAST - this triggers view transition from loading to main content
+                self.items = loadedConfig.items.sorted { $0.guiIndex < $1.guiIndex }
                 
                 // Set side message rotation if multiple messages exist
                 if self.uiConfiguration.sideMessages.count > 1, let interval = loadedConfig.sideInterval {
@@ -1026,34 +1029,53 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
     /// This eliminates potential deadlocks and silent crashes in production builds
     func validateAllItems() {
         writeLog("InspectState: Starting async validation of \(items.count) items", logLevel: .info)
-        
-        // Log each item being validated
-        for item in items {
-            writeLog("InspectState: Will validate item '\(item.id)' - plistKey: '\(item.plistKey ?? "nil")', expectedValue: '\(item.expectedValue ?? "nil")', evaluation: '\(item.evaluation ?? "nil")'", logLevel: .info)
+
+        // RING BUFFER: Sort items by category so cards complete in visual order (top-to-bottom)
+        // This creates a smoother loading UX where each category card completes before the next
+        let sortedItems = items.sorted { item1, item2 in
+            let cat1 = item1.category ?? getCategoryPrefix(item1.id)
+            let cat2 = item2.category ?? getCategoryPrefix(item2.id)
+            return cat1 < cat2
         }
-        
-        // Use Task to handle the main actor call properly
+
+        // Log each item being validated (in sorted order)
+        for item in sortedItems {
+            writeLog("InspectState: Will validate item '\(item.id)' - plistKey: '\(item.plistKey ?? "nil")', expectedValue: '\(item.expectedValue ?? "nil")', evaluation: '\(item.evaluation ?? "nil")'", logLevel: .debug)
+        }
+
+        // Use STREAMING validation for per-card progressive updates
+        // Each result is emitted immediately, triggering Preset5's onChange handler
         Task { @MainActor in
-            // Use optimized async validation
-            Validation.shared.validateItemsBatch(items, plistSources: plistSources) { [weak self] results in
-                Task { @MainActor in
+            Validation.shared.validateItemsBatchStreaming(
+                sortedItems,
+                plistSources: self.plistSources,
+                onItemValidated: { [weak self] itemId, isValid in
+                    // STREAM: Update dictionary immediately for each result
+                    // This triggers onChange in Preset5View for per-card progress
+                    self?.plistValidationResults[itemId] = isValid
+                },
+                completion: { [weak self] results in
                     guard let self = self else { return }
-                    self.plistValidationResults = results
-                    writeLog("InspectState: Async validation complete. \(results.filter { $0.value }.count) valid items out of \(results.count) total", logLevel: .info)
-                    
-                    // Log each result
-                    for (itemId, isValid) in results {
-                        writeLog("InspectState: Validation result - '\(itemId)': \(isValid)", logLevel: .info)
-                    }
-                    
-                    // Update UI if needed
+                    writeLog("InspectState: Streaming validation complete. \(results.filter { $0.value }.count) valid items out of \(results.count) total", logLevel: .info)
+
+                    // Final update and UI refresh
                     self.objectWillChange.send()
                 }
-            }
+            )
         }
     }
-    
-    
+
+    /// Extract category prefix from item ID (e.g., "os_gatekeeper_enable" → "os")
+    /// Used for ring buffer sorting when no explicit category is set
+    private func getCategoryPrefix(_ itemId: String) -> String {
+        // Common prefixes used in mSCP/NIST compliance rules
+        let parts = itemId.components(separatedBy: "_")
+        if let first = parts.first, !first.isEmpty {
+            return first.lowercased()
+        }
+        return itemId
+    }
+
     // NEW: Get actual plist value for display purposes
     @MainActor
     func getPlistValueForDisplay(item: InspectConfig.ItemConfig) -> String? {

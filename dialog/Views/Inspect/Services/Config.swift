@@ -484,14 +484,202 @@ class Config {
     }
     
     private func applyConfigurationDefaults(to config: InspectConfig) -> InspectConfig {
-        // Apply configuration defaults and process the config
-        // TODO: This is where we would add more advanced post-processing logic
-        
+        var processedConfig = config
+
+        // Process auto-discovery from plistSources
+        if let plistSources = config.plistSources {
+            var discoveredItems: [InspectConfig.ItemConfig] = []
+
+            for source in plistSources where source.autoDiscover == true {
+                let items = discoverItemsFromPlist(source: source, basePath: config.iconBasePath)
+                discoveredItems.append(contentsOf: items)
+                writeLog("ConfigurationService: Auto-discovered \(items.count) items from \(source.path)", logLevel: .info)
+            }
+
+            // Merge discovered items with existing items (existing items take precedence by ID)
+            if !discoveredItems.isEmpty {
+                let existingIds = Set(processedConfig.items.map { $0.id })
+                let newItems = discoveredItems.filter { !existingIds.contains($0.id) }
+                processedConfig.items.append(contentsOf: newItems)
+                writeLog("ConfigurationService: Total items after auto-discovery: \(processedConfig.items.count)", logLevel: .info)
+            }
+        }
+
         // Sort items by guiIndex for consistent display
-        let processedConfig = config
-        // Note: InspectConfig is a struct, we can't modify it directly
-        
+        processedConfig.items.sort { $0.guiIndex < $1.guiIndex }
+
         return processedConfig
+    }
+
+    /// Auto-discover items from a plist source
+    private func discoverItemsFromPlist(source: InspectConfig.PlistSourceConfig, basePath: String?) -> [InspectConfig.ItemConfig] {
+        var items: [InspectConfig.ItemConfig] = []
+
+        // Resolve path (support relative paths)
+        var plistPath = source.path
+        if !plistPath.hasPrefix("/") && !plistPath.hasPrefix("~") {
+            if let basePath = basePath, !basePath.isEmpty {
+                plistPath = (basePath as NSString).appendingPathComponent(source.path)
+            }
+        }
+        plistPath = (plistPath as NSString).expandingTildeInPath
+
+        // Check if plist exists
+        guard FileManager.default.fileExists(atPath: plistPath) else {
+            writeLog("ConfigurationService: Auto-discover plist not found: \(plistPath)", logLevel: .error)
+            return items
+        }
+
+        // Load plist
+        guard let plistData = FileManager.default.contents(atPath: plistPath),
+              let plistDict = try? PropertyListSerialization.propertyList(from: plistData, format: nil) as? [String: Any] else {
+            writeLog("ConfigurationService: Failed to parse plist for auto-discovery: \(plistPath)", logLevel: .error)
+            return items
+        }
+
+        // Get configuration from source
+        let findingKey = source.findingKey ?? "finding"
+        let expectedValue = source.expectedValue ?? "false"
+        let evaluation = source.evaluation ?? "boolean"
+        let excludeKeys = Set(source.excludeKeys ?? ["lastComplianceCheck", "profileIdentifier", "scanDate"])
+
+        // Include pattern (regex)
+        var includeRegex: NSRegularExpression?
+        if let pattern = source.includePattern {
+            includeRegex = try? NSRegularExpression(pattern: pattern, options: [])
+        }
+
+        var guiIndex = 0
+        for (key, value) in plistDict.sorted(by: { $0.key < $1.key }) {
+            // Skip excluded keys
+            if excludeKeys.contains(key) { continue }
+
+            // Check include pattern
+            if let regex = includeRegex {
+                let range = NSRange(key.startIndex..<key.endIndex, in: key)
+                if regex.firstMatch(in: key, options: [], range: range) == nil { continue }
+            }
+
+            // Check if this key has the finding subkey
+            guard let valueDict = value as? [String: Any],
+                  valueDict[findingKey] != nil else {
+                continue
+            }
+
+            // Determine category from prefix
+            let category = getCategoryFromKey(key, categoryPrefix: source.categoryPrefix)
+
+            // Format display name
+            let displayName = formatDisplayName(key, categoryPrefix: source.categoryPrefix)
+
+            // Get icon for category (uses config icons if provided, otherwise defaults)
+            let icon = getIconForKey(key, category: category, sourceIcon: source.icon, categoryIcons: source.categoryIcons)
+
+            // Check if critical
+            let isCritical = source.criticalKeys?.contains(key) ?? false
+
+            // Check keyMappings for overrides
+            var finalDisplayName = displayName
+            var finalCategory = category
+            var finalIsCritical = isCritical
+            if let mapping = source.keyMappings?.first(where: { $0.key == key }) {
+                if let mappedName = mapping.displayName { finalDisplayName = mappedName }
+                if let mappedCategory = mapping.category { finalCategory = mappedCategory }
+                if let mappedCritical = mapping.isCritical { finalIsCritical = mappedCritical }
+            }
+
+            let item = InspectConfig.ItemConfig(
+                id: key,
+                displayName: finalDisplayName,
+                icon: icon,
+                paths: [source.path],
+                guiIndex: guiIndex,
+                category: finalCategory,
+                categoryIcon: nil,
+                plistKey: "\(key).\(findingKey)",
+                expectedValue: expectedValue,
+                evaluation: evaluation
+            )
+
+            items.append(item)
+            guiIndex += 1
+        }
+
+        return items
+    }
+
+    /// Get category from key prefix
+    private func getCategoryFromKey(_ key: String, categoryPrefix: [String: String]?) -> String {
+        if let prefixes = categoryPrefix {
+            for (prefix, category) in prefixes {
+                if key.hasPrefix(prefix) {
+                    return category
+                }
+            }
+        }
+
+        // Default categorization
+        if key.hasPrefix("audit_") { return "Audit Controls" }
+        if key.hasPrefix("auth_") { return "Authentication" }
+        if key.hasPrefix("icloud_") { return "iCloud Security" }
+        if key.hasPrefix("os_") { return "OS Security" }
+        if key.hasPrefix("pwpolicy_") { return "Password Policy" }
+        if key.hasPrefix("system_settings_") { return "System Settings" }
+        if key.hasPrefix("sysprefs_") { return "System Preferences" }
+
+        return "Other"
+    }
+
+    /// Format display name from key
+    private func formatDisplayName(_ key: String, categoryPrefix: [String: String]?) -> String {
+        var name = key
+
+        // Remove known prefixes
+        let prefixes = ["audit_", "auth_", "icloud_", "os_", "pwpolicy_", "system_settings_", "sysprefs_"]
+        for prefix in prefixes {
+            if name.hasPrefix(prefix) {
+                name = String(name.dropFirst(prefix.count))
+                break
+            }
+        }
+
+        // Replace underscores with spaces and title case
+        name = name.replacingOccurrences(of: "_", with: " ")
+            .capitalized
+            .replacingOccurrences(of: "Ssh", with: "SSH")
+            .replacingOccurrences(of: "Mdm", with: "MDM")
+            .replacingOccurrences(of: "Sip", with: "SIP")
+            .replacingOccurrences(of: "Airdrop", with: "AirDrop")
+            .replacingOccurrences(of: "Icloud", with: "iCloud")
+            .replacingOccurrences(of: "Httpd", with: "HTTP Server")
+            .replacingOccurrences(of: "Nfsd", with: "NFS Server")
+            .replacingOccurrences(of: "Smbd", with: "SMB Server")
+            .replacingOccurrences(of: "Tftpd", with: "TFTP Server")
+            .replacingOccurrences(of: "Usb", with: "USB")
+            .replacingOccurrences(of: "Wifi", with: "WiFi")
+
+        return name
+    }
+
+    /// Get icon for key/category - checks config-provided icons first, then falls back to defaults
+    private func getIconForKey(_ key: String, category: String, sourceIcon: String?, categoryIcons configIcons: [String: String]?) -> String {
+        // First check config-provided category icons
+        if let configIcons = configIcons, let icon = configIcons[category] {
+            return icon
+        }
+
+        // Fallback to default category-based icons
+        let defaultCategoryIcons: [String: String] = [
+            "OS Security": "sf=shield.fill,colour1=#007AFF",
+            "iCloud Security": "sf=icloud.fill,colour1=#007AFF",
+            "Authentication": "sf=person.badge.key.fill,colour1=#5856D6",
+            "Audit Controls": "sf=doc.text.magnifyingglass,colour1=#8E8E93",
+            "Password Policy": "sf=key.fill,colour1=#FF9500",
+            "System Settings": "sf=gearshape.fill,colour1=#8E8E93",
+            "System Preferences": "sf=gearshape.fill,colour1=#8E8E93"
+        ]
+
+        return defaultCategoryIcons[category] ?? sourceIcon ?? "sf=shield.fill,colour1=#007AFF"
     }
     
     /// TODO: better validate configuration and return warnings - 
