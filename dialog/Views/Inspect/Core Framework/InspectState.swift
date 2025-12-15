@@ -183,24 +183,12 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                 guard let self = self else { return }
                 
                 let loadedConfig = configResult.config
-                
+
                 // Set core configuration
                 self.config = loadedConfig
-                self.items = loadedConfig.items.sorted { $0.guiIndex < $1.guiIndex }
-                
-                // Set plist sources from config - required inpreset5
-                self.plistSources = loadedConfig.plistSources
-                
-                // Set color thresholds from config or use defaults
-                if let colorThresholds = loadedConfig.colorThresholds {
-                    self.colorThresholds = colorThresholds
-                    writeLog("InspectState: Using custom color thresholds - Excellent: \(colorThresholds.excellent), Good: \(colorThresholds.good), Warning: \(colorThresholds.warning)", logLevel: .info)
-                } else {
-                    self.colorThresholds = InspectConfig.ColorThresholds.default
-                    writeLog("InspectState: Using default color thresholds", logLevel: .info)
-                }
-                
-                // Use configuration service to extract grouped configurations
+
+                // PRIORITY: Set UI configuration FIRST before items
+                // This ensures button text, title, etc. are ready before view transitions from loading
                 print("InspectState: About to extract configurations")
                 print("InspectState: loadedConfig.banner = \(loadedConfig.banner ?? "nil")")
                 print("InspectState: loadedConfig.listIndicatorStyle = \(loadedConfig.listIndicatorStyle ?? "nil")")
@@ -212,6 +200,21 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                 print("InspectState: After extraction - uiConfiguration.stepStyle = \(self.uiConfiguration.stepStyle)")
                 self.backgroundConfiguration = self.configurationService.extractBackgroundConfiguration(from: loadedConfig)
                 self.buttonConfiguration = self.configurationService.extractButtonConfiguration(from: loadedConfig)
+
+                // Set plist sources from config - required in preset5
+                self.plistSources = loadedConfig.plistSources
+
+                // Set color thresholds from config or use defaults
+                if let colorThresholds = loadedConfig.colorThresholds {
+                    self.colorThresholds = colorThresholds
+                    writeLog("InspectState: Using custom color thresholds - Excellent: \(colorThresholds.excellent), Good: \(colorThresholds.good), Warning: \(colorThresholds.warning)", logLevel: .info)
+                } else {
+                    self.colorThresholds = InspectConfig.ColorThresholds.default
+                    writeLog("InspectState: Using default color thresholds", logLevel: .info)
+                }
+
+                // Set items LAST - this triggers view transition from loading to main content
+                self.items = loadedConfig.items.sorted { $0.guiIndex < $1.guiIndex }
                 
                 // Set side message rotation if multiple messages exist
                 if self.uiConfiguration.sideMessages.count > 1, let interval = loadedConfig.sideInterval {

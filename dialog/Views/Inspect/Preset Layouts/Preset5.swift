@@ -25,6 +25,12 @@ struct Preset5View: View, InspectLayoutProtocol {
     @State private var lastCheck: String = ""
     @State private var hasComputedData = false
 
+    // MARK: - Collapse/Expand All State
+    @State private var expandedCategories: Set<String> = []  // Track which categories are expanded
+
+    // MARK: - Search State
+    @State private var searchText: String = ""
+
     init(inspectState: InspectState) {
         self.inspectState = inspectState
     }
@@ -94,13 +100,22 @@ struct Preset5View: View, InspectLayoutProtocol {
     var body: some View {
         let scale: CGFloat = scaleFactor
 
-        Group {
-            // Show loading view while items are being loaded or data not computed
-            if inspectState.items.isEmpty || !hasComputedData {
-                loadingView(scale: scale)
-            } else {
-                mainContentView(scale: scale)
+        // Chrome-first rendering: header and footer always visible
+        VStack(spacing: 0) {
+            // HEADER SECTION - Always renders immediately
+            headerSection(scale: scale)
+
+            // CONTENT AREA - Shows loading OR category grid
+            ZStack {
+                if inspectState.items.isEmpty || !hasComputedData {
+                    loadingContentView(scale: scale)
+                } else {
+                    categoryContentView(scale: scale)
+                }
             }
+
+            // FOOTER SECTION - Always renders immediately
+            footerSection(scale: scale)
         }
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
@@ -151,76 +166,43 @@ struct Preset5View: View, InspectLayoutProtocol {
         )
     }
 
-    // Simple loading view shown while items are being loaded
+    // MARK: - Header Section (Always renders immediately)
     @ViewBuilder
-    private func loadingView(scale: CGFloat) -> some View {
-        VStack(spacing: 24 * scale) {
-            Spacer()
+    private func headerSection(scale: CGFloat) -> some View {
+        VStack(spacing: 20 * scale) {
+            // Icon and Title - Larger and more prominent
+            HStack(spacing: 20 * scale) {
+                IconView(
+                    image: iconCache.getMainIconPath(for: inspectState),
+                    overlay: iconCache.getOverlayIconPath(for: inspectState),
+                    defaultImage: "shield.checkered",
+                    defaultColour: "accent"
+                )
+                .frame(width: 64 * scale, height: 64 * scale)
+                .onAppear { iconCache.cacheMainIcon(for: inspectState) }
 
-            // Icon
-            IconView(
-                image: iconCache.getMainIconPath(for: inspectState),
-                overlay: iconCache.getOverlayIconPath(for: inspectState),
-                defaultImage: "shield.checkered",
-                defaultColour: "accent"
-            )
-            .frame(width: 80 * scale, height: 80 * scale)
+                VStack(alignment: .leading, spacing: 4 * scale) {
+                    Text(inspectState.uiConfiguration.windowTitle)
+                        .font(.system(size: 22 * scale, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
 
-            // Title
-            Text(inspectState.uiConfiguration.windowTitle)
-                .font(.system(size: 24 * scale, weight: .semibold))
-                .foregroundStyle(.primary)
-
-            // Simple loading indicator
-            ProgressView()
-                .scaleEffect(1.2)
-
-            Text("Loading configuration...")
-                .font(.system(size: 14 * scale))
-                .foregroundStyle(.secondary)
-
-            Spacer()
-        }
-    }
-
-    // Main content view (shown after loading)
-    @ViewBuilder
-    private func mainContentView(scale: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            // Header Section with Logo and Title
-            VStack(spacing: 20 * scale) {
-                // Icon and Title - Larger and more prominent
-                HStack(spacing: 20 * scale) {
-                    IconView(
-                        image: iconCache.getMainIconPath(for: inspectState),
-                        overlay: iconCache.getOverlayIconPath(for: inspectState),
-                        defaultImage: "shield.checkered",
-                        defaultColour: "accent"
-                    )
-                    .frame(width: 64 * scale, height: 64 * scale)
-                        .onAppear { iconCache.cacheMainIcon(for: inspectState) }
-                    
-                    VStack(alignment: .leading, spacing: 4 * scale) {
-                        Text(inspectState.uiConfiguration.windowTitle)
-                            .font(.system(size: 22 * scale, weight: .semibold))
-                            .foregroundStyle(.primary)
+                    if let message = inspectState.uiConfiguration.subtitleMessage, !message.isEmpty {
+                        Text(message)
+                            .font(.system(size: 14 * scale))
+                            .foregroundStyle(.secondary)
                             .lineLimit(2)
-                        
-                        if let message = inspectState.uiConfiguration.subtitleMessage, !message.isEmpty {
-                            Text(message)
-                                .font(.system(size: 14 * scale))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                        } else {
-                            Text("Last Check: \(lastCheck)")
-                                .font(.system(size: 12 * scale))
-                                .foregroundStyle(.secondary)
-                        }
+                    } else if hasComputedData {
+                        Text("Last Check: \(lastCheck)")
+                            .font(.system(size: 12 * scale))
+                            .foregroundStyle(.secondary)
                     }
-                    
-                    Spacer()
-                    
-                    // Status badge on the right
+                }
+
+                Spacer()
+
+                // Status badge on the right (shows loading or status)
+                if hasComputedData {
                     Text(getOverallStatusText())
                         .font(.system(size: 12 * scale, weight: .semibold))
                         .foregroundStyle(inspectState.colorThresholds.getColor(for: getLiveOverallScore()))
@@ -230,150 +212,310 @@ struct Preset5View: View, InspectLayoutProtocol {
                             Capsule()
                                 .fill(inspectState.colorThresholds.getColor(for: getLiveOverallScore()).opacity(0.15))
                         )
+                } else {
+                    Text("Loading...")
+                        .font(.system(size: 12 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16 * scale)
+                        .padding(.vertical, 8 * scale)
+                        .background(
+                            Capsule()
+                                .fill(Color.gray.opacity(0.15))
+                        )
                 }
-                .padding(.horizontal, 32 * scale)
-                .padding(.top, 24 * scale)
-                
-                // Progress Bar Section - Horizontal and informative
-                VStack(spacing: 12 * scale) {
-                    // Stats row
-                    HStack(spacing: 32 * scale) {
-                        // Passed
-                        HStack(spacing: 8 * scale) {
-                            Circle()
-                                .fill(inspectState.colorThresholds.getPositiveColor())
-                                .frame(width: 8 * scale, height: 8 * scale)
-                            Text("Passed")
-                                .font(.system(size: 11 * scale, weight: .medium))
-                                .foregroundStyle(.secondary)
-                            Text("\(getLivePassedCount())")
-                                .font(.system(size: 16 * scale, weight: .bold, design: .monospaced))
-                                .foregroundStyle(inspectState.colorThresholds.getPositiveColor())
-                        }
-                        
-                        Spacer()
-                        
-                        // Overall percentage
-                        Text("\(Int(getLiveOverallScore() * 100))%")
-                            .font(.system(size: 20 * scale, weight: .bold, design: .rounded))
-                            .foregroundStyle(.primary)
-                        
-                        Spacer()
-                        
-                        // Failed
-                        HStack(spacing: 8 * scale) {
-                            Text("\(getLiveFailedCount())")
-                                .font(.system(size: 16 * scale, weight: .bold, design: .monospaced))
-                                .foregroundStyle(inspectState.colorThresholds.getNegativeColor())
-                            Text("Failed")
-                                .font(.system(size: 11 * scale, weight: .medium))
-                                .foregroundStyle(.secondary)
-                            Circle()
-                                .fill(inspectState.colorThresholds.getNegativeColor())
-                                .frame(width: 8 * scale, height: 8 * scale)
-                        }
+            }
+            .padding(.horizontal, 32 * scale)
+            .padding(.top, 24 * scale)
+
+            // Progress Bar Section - Horizontal with badge-style stats
+            VStack(spacing: 12 * scale) {
+                // Stats badges row (Audit Hub style)
+                HStack(spacing: 12 * scale) {
+                    // All items badge
+                    StatBadge(
+                        value: getLiveTotalCount(),
+                        label: "All",
+                        color: .secondary,
+                        scale: scale
+                    )
+
+                    // Passed badge
+                    StatBadge(
+                        value: getLivePassedCount(),
+                        label: "Passed",
+                        color: inspectState.colorThresholds.getPositiveColor(),
+                        scale: scale
+                    )
+
+                    // Failed badge
+                    StatBadge(
+                        value: getLiveFailedCount(),
+                        label: "Failed",
+                        color: inspectState.colorThresholds.getNegativeColor(),
+                        scale: scale
+                    )
+
+                    Spacer()
+
+                    // Pass Rate percentage (large, on the right)
+                    HStack(spacing: 6 * scale) {
+                        Text("\(String(format: "%.1f", getLiveOverallScore() * 100))%")
+                            .font(.system(size: 24 * scale, weight: .bold, design: .rounded))
+                            .foregroundStyle(inspectState.colorThresholds.getColor(for: getLiveOverallScore()))
+
+                        Text("Pass Rate")
+                            .font(.system(size: 11 * scale, weight: .medium))
+                            .foregroundStyle(.secondary)
                     }
-                    
-                    // Progress bar
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            // Background bar
-                            RoundedRectangle(cornerRadius: 6 * scale)
-                                .fill(Color.gray.opacity(0.2))
-                                .frame(height: 12 * scale)
-                            
-                            // Progress bar
-                            RoundedRectangle(cornerRadius: 6 * scale)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            inspectState.colorThresholds.getColor(for: getLiveOverallScore()),
-                                            inspectState.colorThresholds.getColor(for: getLiveOverallScore()).opacity(0.8)
-                                        ],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
+                }
+
+                // Progress bar
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        // Background bar
+                        RoundedRectangle(cornerRadius: 6 * scale)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(height: 12 * scale)
+
+                        // Progress bar (shows validation progress during loading, score after)
+                        let progressValue: CGFloat = {
+                            if hasComputedData {
+                                return getLiveOverallScore()
+                            } else if !inspectState.items.isEmpty {
+                                return CGFloat(inspectState.plistValidationResults.count) / CGFloat(inspectState.items.count)
+                            }
+                            return 0
+                        }()
+
+                        RoundedRectangle(cornerRadius: 6 * scale)
+                            .fill(
+                                LinearGradient(
+                                    colors: hasComputedData ? [
+                                        inspectState.colorThresholds.getColor(for: getLiveOverallScore()),
+                                        inspectState.colorThresholds.getColor(for: getLiveOverallScore()).opacity(0.8)
+                                    ] : [Color.accentColor, Color.accentColor.opacity(0.8)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
                                 )
-                                .frame(width: max(0, geometry.size.width * getLiveOverallScore()), height: 12 * scale)
-                                .animation(.spring(response: 0.8, dampingFraction: 0.6), value: getLiveOverallScore())
-                        }
+                            )
+                            .frame(width: max(0, geometry.size.width * progressValue), height: 12 * scale)
+                            .animation(.spring(response: 0.8, dampingFraction: 0.6), value: progressValue)
                     }
-                    .frame(height: 12 * scale)
-                    
-                    // Total count
+                }
+                .frame(height: 12 * scale)
+
+                // Total count or loading status
+                if hasComputedData {
                     Text("Total: \(getLiveTotalCount()) items")
                         .font(.system(size: 10 * scale, weight: .medium))
                         .foregroundStyle(.secondary)
+                } else if !inspectState.items.isEmpty {
+                    Text("Validating \(inspectState.plistValidationResults.count) of \(inspectState.items.count) items...")
+                        .font(.system(size: 10 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Loading configuration...")
+                        .font(.system(size: 10 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
                 }
-                .padding(.horizontal, 32 * scale)
-                .padding(.bottom, 20 * scale)
             }
-            
+            .padding(.horizontal, 32 * scale)
+            .padding(.bottom, 20 * scale)
+        }
+    }
+
+    // MARK: - Loading Content View (shown in content area during loading)
+    @ViewBuilder
+    private func loadingContentView(scale: CGFloat) -> some View {
+        VStack(spacing: 16 * scale) {
             Spacer()
-            
+
+            if inspectState.items.isEmpty {
+                // Indeterminate spinner while loading config
+                ProgressView()
+                    .scaleEffect(1.5)
+                Text("Loading configuration...")
+                    .font(.system(size: 14 * scale))
+                    .foregroundStyle(.secondary)
+            } else {
+                // Show category placeholders during validation
+                Text("Preparing compliance data...")
+                    .font(.system(size: 14 * scale))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+    }
+
+    // MARK: - Filtered Categories (for search)
+    private var filteredCategories: [ComplianceCategory] {
+        guard !searchText.isEmpty else { return categories }
+        return categories.filter { category in
+            // Match category name
+            if category.name.localizedCaseInsensitiveContains(searchText) {
+                return true
+            }
+            // Match any item in category
+            return category.items.contains { item in
+                item.id.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+    }
+
+    // MARK: - Category Content View (category grid with expand/collapse)
+    @ViewBuilder
+    private func categoryContentView(scale: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            // Search bar and controls row
+            HStack(spacing: 16 * scale) {
+                // Search bar
+                HStack(spacing: 8 * scale) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 13 * scale))
+                        .foregroundStyle(.secondary)
+
+                    TextField("Search rules...", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13 * scale))
+
+                    if !searchText.isEmpty {
+                        Button(action: { searchText = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 13 * scale))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 12 * scale)
+                .padding(.vertical, 8 * scale)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8 * scale)
+
+                Spacer()
+
+                // Search results count (when filtering)
+                if !searchText.isEmpty {
+                    Text("\(filteredCategories.count) of \(categories.count) categories")
+                        .font(.system(size: 11 * scale))
+                        .foregroundStyle(.secondary)
+                }
+
+                // Expand/Collapse All Toggle
+                Button(action: {
+                    let targetCategories = filteredCategories
+                    let isAllExpanded = targetCategories.allSatisfy { expandedCategories.contains($0.name) }
+                    let categoryNames = targetCategories.map { $0.name }
+
+                    // Staggered animation for visual polish
+                    for (index, name) in categoryNames.enumerated() {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.03) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                if isAllExpanded {
+                                    expandedCategories.remove(name)
+                                } else {
+                                    expandedCategories.insert(name)
+                                }
+                            }
+                        }
+                    }
+                }) {
+                    HStack(spacing: 4 * scale) {
+                        let targetCategories = filteredCategories
+                        let isAllExpanded = targetCategories.allSatisfy { expandedCategories.contains($0.name) }
+                        Image(systemName: isAllExpanded ? "rectangle.compress.vertical" : "rectangle.expand.vertical")
+                            .font(.system(size: 12 * scale))
+                        Text(isAllExpanded ? "Collapse All" : "Expand All")
+                            .font(.system(size: 12 * scale, weight: .medium))
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 32 * scale)
+            .padding(.vertical, 12 * scale)
+
             // Category Breakdown Section - More spacious grid layout
             ScrollView {
                 LazyVGrid(columns: [
                     GridItem(.flexible(minimum: 340 * scale), spacing: 32 * scale),
                     GridItem(.flexible(minimum: 340 * scale), spacing: 32 * scale)
                 ], spacing: 32 * scale) {
-                    ForEach(categories, id: \.name) { category in
-                        CategoryCardView(category: category, scale: scale, colorThresholds: inspectState.colorThresholds, inspectState: inspectState)
+                    ForEach(filteredCategories, id: \.name) { category in
+                        CategoryCardView(
+                            category: category,
+                            scale: scale,
+                            colorThresholds: inspectState.colorThresholds,
+                            inspectState: inspectState,
+                            isExpanded: Binding(
+                                get: { expandedCategories.contains(category.name) },
+                                set: { newValue in
+                                    if newValue {
+                                        expandedCategories.insert(category.name)
+                                    } else {
+                                        expandedCategories.remove(category.name)
+                                    }
+                                }
+                            )
+                        )
                     }
                 }
                 .padding(.horizontal, 32 * scale)
                 .padding(.top, 20 * scale)
             }
+        }
+    }
+
+    // MARK: - Footer Section (Always renders immediately)
+    @ViewBuilder
+    private func footerSection(scale: CGFloat) -> some View {
+        HStack(spacing: 20 * scale) {
+            // Popup button for details
+            Button(inspectState.uiConfiguration.popupButtonText) {
+                showingAboutPopover.toggle()
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.blue)
+            .font(.body)
+            .disabled(!hasComputedData)  // Disable during loading
+            .popover(isPresented: $showingAboutPopover, arrowEdge: .top) {
+                ComplianceDetailsPopoverView(
+                    complianceData: categories,
+                    criticalIssues: criticalIssues,
+                    allFailingItems: allFailingItems,
+                    lastCheck: lastCheck,
+                    inspectState: inspectState
+                )
+            }
 
             Spacer()
 
-            // Bottom Action Area
-            HStack(spacing: 20 * scale) {
-                Button(inspectState.uiConfiguration.popupButtonText) {
-                    showingAboutPopover.toggle()
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.blue)
-                .font(.body)
-                .popover(isPresented: $showingAboutPopover, arrowEdge: .top) {
-                    ComplianceDetailsPopoverView(
-                        complianceData: categories,
-                        criticalIssues: criticalIssues,
-                        allFailingItems: allFailingItems,
-                        lastCheck: lastCheck,
-                        inspectState: inspectState
-                    )
-                }
-                
-                Spacer()
-                
-                // Action buttons
-                HStack(spacing: 16) {
-                    if inspectState.buttonConfiguration.button2Visible && !inspectState.buttonConfiguration.button2Text.isEmpty {
-                        Button(inspectState.buttonConfiguration.button2Text) {
-                            writeLog("Preset5View: User clicked button2 (\(inspectState.buttonConfiguration.button2Text)) - exiting with code 2", logLevel: .info)
-                            exit(2)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
-                        // Note: button2 is always enabled when visible
+            // Action buttons
+            HStack(spacing: 16) {
+                if inspectState.buttonConfiguration.button2Visible && !inspectState.buttonConfiguration.button2Text.isEmpty {
+                    Button(inspectState.buttonConfiguration.button2Text) {
+                        writeLog("Preset5View: User clicked button2 (\(inspectState.buttonConfiguration.button2Text)) - exiting with code 2", logLevel: .info)
+                        exit(2)
                     }
-                    
-                    let finalButtonText = inspectState.config?.finalButtonText ??
-                                         inspectState.buttonConfiguration.button1Text
-
-                    Button(finalButtonText) {
-                        handleFinalButtonPress(buttonText: finalButtonText)
-                    }
-                    .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bordered)
                     .controlSize(.large)
-                    .disabled(inspectState.buttonConfiguration.button1Disabled)
                 }
+
+                let finalButtonText = inspectState.config?.finalButtonText ??
+                                     inspectState.buttonConfiguration.button1Text
+
+                Button(finalButtonText) {
+                    handleFinalButtonPress(buttonText: finalButtonText)
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(inspectState.buttonConfiguration.button1Disabled)
             }
-            .padding(.horizontal, 32 * scale)
-            .padding(.bottom, 32 * scale)
         }
+        .padding(.horizontal, 32 * scale)
+        .padding(.vertical, 20 * scale)
     }
 
     // MARK: - Icon Resolution Methods
@@ -628,6 +770,28 @@ struct Preset5View: View, InspectLayoutProtocol {
 
 // MARK: - Supporting Views
 
+/// Badge-style stat display (like Audit Builder Hub)
+struct StatBadge: View {
+    let value: Int
+    let label: String
+    let color: Color
+    let scale: CGFloat
+
+    var body: some View {
+        HStack(spacing: 4 * scale) {
+            Text("\(value)")
+                .font(.system(size: 13 * scale, weight: .semibold, design: .rounded))
+            Text(label)
+                .font(.system(size: 11 * scale, weight: .medium))
+        }
+        .foregroundColor(color)
+        .padding(.horizontal, 10 * scale)
+        .padding(.vertical, 6 * scale)
+        .background(color.opacity(0.12))
+        .clipShape(Capsule())
+    }
+}
+
 struct CategoryRowView: View {
     let category: ComplianceCategory
     let scale: CGFloat
@@ -680,19 +844,37 @@ struct CategoryCardView: View {
     let scale: CGFloat
     let colorThresholds: InspectConfig.ColorThresholds
     @ObservedObject var inspectState: InspectState
+    @Binding var isExpanded: Bool  // Controlled by parent for expand/collapse all
     @State private var showingCategoryHelp = false
     @State private var animateProgress = false
-    
+
+    // Calculate category validation progress
+    private var categoryValidationProgress: Double {
+        let categoryItemIds = Set(category.items.map { $0.id })
+        let validatedCount = categoryItemIds.filter { inspectState.plistValidationResults[$0] != nil }.count
+        return categoryItemIds.isEmpty ? 1.0 : Double(validatedCount) / Double(categoryItemIds.count)
+    }
+
+    private var isCategoryFullyValidated: Bool {
+        categoryValidationProgress >= 1.0
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header with category title
+            // Header with category title - tappable to expand/collapse
             HStack {
                 HStack(spacing: 8 * scale) {
+                    // Chevron indicator
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 12 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 16 * scale)
+
                     Text(category.name)
                         .font(.system(size: 16 * scale, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
-                    
+
                     // Info button next to category name
                     Button(action: {
                         showingCategoryHelp = true
@@ -707,9 +889,14 @@ struct CategoryCardView: View {
                         CategoryHelpPopover(category: category, scale: scale, inspectState: inspectState)
                     }
                 }
-                
+
                 Spacer()
-                
+
+                // Compact progress indicator in header (always visible)
+                Text("\(category.passed)/\(category.total)")
+                    .font(.system(size: 12 * scale, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+
                 // Status badge
                 Text(getStatusText())
                     .font(.system(size: 10 * scale, weight: .medium))
@@ -723,89 +910,127 @@ struct CategoryCardView: View {
             }
             .padding(.horizontal, 20 * scale)
             .padding(.top, 20 * scale)
-            .padding(.bottom, 16 * scale)
-            
-            // Divider
-            Divider()
-                .padding(.horizontal, 20 * scale)
-            
-            // Main content area: Items list on left, Progress indicator on right
-            HStack(alignment: .top, spacing: 24 * scale) {
-                // Items list - takes up most space
-                ScrollView {
-                    LazyVStack(spacing: 4 * scale) {
-                        ForEach(getCategoryItems(), id: \.id) { item in
-                            ItemRowView(
-                                item: item, 
-                                scale: scale, 
-                                colorThresholds: colorThresholds, 
-                                inspectState: inspectState
-                            )
-                            
-                            if item.id != getCategoryItems().last?.id {
-                                Divider()
-                                    .padding(.horizontal, 16 * scale)
+            .padding(.bottom, isCategoryFullyValidated ? 16 * scale : 8 * scale)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    isExpanded.toggle()
+                }
+            }
+
+            // Per-card validation progress bar (shows during validation)
+            if !isCategoryFullyValidated {
+                VStack(spacing: 4 * scale) {
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            // Background track
+                            RoundedRectangle(cornerRadius: 2 * scale)
+                                .fill(Color.gray.opacity(0.15))
+                                .frame(height: 4 * scale)
+
+                            // Progress fill
+                            RoundedRectangle(cornerRadius: 2 * scale)
+                                .fill(Color.accentColor.opacity(0.7))
+                                .frame(width: geometry.size.width * categoryValidationProgress, height: 4 * scale)
+                                .animation(.easeInOut(duration: 0.3), value: categoryValidationProgress)
+                        }
+                    }
+                    .frame(height: 4 * scale)
+                    .padding(.horizontal, 20 * scale)
+
+                    // Validation status text
+                    let validatedCount = Int(categoryValidationProgress * Double(category.items.count))
+                    Text("Validating \(validatedCount)/\(category.items.count)...")
+                        .font(.system(size: 9 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.bottom, 12 * scale)
+            }
+
+            // Only show divider and content when expanded
+            if isExpanded {
+                // Divider
+                Divider()
+                    .padding(.horizontal, 20 * scale)
+
+                // Main content area: Items list on left, Progress indicator on right
+                HStack(alignment: .top, spacing: 24 * scale) {
+                    // Items list - takes up most space
+                    ScrollView {
+                        LazyVStack(spacing: 4 * scale) {
+                            ForEach(getCategoryItems(), id: \.id) { item in
+                                ItemRowView(
+                                    item: item,
+                                    scale: scale,
+                                    colorThresholds: colorThresholds,
+                                    inspectState: inspectState
+                                )
+
+                                if item.id != getCategoryItems().last?.id {
+                                    Divider()
+                                        .padding(.horizontal, 16 * scale)
+                                }
                             }
                         }
                     }
-                }
-                .frame(maxHeight: 220 * scale)
-                
-                // Right side: Circular progress and metrics - positioned lower
-                VStack(spacing: 12 * scale) {
-                    // Add spacing to push content lower
-                    Spacer()
-                        .frame(height: 20 * scale)
-                    
-                    // Circular progress indicator with percentage inside
-                    ZStack {
-                        Circle()
-                            .stroke(Color.gray.opacity(0.15), lineWidth: 4 * scale)
-                            .frame(width: 60 * scale, height: 60 * scale)
-                        
-                        Circle()
-                            .trim(from: 0, to: animateProgress ? category.score : 0)
-                            .stroke(
-                                colorThresholds.getColor(for: category.score),
-                                style: StrokeStyle(lineWidth: 4 * scale, lineCap: .round)
-                            )
-                            .frame(width: 60 * scale, height: 60 * scale)
-                            .rotationEffect(.degrees(-90))
-                            .animation(.spring(response: 0.8, dampingFraction: 0.6), value: animateProgress)
-                        
-                        // Percentage display inside the ring
-                        Text("\(Int(category.score * 100))%")
-                            .font(.system(size: 12 * scale, weight: .bold, design: .rounded))
-                            .foregroundStyle(.primary)
-                    }
-                    
-                    // Compact status summary
-                    VStack(spacing: 6 * scale) {
-                        HStack(spacing: 6 * scale) {
+                    .frame(maxHeight: 220 * scale)
+
+                    // Right side: Circular progress and metrics - positioned lower
+                    VStack(spacing: 12 * scale) {
+                        // Add spacing to push content lower
+                        Spacer()
+                            .frame(height: 20 * scale)
+
+                        // Circular progress indicator with percentage inside
+                        ZStack {
                             Circle()
-                                .fill(colorThresholds.getPositiveColor())
-                                .frame(width: 4 * scale, height: 4 * scale)
-                            Text("\(category.passed)")
-                                .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
-                                .foregroundStyle(colorThresholds.getPositiveColor())
-                        }
-                        
-                        HStack(spacing: 6 * scale) {
+                                .stroke(Color.gray.opacity(0.15), lineWidth: 4 * scale)
+                                .frame(width: 60 * scale, height: 60 * scale)
+
                             Circle()
-                                .fill(colorThresholds.getNegativeColor())
-                                .frame(width: 4 * scale, height: 4 * scale)
-                            Text("\(category.total - category.passed)")
-                                .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
-                                .foregroundStyle(colorThresholds.getNegativeColor())
+                                .trim(from: 0, to: animateProgress ? category.score : 0)
+                                .stroke(
+                                    colorThresholds.getColor(for: category.score),
+                                    style: StrokeStyle(lineWidth: 4 * scale, lineCap: .round)
+                                )
+                                .frame(width: 60 * scale, height: 60 * scale)
+                                .rotationEffect(.degrees(-90))
+                                .animation(.spring(response: 0.8, dampingFraction: 0.6), value: animateProgress)
+
+                            // Percentage display inside the ring
+                            Text("\(Int(category.score * 100))%")
+                                .font(.system(size: 12 * scale, weight: .bold, design: .rounded))
+                                .foregroundStyle(.primary)
                         }
+
+                        // Compact status summary
+                        VStack(spacing: 6 * scale) {
+                            HStack(spacing: 6 * scale) {
+                                Circle()
+                                    .fill(colorThresholds.getPositiveColor())
+                                    .frame(width: 4 * scale, height: 4 * scale)
+                                Text("\(category.passed)")
+                                    .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(colorThresholds.getPositiveColor())
+                            }
+
+                            HStack(spacing: 6 * scale) {
+                                Circle()
+                                    .fill(colorThresholds.getNegativeColor())
+                                    .frame(width: 4 * scale, height: 4 * scale)
+                                Text("\(category.total - category.passed)")
+                                    .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(colorThresholds.getNegativeColor())
+                            }
+                        }
+
+                        Spacer()
                     }
-                    
-                    Spacer()
+                    .frame(width: 80 * scale)
                 }
-                .frame(width: 80 * scale)
+                .padding(.horizontal, 20 * scale)
+                .padding(.bottom, 20 * scale)
             }
-            .padding(.horizontal, 20 * scale)
-            .padding(.bottom, 20 * scale)
         }
         .background(
             RoundedRectangle(cornerRadius: 16 * scale)
