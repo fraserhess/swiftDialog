@@ -228,11 +228,9 @@ enum ConfigurationError: Error, LocalizedError {
         // If we have a specific field name, search within the item block for it
         if let field = fieldName, itemStartLine >= 0 {
             let searchEnd = itemEndLine >= 0 ? itemEndLine : min(lines.count, itemStartLine + 20)
-            for i in itemStartLine...searchEnd {
-                if lines[i].contains("\"\(field)\"") {
-                    foundKeyLine = i
-                    break
-                }
+            for i in itemStartLine...searchEnd where lines[i].contains("\"\(field)\"") {
+                foundKeyLine = i
+                break
             }
         }
 

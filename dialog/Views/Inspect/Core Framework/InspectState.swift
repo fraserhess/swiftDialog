@@ -219,7 +219,7 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                 }
                 
                 // Debug logging for preset detection
-                if appvars.debugMode { print("DEBUG: loadedConfig.preset = \(loadedConfig.preset ?? "nil")") }
+                if appvars.debugMode { print("DEBUG: loadedConfig.preset = \(loadedConfig.preset)") }
                 if appvars.debugMode { print("DEBUG: Setting preset to: \(self.uiConfiguration.preset)") }
                 
                 writeLog("InspectState: Loaded \(loadedConfig.items.count) items from config", logLevel: .info)
