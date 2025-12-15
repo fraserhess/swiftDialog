@@ -305,7 +305,8 @@ class InspectStateCoordinator: ObservableObject {
     func validatePlistItem(_ item: InspectConfig.ItemConfig) -> Bool {
         let request = ValidationRequest(
             item: item,
-            plistSources: plistSources
+            plistSources: plistSources,
+            basePath: uiConfiguration.iconBasePath
         )
 
         let result = Validation.shared.validateItem(request)
@@ -337,8 +338,9 @@ class InspectStateCoordinator: ObservableObject {
         guard let plistKey = item.plistKey else { return nil }
 
         // Use validation service to get the actual plist value
+        // Pass iconBasePath for relative path resolution
         for path in item.paths {
-            if let value = Validation.shared.getPlistValue(at: path, key: plistKey) {
+            if let value = Validation.shared.getPlistValue(at: path, key: plistKey, basePath: uiConfiguration.iconBasePath) {
                 return value
             }
         }

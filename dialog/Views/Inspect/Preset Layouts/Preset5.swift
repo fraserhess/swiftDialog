@@ -15,21 +15,177 @@ struct Preset5View: View, InspectLayoutProtocol {
     @State private var showDetailOverlay = false
     @State private var showItemDetailOverlay = false
     @State private var selectedItemForDetail: InspectConfig.ItemConfig?
-    @State private var complianceData: [ComplianceCategory] = []
-    @State private var lastCheck: String = ""
+    @StateObject private var iconCache = PresetIconCache()
+
+    // MARK: - Local State for Compliance Data (prevents re-render loops)
+    @State private var categories: [ComplianceCategory] = []
     @State private var overallScore: Double = 0.0
     @State private var criticalIssues: [ComplianceItem] = []
     @State private var allFailingItems: [ComplianceItem] = []
-    @StateObject private var iconCache = PresetIconCache()
+    @State private var lastCheck: String = ""
+    @State private var hasComputedData = false
 
     init(inspectState: InspectState) {
         self.inspectState = inspectState
     }
 
+    // MARK: - Data Computation (called once via onChange)
+
+    /// Computes all compliance data from items - called only when items change
+    private func computeComplianceData() {
+        guard !inspectState.items.isEmpty else { return }
+
+        writeLog("Preset5: Computing compliance data for \(inspectState.items.count) items", logLevel: .debug)
+
+        // Transform items to ComplianceItem array
+        let complianceItems: [ComplianceItem] = inspectState.items.compactMap { item in
+            let isValid = getValidationResult(for: item)
+            let isInProgress = inspectState.downloadingItems.contains(item.id)
+
+            return ComplianceItem(
+                id: item.id,
+                category: getItemCategory(item),
+                finding: isValid,
+                isCritical: getItemCriticality(item),
+                isInProgress: isInProgress
+            )
+        }
+
+        // Update all state at once
+        categories = categorizeItems(complianceItems)
+        overallScore = calculateOverallScore(complianceItems)
+        criticalIssues = complianceItems.filter { !$0.finding && $0.isCritical }
+        allFailingItems = complianceItems.filter { !$0.finding }
+        lastCheck = getCurrentTimestamp()
+        hasComputedData = true
+
+        writeLog("Preset5: Computed \(categories.count) categories, score: \(String(format: "%.0f", overallScore * 100))%", logLevel: .debug)
+    }
+
+    /// Gets validation result from cache or computes it (no state mutation)
+    private func getValidationResult(for item: InspectConfig.ItemConfig) -> Bool {
+        // First check cached validation results from InspectState
+        if let cachedResult = inspectState.plistValidationResults[item.id] {
+            return cachedResult
+        }
+
+        // For plist validation, use Validation service directly
+        if item.plistKey != nil {
+            let basePath = inspectState.uiConfiguration.iconBasePath
+            let request = ValidationRequest(
+                item: item,
+                plistSources: inspectState.plistSources,
+                basePath: basePath
+            )
+            let result = Validation.shared.validateItem(request)
+            return result.isValid
+        }
+
+        // For file existence check
+        let basePath = inspectState.uiConfiguration.iconBasePath
+        let fileExists = item.paths.first(where: { path in
+            let resolvedPath = Validation.shared.resolvePlistPath(path, basePath: basePath)
+            return FileManager.default.fileExists(atPath: resolvedPath)
+        }) != nil
+
+        return fileExists || inspectState.completedItems.contains(item.id)
+    }
 
     var body: some View {
         let scale: CGFloat = scaleFactor
-        
+
+        Group {
+            // Show loading view while items are being loaded or data not computed
+            if inspectState.items.isEmpty || !hasComputedData {
+                loadingView(scale: scale)
+            } else {
+                mainContentView(scale: scale)
+            }
+        }
+        .background(Color(NSColor.windowBackgroundColor))
+        .onAppear {
+            iconCache.cacheMainIcon(for: inspectState)
+            // Compute data if items are already loaded
+            if !inspectState.items.isEmpty && !hasComputedData {
+                computeComplianceData()
+            }
+        }
+        .onChange(of: inspectState.items.count) { _, newCount in
+            // Compute data when items are loaded
+            if newCount > 0 && !hasComputedData {
+                computeComplianceData()
+            }
+        }
+        .onChange(of: inspectState.plistValidationResults.count) { _, _ in
+            // Recompute when all validations are complete (results cached)
+            if !inspectState.items.isEmpty && inspectState.plistValidationResults.count == inspectState.items.count {
+                computeComplianceData()
+            }
+        }
+        .overlay {
+            // Help button (positioned according to config)
+            // Supports action types: overlay (default), url, custom
+            if let helpButtonConfig = inspectState.config?.helpButton,
+               helpButtonConfig.enabled ?? true {
+                PositionedHelpButton(
+                    config: helpButtonConfig,
+                    action: {
+                        handleHelpButtonAction(
+                            config: helpButtonConfig,
+                            showOverlay: $showDetailOverlay
+                        )
+                    },
+                    padding: 16
+                )
+            }
+        }
+        .detailOverlay(
+            inspectState: inspectState,
+            isPresented: $showDetailOverlay,
+            config: inspectState.config?.detailOverlay
+        )
+        .itemDetailOverlay(
+            inspectState: inspectState,
+            isPresented: $showItemDetailOverlay,
+            item: selectedItemForDetail
+        )
+    }
+
+    // Simple loading view shown while items are being loaded
+    @ViewBuilder
+    private func loadingView(scale: CGFloat) -> some View {
+        VStack(spacing: 24 * scale) {
+            Spacer()
+
+            // Icon
+            IconView(
+                image: iconCache.getMainIconPath(for: inspectState),
+                overlay: iconCache.getOverlayIconPath(for: inspectState),
+                defaultImage: "shield.checkered",
+                defaultColour: "accent"
+            )
+            .frame(width: 80 * scale, height: 80 * scale)
+
+            // Title
+            Text(inspectState.uiConfiguration.windowTitle)
+                .font(.system(size: 24 * scale, weight: .semibold))
+                .foregroundStyle(.primary)
+
+            // Simple loading indicator
+            ProgressView()
+                .scaleEffect(1.2)
+
+            Text("Loading configuration...")
+                .font(.system(size: 14 * scale))
+                .foregroundStyle(.secondary)
+
+            Spacer()
+        }
+    }
+
+    // Main content view (shown after loading)
+    @ViewBuilder
+    private func mainContentView(scale: CGFloat) -> some View {
         VStack(spacing: 0) {
             // Header Section with Logo and Title
             VStack(spacing: 20 * scale) {
@@ -161,16 +317,16 @@ struct Preset5View: View, InspectLayoutProtocol {
                     GridItem(.flexible(minimum: 340 * scale), spacing: 32 * scale),
                     GridItem(.flexible(minimum: 340 * scale), spacing: 32 * scale)
                 ], spacing: 32 * scale) {
-                    ForEach(complianceData, id: \.name) { category in
+                    ForEach(categories, id: \.name) { category in
                         CategoryCardView(category: category, scale: scale, colorThresholds: inspectState.colorThresholds, inspectState: inspectState)
                     }
                 }
                 .padding(.horizontal, 32 * scale)
                 .padding(.top, 20 * scale)
             }
-            
+
             Spacer()
-            
+
             // Bottom Action Area
             HStack(spacing: 20 * scale) {
                 Button(inspectState.uiConfiguration.popupButtonText) {
@@ -181,7 +337,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                 .font(.body)
                 .popover(isPresented: $showingAboutPopover, arrowEdge: .top) {
                     ComplianceDetailsPopoverView(
-                        complianceData: complianceData,
+                        complianceData: categories,
                         criticalIssues: criticalIssues,
                         allFailingItems: allFailingItems,
                         lastCheck: lastCheck,
@@ -218,47 +374,6 @@ struct Preset5View: View, InspectLayoutProtocol {
             .padding(.horizontal, 32 * scale)
             .padding(.bottom, 32 * scale)
         }
-        .background(Color(NSColor.windowBackgroundColor))
-        .onAppear {
-            loadComplianceData()
-            iconCache.cacheMainIcon(for: inspectState)
-        }
-        .onChange(of: inspectState.items.count) { _, _ in
-            loadComplianceData()
-        }
-        .onChange(of: inspectState.completedItems) { _, _ in
-            loadComplianceData()
-        }
-        .onChange(of: inspectState.downloadingItems) { _, _ in
-            loadComplianceData()
-        }
-        .overlay {
-            // Help button (positioned according to config)
-            // Supports action types: overlay (default), url, custom
-            if let helpButtonConfig = inspectState.config?.helpButton,
-               helpButtonConfig.enabled ?? true {
-                PositionedHelpButton(
-                    config: helpButtonConfig,
-                    action: {
-                        handleHelpButtonAction(
-                            config: helpButtonConfig,
-                            showOverlay: $showDetailOverlay
-                        )
-                    },
-                    padding: 16
-                )
-            }
-        }
-        .detailOverlay(
-            inspectState: inspectState,
-            isPresented: $showDetailOverlay,
-            config: inspectState.config?.detailOverlay
-        )
-        .itemDetailOverlay(
-            inspectState: inspectState,
-            isPresented: $showItemDetailOverlay,
-            item: selectedItemForDetail
-        )
     }
 
     // MARK: - Icon Resolution Methods
@@ -266,193 +381,7 @@ struct Preset5View: View, InspectLayoutProtocol {
     // Icon caching now handled by PresetIconCache
 
     // MARK: - Private Methods
-    
-    private func loadComplianceData() {
-        // Check if we have complex plist sources (for mSCP audit) OR simple item validation
-        let hasComplexPlist = inspectState.plistSources != nil
-        let hasSimpleValidation = inspectState.items.contains { $0.plistKey != nil }
-        let hasRegularItems = !inspectState.items.isEmpty
-        
-        guard hasComplexPlist || hasSimpleValidation || hasRegularItems else {
-            writeLog("Preset5View: No configuration found", logLevel: .info)
-            return
-        }
-        
-        // Handle complex plist sources (existing mSCP audit functionality)
-        if let plistSources = inspectState.plistSources {
-            loadComplexPlistData(from: plistSources)
-            return
-        }
-        
-        // Handle simple validation (plist + file existence checks)
-        if hasSimpleValidation || hasRegularItems {
-            loadSimpleItemValidation()
-        }
-    }
-    
-    private func loadComplexPlistData(from plistSources: [InspectConfig.PlistSourceConfig]) {
-        
-        // Memory-safe loading with autorelease pool
-        autoreleasepool {
-            var allItems: [ComplianceItem] = []
-            var latestCheck = ""
-            
-            // Limit concurrent processing to prevent memory spikes
-            let maxSources = 10
-            let sourcesToProcess = Array(plistSources.prefix(maxSources))
-            
-            if plistSources.count > maxSources {
-                writeLog("Preset5View: Limiting plist processing to \(maxSources) sources", logLevel: .info)
-            }
-            
-            for source in sourcesToProcess {
-                autoreleasepool {
-                    if let result = loadPlistSource(source: source) {
-                        allItems.append(contentsOf: result.items)
-                        if result.lastCheck > latestCheck {
-                            latestCheck = result.lastCheck
-                        }
-                    }
-                }
-            }
-            
-            // Process data with memory cleanup
-            let processedData = autoreleasepool { () -> ([ComplianceCategory], [ComplianceItem], [ComplianceItem]) in
-                let categories = categorizeItems(allItems)
-                let critical = allItems.filter { !$0.finding && $0.isCritical }
-                let allFailing = allItems.filter { !$0.finding }
-                return (categories, critical, allFailing)
-            }
-            
-            // Update UI state
-            complianceData = processedData.0
-            lastCheck = latestCheck.isEmpty ? getCurrentTimestamp() : latestCheck
-            overallScore = calculateOverallScore(allItems)
-            criticalIssues = processedData.1
-            allFailingItems = processedData.2
-            
-            writeLog("Preset5View: Loaded \(allItems.count) items from \(sourcesToProcess.count) plist sources", logLevel: .info)
-        }
-    }
-    
-    private func loadPlistSource(source: InspectConfig.PlistSourceConfig) -> (items: [ComplianceItem], lastCheck: String)? {
-        // Memory safety: Check file size first to avoid loading huge plists
-        let _ = URL(fileURLWithPath: source.path)
-        guard let fileAttributes = try? FileManager.default.attributesOfItem(atPath: source.path),
-              let fileSize = fileAttributes[.size] as? Int64 else {
-            writeLog("Preset5View: Unable to get file attributes for \(source.path)", logLevel: .error)
-            return nil
-        }
-        
-        // Prevent loading files larger than 10MB
-        let maxFileSize: Int64 = 10 * 1024 * 1024 // 10MB
-        if fileSize > maxFileSize {
-            writeLog("Preset5View: Plist file too large (\(fileSize) bytes) at \(source.path)", logLevel: .error)
-            return nil
-        }
-        
-        // Use autorelease pool for memory management
-        return autoreleasepool { () -> (items: [ComplianceItem], lastCheck: String)? in
-            guard let fileData = FileManager.default.contents(atPath: source.path) else {
-                writeLog("Preset5View: Unable to read plist at \(source.path)", logLevel: .error)
-                return nil
-            }
-            
-            do {
-                // Use PropertyListSerialization with explicit cleanup
-                let plistObject = try PropertyListSerialization.propertyList(from: fileData, format: nil)
-                
-                guard let plistContents = plistObject as? [String: Any] else {
-                    writeLog("Preset5View: Invalid plist format at \(source.path)", logLevel: .error)
-                    return nil
-                }
-                
-                var items: [ComplianceItem] = []
-                let lastCheck = plistContents["lastComplianceCheck"] as? String ?? 
-                               plistContents["LastUpdateCheck"] as? String ?? 
-                               getCurrentTimestamp()
-                
-                // Process items with memory-conscious approach
-                let maxItems = 1000 // Prevent processing too many items
-                var processedCount = 0
-                
-                for (key, value) in plistContents {
-                    if processedCount >= maxItems {
-                        writeLog("Preset5View: Limiting plist processing to \(maxItems) items for \(source.path)", logLevel: .info)
-                        break
-                    }
-                    
-                    if shouldProcessKey(key, source: source) {
-                        if let finding = evaluateValue(value, source: source) {
-                            let item = ComplianceItem(
-                                id: String(key), // Ensure string copy, not reference
-                                category: getCategoryForKey(key, source: source),
-                                finding: finding,
-                                isCritical: isCriticalKey(key, source: source),
-                                isInProgress: false  // Plist validation items don't have in-progress state
-                            )
-                            items.append(item)
-                            processedCount += 1
-                        }
-                    }
-                }
-                
-                writeLog("Preset5View: Successfully processed \(items.count) items from \(source.path) (\(fileSize) bytes)", logLevel: .info)
-                return (items, lastCheck)
-                
-            } catch {
-                writeLog("Preset5View: Error parsing plist at \(source.path): \(error)", logLevel: .error)
-                return nil
-            }
-        }
-    }
-    
-    private func shouldProcessKey(_ key: String, source: InspectConfig.PlistSourceConfig) -> Bool {
-        // Skip timestamp and metadata keys
-        let skipKeys = ["lastComplianceCheck", "LastUpdateCheck", "CFBundleVersion", "_"]
-        if skipKeys.contains(key) || key.hasPrefix("_") { return false }
-        
-        // If key mappings exist, only process mapped keys
-        if let keyMappings = source.keyMappings {
-            return keyMappings.contains { $0.key == key }
-        }
-        
-        // For compliance type, process all non-metadata keys
-        if source.type == "compliance" {
-            return true
-        }
-        
-        // For other types, be more selective
-        return true
-    }
-    
-    private func evaluateValue(_ value: Any, source: InspectConfig.PlistSourceConfig) -> Bool? {
-        let successValues = source.successValues ?? ["true", "1", "YES"]
-        
-        if let boolValue = value as? Bool {
-            // Check if the boolean value (as string) is in successValues
-            return successValues.contains(String(boolValue))
-        }
-        
-        if let stringValue = value as? String {
-            return successValues.contains(stringValue)
-        }
-        
-        if let numberValue = value as? NSNumber {
-            return successValues.contains(numberValue.stringValue)
-        }
-        
-        if let dictValue = value as? [String: Any] {
-            // For compliance plists with nested structure
-            if let finding = dictValue["finding"] as? Bool {
-                // Check if the boolean finding value is in successValues
-                return successValues.contains(String(finding))
-            }
-        }
-        
-        return nil
-    }
-    
+
     private func getCategoryForKey(_ key: String, source: InspectConfig.PlistSourceConfig) -> String {
         // Check key mappings first
         if let keyMappings = source.keyMappings {
@@ -489,69 +418,26 @@ struct Preset5View: View, InspectLayoutProtocol {
         
         return false
     }
-    
-    // NEW: Simple item validation for non-audit use cases
-    private func loadSimpleItemValidation() {
-        var items: [ComplianceItem] = []
 
-        for item in inspectState.items {
-            let isValid: Bool
-            let isInProgress: Bool
-
-            // Check if item is currently downloading/installing
-            isInProgress = inspectState.downloadingItems.contains(item.id)
-
-            // Check if this item needs plist validation
-            if item.plistKey != nil {
-                // Use plist validation
-                isValid = inspectState.validatePlistItem(item)
-            } else {
-                // Simple file existence check
-                isValid = item.paths.first(where: { FileManager.default.fileExists(atPath: $0) }) != nil ||
-                         inspectState.completedItems.contains(item.id)
-            }
-
-            // Create ComplianceItem from validation result
-            // Use intelligent categorization with multiple fallback options
-            let category: String
-            let isCritical: Bool
-
-            // Priority 1: Direct category specification
-            if let itemCategory = item.category {
-                category = itemCategory
-                isCritical = false // Can be enhanced later
-            }
-            // Priority 2: plistSources configuration
-            else if let plistKey = item.plistKey,
-                    let firstSource = inspectState.plistSources?.first {
-                category = getCategoryForKey(plistKey, source: firstSource)
-                isCritical = isCriticalKey(plistKey, source: firstSource)
-            }
-            // Priority 3: Fallback for non-plist items
-            else {
-                category = "Applications"
-                isCritical = false
-            }
-
-            let complianceItem = ComplianceItem(
-                id: item.id,
-                category: category,
-                finding: isValid,
-                isCritical: isCritical,
-                isInProgress: isInProgress
-            )
-
-            items.append(complianceItem)
+    // Helper to get category for an item
+    private func getItemCategory(_ item: InspectConfig.ItemConfig) -> String {
+        if let itemCategory = item.category {
+            return itemCategory
+        } else if let plistKey = item.plistKey,
+                  let firstSource = inspectState.plistSources?.first {
+            return getCategoryForKey(plistKey, source: firstSource)
+        } else {
+            return "Applications"
         }
-        
-        // Update UI state with validation results
-        complianceData = categorizeItems(items)
-        lastCheck = getCurrentTimestamp()
-        overallScore = calculateOverallScore(items)
-        criticalIssues = items.filter { !$0.finding && $0.isCritical }
-        allFailingItems = items.filter { !$0.finding }
-        
-        writeLog("Preset5View: Loaded \(items.count) items from validation (plist + file checks)", logLevel: .info)
+    }
+
+    // Helper to get criticality for an item
+    private func getItemCriticality(_ item: InspectConfig.ItemConfig) -> Bool {
+        if let plistKey = item.plistKey,
+           let firstSource = inspectState.plistSources?.first {
+            return isCriticalKey(plistKey, source: firstSource)
+        }
+        return false
     }
     
     private func getCurrentTimestamp() -> String {
@@ -562,18 +448,19 @@ struct Preset5View: View, InspectLayoutProtocol {
     
     private func categorizeItems(_ items: [ComplianceItem]) -> [ComplianceCategory] {
         let grouped = Dictionary(grouping: items) { $0.category }
-        
-        return grouped.map { category, items in
-            let passed = items.filter { $0.finding }.count
-            let total = items.count
+
+        return grouped.map { category, categoryItems in
+            let passed = categoryItems.filter { $0.finding }.count
+            let total = categoryItems.count
             let score = total > 0 ? Double(passed) / Double(total) : 0.0
-            
+
             return ComplianceCategory(
                 name: category,
                 passed: passed,
                 total: total,
                 score: score,
-                icon: getCategoryIcon(category)
+                icon: getCategoryIcon(category),
+                items: categoryItems  // Include items to avoid re-validation in child views
             )
         }.sorted { $0.name < $1.name }
     }
@@ -637,35 +524,25 @@ struct Preset5View: View, InspectLayoutProtocol {
     }
     
     private func getTotalChecks() -> Int {
-        return complianceData.reduce(0) { $0 + $1.total }
+        return categories.reduce(0) { $0 + $1.total }
     }
-    
+
     private func getPassedCount() -> Int {
-        return complianceData.reduce(0) { $0 + $1.passed }
+        return categories.reduce(0) { $0 + $1.passed }
     }
     
     private func getFailedCount() -> Int {
         return getTotalChecks() - getPassedCount()
     }
 
-    // Live calculation methods for real-time updates
+    // Live calculation methods using cached state (no state mutation to avoid re-render loops)
     private func getLivePassedCount() -> Int {
-        var passed = 0
-        for item in inspectState.items {
-            let isValid: Bool
-            if item.plistKey != nil {
-                isValid = inspectState.validatePlistItem(item)
-            } else {
-                isValid = item.paths.first(where: { FileManager.default.fileExists(atPath: $0) }) != nil ||
-                         inspectState.completedItems.contains(item.id)
-            }
-            if isValid { passed += 1 }
-        }
-        return passed
+        // Use categories state which is computed once and cached
+        return categories.reduce(0) { $0 + $1.passed }
     }
 
     private func getLiveTotalCount() -> Int {
-        return inspectState.items.count
+        return categories.reduce(0) { $0 + $1.total }
     }
 
     private func getLiveFailedCount() -> Int {
@@ -673,13 +550,12 @@ struct Preset5View: View, InspectLayoutProtocol {
     }
 
     private func getLiveOverallScore() -> Double {
-        let total = getLiveTotalCount()
-        guard total > 0 else { return 0.0 }
-        return Double(getLivePassedCount()) / Double(total)
+        // Use cached overallScore from state
+        return overallScore
     }
 
     private func getOverallStatusText() -> String {
-        let score = getLiveOverallScore()
+        let score = overallScore
         if score >= 0.95 {
             return "Excellent Compliance"
         } else if score >= 0.8 {
@@ -968,38 +844,19 @@ struct CategoryCardView: View {
     }
     
     private func getCategoryItems() -> [CategoryItemData] {
-        // Get items that belong to this category
-        let categoryItems = inspectState.items.filter { item in
-            let itemCategory: String
-            if let category = item.category {
-                itemCategory = category
-            } else if let plistKey = item.plistKey,
-                      let firstSource = inspectState.plistSources?.first {
-                itemCategory = getCategoryForKey(plistKey, source: firstSource, inspectState: inspectState)
-            } else {
-                itemCategory = "Applications"
-            }
-            return itemCategory == category.name
-        }
-        
-        // Convert to CategoryItemData
-        return categoryItems.map { item in
-            let isValid: Bool
-            if item.plistKey != nil {
-                isValid = inspectState.validatePlistItem(item)
-            } else {
-                isValid = item.paths.first(where: { FileManager.default.fileExists(atPath: $0) }) != nil ||
-                         inspectState.completedItems.contains(item.id)
-            }
-
-            let isInProgress = inspectState.downloadingItems.contains(item.id)
+        // Use pre-computed items from category (already validated, no re-render loops)
+        return category.items.map { complianceItem in
+            // Look up displayName from inspectState.items
+            let displayName = inspectState.items
+                .first(where: { $0.id == complianceItem.id })?
+                .displayName ?? complianceItem.id
 
             return CategoryItemData(
-                id: item.id,
-                displayName: item.displayName,
-                isValid: isValid,
-                isCritical: false, // Can be enhanced later
-                isInProgress: isInProgress
+                id: complianceItem.id,
+                displayName: displayName,
+                isValid: complianceItem.finding,
+                isCritical: complianceItem.isCritical,
+                isInProgress: complianceItem.isInProgress
             )
         }.sorted { $0.displayName < $1.displayName }
     }
@@ -1199,7 +1056,7 @@ struct ComplianceDetailsPopoverView: View {
                                         if let actualValue = inspectState.getPlistValueForDisplay(item: item) {
                                             Text(actualValue)
                                                 .font(.system(.caption, design: .monospaced))
-                                                .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: inspectState.validatePlistItem(item)))
+                                                .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: inspectState.plistValidationResults[item.id] ?? false))
                                                 .textSelection(.enabled)
                                         } else {
                                             Text("Key not found")
@@ -1411,12 +1268,29 @@ struct ComplianceDetailsPopoverView: View {
         .frame(maxWidth: 500, maxHeight: 400)
     }
     
-    // Helper function to validate items
+    // Helper function to validate items (uses cache to avoid re-render loops)
     private func isItemValid(_ item: InspectConfig.ItemConfig) -> Bool {
+        // First check cached results
+        if let cachedResult = inspectState.plistValidationResults[item.id] {
+            return cachedResult
+        }
+
         if item.plistKey != nil {
-            return inspectState.validatePlistItem(item)
+            // Use Validation service directly (no state mutation)
+            let basePath = inspectState.uiConfiguration.iconBasePath
+            let request = ValidationRequest(
+                item: item,
+                plistSources: inspectState.plistSources,
+                basePath: basePath
+            )
+            let result = Validation.shared.validateItem(request)
+            return result.isValid
         } else {
-            return item.paths.first(where: { FileManager.default.fileExists(atPath: $0) }) != nil
+            let basePath = inspectState.uiConfiguration.iconBasePath
+            return item.paths.first(where: { path in
+                let resolvedPath = Validation.shared.resolvePlistPath(path, basePath: basePath)
+                return FileManager.default.fileExists(atPath: resolvedPath)
+            }) != nil
         }
     }
     
@@ -1514,6 +1388,7 @@ struct ComplianceCategory {
     let total: Int
     let score: Double
     let icon: String
+    let items: [ComplianceItem]  // Include items to avoid re-validation
 }
 
 // MARK: - Category Help Popover

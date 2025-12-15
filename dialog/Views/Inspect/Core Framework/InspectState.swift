@@ -992,13 +992,16 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
         writeLog("InspectState: validatePlistItem called for '\(item.id)' (\(item.displayName))", logLevel: .info)
         writeLog("InspectState: Item details - plistKey: '\(item.plistKey ?? "nil")', expectedValue: '\(item.expectedValue ?? "nil")', evaluation: '\(item.evaluation ?? "nil")'", logLevel: .info)
         writeLog("InspectState: Item paths: \(item.paths)", logLevel: .info)
-        
+        writeLog("InspectState: iconBasePath for relative path resolution: \(uiConfiguration.iconBasePath ?? "nil")", logLevel: .info)
+
         // Use validation service for all validation logic
+        // Pass iconBasePath to allow resolution of relative paths in item.paths
         let request = ValidationRequest(
             item: item,
-            plistSources: plistSources
+            plistSources: plistSources,
+            basePath: uiConfiguration.iconBasePath
         )
-        
+
         let result = Validation.shared.validateItem(request)
         
         // Cache the result for UI consistency
@@ -1057,8 +1060,9 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
         guard let plistKey = item.plistKey else { return nil }
 
         // Use validation service to get the actual plist value
+        // Pass iconBasePath for relative path resolution
         for path in item.paths {
-            if let value = Validation.shared.getPlistValue(at: path, key: plistKey) {
+            if let value = Validation.shared.getPlistValue(at: path, key: plistKey, basePath: uiConfiguration.iconBasePath) {
                 return value
             }
         }
