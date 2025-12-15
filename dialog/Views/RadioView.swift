@@ -56,6 +56,7 @@ struct RadioView: View {
                                     .frame(alignment: .leading)
                                 Spacer()
                             }
+                            .padding(.bottom, 8)
                             HStack {
                                 Picker("", selection: $selectedOption[index]) {
                                     ForEach(userInputState.dropdownItems[index].values, id: \.self) {
