@@ -170,7 +170,7 @@ struct HelpButton: View {
                     alignment: alignment,
                     helpImagePath: helpImagePath,
                     helpSheetButtonText: helpSheetButtonText,
-                    showHelpSheet: $showHelpSheet
+                    showHelp: $showHelpSheet
                 )
                 .background(WindowAccessor { window in
                     window?.canBecomeVisibleWithoutLogin = true
