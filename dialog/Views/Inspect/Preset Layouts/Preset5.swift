@@ -25,6 +25,7 @@ struct Preset5View: View, InspectLayoutProtocol {
     @State private var lastCheck: String = ""
     @State private var hasCategories = false  // True once categories are built (doesn't wait for validation)
     @State private var lastValidationCount = 0  // Track validation progress for incremental updates
+    @State private var categoryIconCache: [String: String] = [:]  // PERF: Cache category icons to avoid O(n) lookup per category
 
     // MARK: - Collapse/Expand All State
     @State private var expandedCategories: Set<String> = []  // Track which categories are expanded
@@ -82,6 +83,14 @@ struct Preset5View: View, InspectLayoutProtocol {
                 isCritical: getItemCriticality(item),
                 isInProgress: !hasValidationResult
             )
+        }
+
+        // PERF: Build icon cache once (avoids O(n) lookup per category - 7 categories × 113 items = 791 iterations)
+        if categoryIconCache.isEmpty {
+            let uniqueCategories = Set(complianceItems.map { $0.category })
+            for category in uniqueCategories {
+                categoryIconCache[category] = computeCategoryIconUncached(category)
+            }
         }
 
         // Update state
@@ -686,7 +695,13 @@ struct Preset5View: View, InspectLayoutProtocol {
         return "Other"
     }
     
+    // PERF: Use cached icon - cache built once in computeComplianceData()
     private func getCategoryIcon(_ category: String) -> String {
+        return categoryIconCache[category] ?? computeCategoryIconUncached(category)
+    }
+
+    // Actual icon computation (called once per category to build cache)
+    private func computeCategoryIconUncached(_ category: String) -> String {
         // Priority 1: Check if any item has specified a custom categoryIcon for this category
         for item in inspectState.items {
             if let itemCategory = item.category,
@@ -695,7 +710,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                 return categoryIcon
             }
         }
-        
+
         // Priority 2: Check if we have plistSources with an icon configuration
         if let plistSources = inspectState.plistSources {
             for source in plistSources {
@@ -712,7 +727,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                 }
             }
         }
-        
+
         // Priority 3: Simple fallback for common categories - use info icon to indicate help is available
         return "info.circle"
     }
@@ -917,16 +932,29 @@ struct CategoryCardView: View {
     @State private var showingCategoryHelp = false
     @State private var animateProgress = false
     @State private var cachedSortedItems: [CategoryItemData] = []  // PERF: Cache sorted items
+    @State private var cachedValidationProgress: Double = 0  // PERF: Cache to avoid recomputing on every render
+    @State private var cachedIsFullyValidated: Bool = false
 
-    // PERF: Cache validation progress to avoid Set + filter on every render
-    private var categoryValidationProgress: Double {
-        let categoryItemIds = category.items.map { $0.id }
-        let validatedCount = categoryItemIds.filter { inspectState.plistValidationResults[$0] != nil }.count
-        return categoryItemIds.isEmpty ? 1.0 : Double(validatedCount) / Double(categoryItemIds.count)
-    }
+    // PERF: Simple accessor for cached value - actual computation in updateValidationProgress()
+    private var categoryValidationProgress: Double { cachedValidationProgress }
+    private var isCategoryFullyValidated: Bool { cachedIsFullyValidated }
 
-    private var isCategoryFullyValidated: Bool {
-        categoryValidationProgress >= 1.0
+    // PERF: Compute validation progress only when validation count changes
+    private func updateValidationProgress() {
+        let total = category.items.count
+        guard total > 0 else {
+            cachedValidationProgress = 1.0
+            cachedIsFullyValidated = true
+            return
+        }
+        var validatedCount = 0
+        for item in category.items {
+            if inspectState.plistValidationResults[item.id] != nil {
+                validatedCount += 1
+            }
+        }
+        cachedValidationProgress = Double(validatedCount) / Double(total)
+        cachedIsFullyValidated = validatedCount == total
     }
 
     var body: some View {
@@ -1140,9 +1168,21 @@ struct CategoryCardView: View {
                 )
         )
         .onAppear {
+            updateValidationProgress()  // PERF: Initialize cached values
             withAnimation(.spring(response: 0.8, dampingFraction: 0.6).delay(0.1)) {
                 animateProgress = true
             }
+        }
+        .onChange(of: inspectState.plistValidationResults.count) { _, newCount in
+            updateValidationProgress()  // PERF: Update only when validation count changes
+            // Ensure final update when ALL validation completes
+            if newCount == inspectState.items.count {
+                updateValidationProgress()
+            }
+        }
+        .onChange(of: category.passed) { _, _ in
+            // Category was rebuilt with new values - refresh cached progress
+            updateValidationProgress()
         }
     }
     
