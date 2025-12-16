@@ -189,8 +189,10 @@ class Validation: ObservableObject {
 
     /// STREAMING: Batch validation with per-item callbacks for progressive UI updates
     /// Each validation result is emitted immediately via onItemValidated callback
+    /// Optional onPreCacheProgress callback reports progress during plist file loading phase
     func validateItemsBatchStreaming(_ items: [InspectConfig.ItemConfig],
                                     plistSources: [InspectConfig.PlistSourceConfig]? = nil,
+                                    onPreCacheProgress: ((Int, Int) -> Void)? = nil,
                                     onItemValidated: @escaping (String, Bool) -> Void,
                                     completion: @escaping ([String: Bool]) -> Void) {
 
@@ -203,9 +205,9 @@ class Validation: ObservableObject {
                 validationProgress = 1.0
             }
 
-            // Pre-cache all unique plist files
+            // Pre-cache all unique plist files with progress reporting
             await withTimeout(seconds: 30.0) { [weak self] in
-                await self?.preCachePlistsAsync(from: items, and: plistSources)
+                await self?.preCachePlistsAsyncWithProgress(from: items, and: plistSources, onProgress: onPreCacheProgress)
             }
 
             let totalItems = items.count
@@ -728,8 +730,10 @@ class Validation: ObservableObject {
     
     // MARK: - Cache Management
 
-    private func preCachePlistsAsync(from items: [InspectConfig.ItemConfig],
-                                    and sources: [InspectConfig.PlistSourceConfig]?) async {
+    /// Pre-cache with progress reporting for UI feedback
+    private func preCachePlistsAsyncWithProgress(from items: [InspectConfig.ItemConfig],
+                                                  and sources: [InspectConfig.PlistSourceConfig]?,
+                                                  onProgress: ((Int, Int) -> Void)?) async {
         var uniquePaths = Set<String>()
 
         // Collect all unique plist paths
@@ -750,16 +754,42 @@ class Validation: ObservableObject {
             }
         }
 
-        // Load all plists into cache concurrently
-        await withTaskGroup(of: Void.self) { group in
-            for path in uniquePaths {
+        let totalFiles = uniquePaths.count
+        var loadedCount = 0
+
+        // Report initial state
+        await MainActor.run {
+            onProgress?(0, totalFiles)
+        }
+
+        // Load all plists into cache with progress tracking
+        let pathsArray = Array(uniquePaths)
+        await withTaskGroup(of: Bool.self) { group in
+            for path in pathsArray {
                 group.addTask(priority: .userInitiated) { [weak self] in
                     _ = await self?.loadPlistCachedAsync(at: path)
+                    return true
+                }
+            }
+
+            // Report progress as each file completes
+            while await group.next() != nil {
+                loadedCount += 1
+                let currentCount = loadedCount
+                let total = totalFiles
+                await MainActor.run {
+                    onProgress?(currentCount, total)
                 }
             }
         }
 
         writeLog("ValidationService: Pre-cached \(uniquePaths.count) plist files", logLevel: .debug)
+    }
+
+    private func preCachePlistsAsync(from items: [InspectConfig.ItemConfig],
+                                    and sources: [InspectConfig.PlistSourceConfig]?) async {
+        // Delegate to progress version without callback
+        await preCachePlistsAsyncWithProgress(from: items, and: sources, onProgress: nil)
     }
 
     private func preCachePlists(from items: [InspectConfig.ItemConfig],

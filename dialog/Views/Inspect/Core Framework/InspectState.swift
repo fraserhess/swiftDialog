@@ -102,6 +102,9 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
     @Published var colorThresholds = InspectConfig.ColorThresholds.default
     @Published var plistValidationResults: [String: Bool] = [:] // Track plist validation results
 
+    // MARK: - Pre-cache Progress State (for "Loading configuration files..." indicator)
+    @Published var preCacheProgress: (loaded: Int, total: Int)? = nil  // nil = not started, (x, y) = loading
+
     // MARK: - Plist Monitoring - Generalized from Preset6
     private var plistMonitors: [String: PlistMonitorTask] = [:] // Track active monitoring tasks
     private var jsonMonitors: [String: JsonMonitorTask] = [:] // Track active JSON monitoring tasks
@@ -1049,7 +1052,15 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
             Validation.shared.validateItemsBatchStreaming(
                 sortedItems,
                 plistSources: self.plistSources,
+                onPreCacheProgress: { [weak self] loaded, total in
+                    // Update pre-cache progress for "Loading configuration files..." indicator
+                    self?.preCacheProgress = (loaded, total)
+                },
                 onItemValidated: { [weak self] itemId, isValid in
+                    // Clear pre-cache progress once validation starts
+                    if self?.preCacheProgress != nil {
+                        self?.preCacheProgress = nil
+                    }
                     // STREAM: Update dictionary immediately for each result
                     // This triggers onChange in Preset5View for per-card progress
                     self?.plistValidationResults[itemId] = isValid
@@ -1058,8 +1069,9 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                     guard let self = self else { return }
                     writeLog("InspectState: Streaming validation complete. \(results.filter { $0.value }.count) valid items out of \(results.count) total", logLevel: .info)
 
-                    // Final update and UI refresh
-                    self.objectWillChange.send()
+                    // Just clear pre-cache state - no objectWillChange.send() needed
+                    // The streaming updates already triggered all necessary UI refreshes
+                    self.preCacheProgress = nil
                 }
             )
         }

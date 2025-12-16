@@ -57,9 +57,19 @@ struct Preset5View: View, InspectLayoutProtocol {
             return
         }
 
-        // SMOOTH PROGRESS: Update on every validation for continuous visual feedback
-        // The per-card progress bars need frequent updates to feel responsive
-        _ = validationCount == totalItems  // Keep for potential future use
+        // PERF FIX: Throttle category recomputation during validation
+        // Without throttling, we do O(n²) work (113 items × 113 calls = 12,000+ iterations)
+        // Per-card progress bars update separately via categoryValidationProgress computed property
+        let isComplete = validationCount == totalItems
+        let itemsSinceLastUpdate = validationCount - lastValidationCount
+        let shouldUpdate = !hasCategories ||       // First time - always compute
+                          isComplete ||            // Final - always compute
+                          validationCount <= 3 ||  // Early feedback
+                          itemsSinceLastUpdate >= 10  // Throttle to every 10 items
+
+        if !shouldUpdate {
+            return
+        }
 
         // Transform items to ComplianceItem array (only when needed)
         let complianceItems: [ComplianceItem] = inspectState.items.map { item in
@@ -295,12 +305,17 @@ struct Preset5View: View, InspectLayoutProtocol {
                             .fill(Color.gray.opacity(0.2))
                             .frame(height: 12 * scale)
 
-                        // Progress bar (shows validation progress during loading, score after)
+                        // Progress bar (shows pre-cache → validation → score)
                         let progressValue: CGFloat = {
                             if isValidationComplete {
                                 return getLiveOverallScore()
+                            } else if let preCacheProgress = inspectState.preCacheProgress, preCacheProgress.total > 0 {
+                                // Pre-cache phase: show file loading progress (0-50% of bar)
+                                return CGFloat(preCacheProgress.loaded) / CGFloat(preCacheProgress.total) * 0.3
                             } else if !inspectState.items.isEmpty {
-                                return CGFloat(inspectState.plistValidationResults.count) / CGFloat(inspectState.items.count)
+                                // Validation phase: show validation progress (30-100% of bar)
+                                let validationProgress = CGFloat(inspectState.plistValidationResults.count) / CGFloat(inspectState.items.count)
+                                return 0.3 + (validationProgress * 0.7)
                             }
                             return 0
                         }()
@@ -325,6 +340,11 @@ struct Preset5View: View, InspectLayoutProtocol {
                 // Total count or validation progress status
                 if isValidationComplete {
                     Text("Total: \(getLiveTotalCount()) items")
+                        .font(.system(size: 10 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
+                } else if let preCacheProgress = inspectState.preCacheProgress {
+                    // Pre-cache phase: Loading plist files
+                    Text("Loading configuration files... \(preCacheProgress.loaded)/\(preCacheProgress.total)")
                         .font(.system(size: 10 * scale, weight: .medium))
                         .foregroundStyle(.secondary)
                 } else if !inspectState.items.isEmpty {
@@ -896,10 +916,11 @@ struct CategoryCardView: View {
     @Binding var isExpanded: Bool  // Controlled by parent for expand/collapse all
     @State private var showingCategoryHelp = false
     @State private var animateProgress = false
+    @State private var cachedSortedItems: [CategoryItemData] = []  // PERF: Cache sorted items
 
-    // Calculate category validation progress
+    // PERF: Cache validation progress to avoid Set + filter on every render
     private var categoryValidationProgress: Double {
-        let categoryItemIds = Set(category.items.map { $0.id })
+        let categoryItemIds = category.items.map { $0.id }
         let validatedCount = categoryItemIds.filter { inspectState.plistValidationResults[$0] != nil }.count
         return categoryItemIds.isEmpty ? 1.0 : Double(validatedCount) / Double(categoryItemIds.count)
     }
@@ -1021,15 +1042,15 @@ struct CategoryCardView: View {
                     // Items list - takes up most space
                     ScrollView {
                         LazyVStack(spacing: 4 * scale) {
-                            ForEach(getCategoryItems(), id: \.id) { item in
+                            // PERF: Use cached sorted items instead of calling getCategoryItems() twice
+                            ForEach(cachedSortedItems, id: \.id) { item in
                                 ItemRowView(
                                     item: item,
                                     scale: scale,
-                                    colorThresholds: colorThresholds,
-                                    inspectState: inspectState
+                                    colorThresholds: colorThresholds
                                 )
 
-                                if item.id != getCategoryItems().last?.id {
+                                if item.id != cachedSortedItems.last?.id {
                                     Divider()
                                         .padding(.horizontal, 16 * scale)
                                 }
@@ -1037,6 +1058,12 @@ struct CategoryCardView: View {
                         }
                     }
                     .frame(maxHeight: 220 * scale)
+                    .onAppear {
+                        // PERF: Cache sorted items once when expanded
+                        if cachedSortedItems.isEmpty {
+                            cachedSortedItems = getCategoryItems()
+                        }
+                    }
 
                     // Right side: Circular progress and metrics - positioned lower
                     VStack(spacing: 12 * scale) {
@@ -1175,7 +1202,7 @@ struct ItemRowView: View {
     let item: CategoryItemData
     let scale: CGFloat
     let colorThresholds: InspectConfig.ColorThresholds
-    @ObservedObject var inspectState: InspectState
+    // PERF: Removed @ObservedObject inspectState - not used in view, was causing all ItemRowViews to re-render on every state change
 
     var body: some View {
         HStack(spacing: 12 * scale) {
@@ -1372,6 +1399,8 @@ struct ComplianceDetailsPopoverView: View {
                                 .padding(.leading, 12)
                             } else {
                                 // File existence check details
+                                // PERF: Use cached validation result instead of blocking FileManager calls
+                                let isValid = inspectState.plistValidationResults[item.id] ?? false
                                 VStack(alignment: .leading, spacing: 4) {
                                     // Evaluation type
                                     HStack {
@@ -1383,59 +1412,34 @@ struct ComplianceDetailsPopoverView: View {
                                             .font(.caption)
                                             .foregroundStyle(.blue)
                                     }
-                                    
-                                    // Check all paths
+
+                                    // Show paths with cached validation status (no FileManager calls)
                                     ForEach(item.paths, id: \.self) { path in
-                                        let fileExists = FileManager.default.fileExists(atPath: path)
                                         HStack {
                                             Text("Path:")
                                                 .font(.caption.weight(.medium))
                                                 .foregroundStyle(.secondary)
                                                 .frame(width: 60, alignment: .leading)
-                                            
+
                                             VStack(alignment: .leading, spacing: 2) {
                                                 Text(path)
                                                     .font(.system(.caption, design: .monospaced))
-                                                    .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: fileExists))
+                                                    .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: isValid))
                                                     .lineLimit(2)
                                                     .textSelection(.enabled)
-                                                
-                                                Text(fileExists ? "✓ File exists" : "✗ File not found")
-                                                    .font(.caption)
-                                                    .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: fileExists))
                                             }
                                         }
                                     }
-                                    
-                                    // File info if exists
-                                    if let existingPath = item.paths.first(where: { FileManager.default.fileExists(atPath: $0) }) {
-                                        if let attributes = try? FileManager.default.attributesOfItem(atPath: existingPath) {
-                                            // File size
-                                            if let fileSize = attributes[.size] as? Int64 {
-                                                HStack {
-                                                    Text("Size:")
-                                                        .font(.caption.weight(.medium))
-                                                        .foregroundStyle(.secondary)
-                                                        .frame(width: 60, alignment: .leading)
-                                                    Text(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))
-                                                        .font(.caption)
-                                                        .foregroundStyle(.secondary)
-                                                }
-                                            }
-                                            
-                                            // Modification date
-                                            if let modDate = attributes[.modificationDate] as? Date {
-                                                HStack {
-                                                    Text("Modified:")
-                                                        .font(.caption.weight(.medium))
-                                                        .foregroundStyle(.secondary)
-                                                        .frame(width: 60, alignment: .leading)
-                                                    Text(modDate, style: .date)
-                                                        .font(.caption)
-                                                        .foregroundStyle(.secondary)
-                                                }
-                                            }
-                                        }
+
+                                    // Status based on cached validation result
+                                    HStack {
+                                        Text("Status:")
+                                            .font(.caption.weight(.medium))
+                                            .foregroundStyle(.secondary)
+                                            .frame(width: 60, alignment: .leading)
+                                        Text(isValid ? "✓ File exists" : "✗ File not found")
+                                            .font(.caption)
+                                            .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: isValid))
                                     }
                                 }
                                 .padding(.leading, 12)
@@ -1447,10 +1451,10 @@ struct ComplianceDetailsPopoverView: View {
                                 .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
                         )
                     }
-                            } // End VStack for category
-                        } // End if let categoryItems
-                    } // End ForEach categories
-                } // End if !inspectState.items.isEmpty
+                } // End VStack for category
+            } // End if let categoryItems
+        } // End ForEach categories
+    } // End if !inspectState.items.isEmpty
                 
                 if inspectState.items.isEmpty && !allFailingItems.isEmpty {
                     // Show enhanced audit issues for complex validation
@@ -1556,30 +1560,10 @@ struct ComplianceDetailsPopoverView: View {
         .frame(maxWidth: 500, maxHeight: 400)
     }
     
-    // Helper function to validate items (uses cache to avoid re-render loops)
+    // PERF: Only use cached validation results - NEVER block main thread with sync validation
     private func isItemValid(_ item: InspectConfig.ItemConfig) -> Bool {
-        // First check cached results
-        if let cachedResult = inspectState.plistValidationResults[item.id] {
-            return cachedResult
-        }
-
-        if item.plistKey != nil {
-            // Use Validation service directly (no state mutation)
-            let basePath = inspectState.uiConfiguration.iconBasePath
-            let request = ValidationRequest(
-                item: item,
-                plistSources: inspectState.plistSources,
-                basePath: basePath
-            )
-            let result = Validation.shared.validateItem(request)
-            return result.isValid
-        } else {
-            let basePath = inspectState.uiConfiguration.iconBasePath
-            return item.paths.first(where: { path in
-                let resolvedPath = Validation.shared.resolvePlistPath(path, basePath: basePath)
-                return FileManager.default.fileExists(atPath: resolvedPath)
-            }) != nil
-        }
+        // Only use cached results - validation should already be complete
+        return inspectState.plistValidationResults[item.id] ?? false
     }
     
     // Enhanced formatting for audit control titles using config data
