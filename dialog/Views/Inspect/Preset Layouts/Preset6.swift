@@ -2292,11 +2292,30 @@ struct Preset6View: View, InspectLayoutProtocol {
             handleCompletionTrigger(stepId: stepId, result: .success(message: message))
         } else if trimmedLine.hasPrefix("failure:") {
             // Option 3 - Hybrid: Mark step as failed with optional reason
-            // Extract reason (format: "failure:stepId:optional_reason")
-            let parts = trimmedLine.dropFirst(8).split(separator: ":", maxSplits: 1)
-            let stepId = String(parts[0])
-            let reason = parts.count > 1 ? String(parts[1]) : "Step failed"
+            // Extract reason (format: "failure:stepId:optional_reason:icon=optional")
+            let parts = trimmedLine.split(separator: ":")
+            let stepId = String(parts[1])
+            let reason = parts.count > 2 ? String(parts[2]) : "Step failed"
             handleCompletionTrigger(stepId: stepId, result: .failure(message: reason))
+            let icon = parts.count > 3 ? String(parts[3]) : ""
+            if icon.hasPrefix("icon=") {
+                let iconParts = icon.split(separator: "=", maxSplits: 1)
+                let itemIndex = inspectState.items.firstIndex(where: { $0.id == stepId })!
+                dynamicState.updateItemStatusIcon(index: itemIndex, icon: String(iconParts[1]))
+            }
+        } else if trimmedLine.hasPrefix("warning:") {
+            // Option 3 - Hybrid: Mark step as failed with optional reason
+            // Extract reason (format: "warning:stepId:optional_reason:icon=optional")
+            let parts = trimmedLine.split(separator: ":")
+            let stepId = String(parts[1])
+            let reason = parts.count > 2 ? String(parts[2]) : "Step warning"
+            handleCompletionTrigger(stepId: stepId, result: .warning(message: reason))
+            let icon = parts.count > 3 ? String(parts[3]) : ""
+            if icon.hasPrefix("icon=") {
+                let iconParts = icon.split(separator: "=", maxSplits: 1)
+                let itemIndex = inspectState.items.firstIndex(where: { $0.id == stepId })!
+                dynamicState.updateItemStatusIcon(index: itemIndex, icon: String(iconParts[1]))
+            }
         } else if trimmedLine == "reset" {
             resetSteps()
         } else if trimmedLine.hasPrefix("navigate:") {
@@ -2684,10 +2703,26 @@ struct Preset6View: View, InspectLayoutProtocol {
                     "wasOverride": wasAlreadyCompleted
                 ])
 
+            case .warning(let message):
+                // Remove from failed steps if it was there
+                failedSteps.removeValue(forKey: stepId)
+                
+                // Log the event
+                if wasAlreadyCompleted {
+                    writeInteractionLog("override_warning", step: stepId)
+                } else {
+                    writeInteractionLog("auto_warning", step: stepId)
+                }
+
+                logPreset6Event("external_trigger_warning", details: [
+                    "stepId": stepId,
+                    "reason": message ?? "No reason",
+                    "wasOverride": wasAlreadyCompleted
+                ])
+                
             case .failure(let message):
                 // Mark with failure state
                 failedSteps[stepId] = message ?? "Step failed"
-
                 // Log the event
                 if wasAlreadyCompleted {
                     writeInteractionLog("override_failure", step: stepId)

@@ -676,7 +676,20 @@ struct GuidanceContentView: View {
 
         case "bullets":
             let resolvedContent = resolveTemplateVariables(block.content ?? "", inspectState: inspectState)
-            HStack(alignment: .top, spacing: 8 * scaleFactor) {
+            VStack(alignment: .leading, spacing: 8 * scaleFactor) {
+                let parts = resolvedContent
+                    .components(separatedBy: CharacterSet(charactersIn: "\n,"))
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                ForEach(parts, id: \.self) { part in
+                    HStack(alignment: .top, spacing: 4 * scaleFactor) {
+                        Text("•")
+                            .font(.system(size: 13 * scaleFactor, weight: .bold))
+                            .foregroundStyle(.primary)
+                        Text(part)
+                            .font(.system(size: 13 * scaleFactor))
+                    }
+                }
+                /*
                 Text("•")
                     .font(.system(size: 13 * scaleFactor, weight: .bold))
                     .foregroundStyle(.primary)
@@ -684,6 +697,7 @@ struct GuidanceContentView: View {
                     .font(.system(size: 13 * scaleFactor))
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
+                 */
             }
 
         case "label-value":

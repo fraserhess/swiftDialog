@@ -189,6 +189,10 @@ public enum InspectCompletionResult: Equatable {
     /// Step failed with error
     /// - Parameter message: Optional error message to display
     case failure(message: String?)
+    
+    /// Step completed with warning
+    /// - Parameter message: Optional error message to display
+    case warning(message: String?)
 
     /// Step was cancelled by user or system
     case cancelled
