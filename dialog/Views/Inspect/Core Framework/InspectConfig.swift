@@ -307,6 +307,7 @@ struct InspectConfig: Codable {
     struct GuidanceContent: Codable {
         let type: String                // "text" | "highlight" | "warning" | "info" | "success" | "bullets" | "arrow" | "image" | "image-carousel" | "video" | "webcontent" | "checkbox" | "dropdown" | "radio" | "toggle" | "slider" | "button" | "status-badge" | "comparison-table" | "phase-tracker" | "progress-bar" | "compliance-card" | "compliance-header"
         let content: String?            // The actual text content (or button label for type="button") - optional for status monitoring types
+        let items: [String]?            // Array of items - e.g. bullets
         let color: String?              // Optional color override (hex format)
         let bold: Bool?                 // Whether to display in bold
         let visible: Bool?              // Show/hide this block dynamically (default: true) - can be updated via plistMonitor or update_guidance command

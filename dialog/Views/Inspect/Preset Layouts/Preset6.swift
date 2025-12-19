@@ -1095,6 +1095,7 @@ struct Preset6View: View, InspectLayoutProtocol {
             return InspectConfig.GuidanceContent(
                 type: block.type,
                 content: block.content,
+                items: block.items,
                 color: block.color,
                 bold: block.bold,
                 visible: block.visible,
@@ -1178,6 +1179,7 @@ struct Preset6View: View, InspectLayoutProtocol {
         return InspectConfig.GuidanceContent(
             type: block.type,
             content: dynamicState.dynamicGuidanceContent[itemId]?[index] ?? block.content,
+            items: block.items,
             color: props["color"] ?? block.color,
             bold: props["bold"].flatMap { Bool($0) } ?? block.bold,
             visible: props["visible"].flatMap { Bool($0) } ?? block.visible,
