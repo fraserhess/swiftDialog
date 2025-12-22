@@ -1901,34 +1901,49 @@ struct StatusBadgeView: View {
             return .secondary
         }
 
-        // Auto-color based on semantic state
+        // Auto-color based on semantic state (prefix/contains matching for flexibility)
         let lowercaseState = state.lowercased()
-        switch lowercaseState {
-        case "enabled", "active", "pass", "success", "valid", "enrolled", "connected", "on", "true", "yes":
+        let successStates = ["enabled", "active", "pass", "success", "valid", "enrolled", "connected", "on", "true", "yes", "installed", "present", "compliant"]
+        let failStates = ["disabled", "inactive", "fail", "failure", "invalid", "unenrolled", "disconnected", "off", "false", "no", "not found", "missing", "error", "non-compliant"]
+        let pendingStates = ["pending", "in-progress", "waiting", "unknown", "partial", "checking"]
+
+        // Check if state starts with or contains any success keywords
+        if successStates.contains(where: { lowercaseState.hasPrefix($0) || lowercaseState == $0 }) {
             return Color(hex: "#34C759")
-        case "disabled", "inactive", "fail", "failure", "invalid", "unenrolled", "disconnected", "off", "false", "no":
-            return Color(hex: "#FF3B30")
-        case "pending", "in-progress", "waiting", "unknown", "partial":
-            return Color(hex: "#FF9F0A")
-        default:
-            return .secondary
         }
+        // Check if state starts with or contains any fail keywords
+        if failStates.contains(where: { lowercaseState.hasPrefix($0) || lowercaseState.contains($0) }) {
+            return Color(hex: "#FF3B30")
+        }
+        // Check if state matches any pending keywords
+        if pendingStates.contains(where: { lowercaseState.hasPrefix($0) || lowercaseState == $0 }) {
+            return Color(hex: "#FF9F0A")
+        }
+
+        return .secondary
     }
 
     private var defaultIcon: String {
         let lowercaseState = state.lowercased()
-        switch lowercaseState {
-        case "enabled", "active", "pass", "success", "valid", "enrolled", "connected", "on", "true", "yes":
+        let successStates = ["enabled", "active", "pass", "success", "valid", "enrolled", "connected", "on", "true", "yes", "installed", "present", "compliant"]
+        let failStates = ["disabled", "inactive", "fail", "failure", "invalid", "unenrolled", "disconnected", "off", "false", "no", "not found", "missing", "error", "non-compliant"]
+        let pendingStates = ["pending", "in-progress", "waiting", "checking"]
+        let unknownStates = ["unknown", "partial"]
+
+        if successStates.contains(where: { lowercaseState.hasPrefix($0) || lowercaseState == $0 }) {
             return "checkmark.circle.fill"
-        case "disabled", "inactive", "fail", "failure", "invalid", "unenrolled", "disconnected", "off", "false", "no":
-            return "xmark.circle.fill"
-        case "pending", "in-progress", "waiting":
-            return "clock.fill"
-        case "unknown", "partial":
-            return "questionmark.circle.fill"
-        default:
-            return "circle.fill"
         }
+        if failStates.contains(where: { lowercaseState.hasPrefix($0) || lowercaseState.contains($0) }) {
+            return "xmark.circle.fill"
+        }
+        if pendingStates.contains(where: { lowercaseState.hasPrefix($0) || lowercaseState == $0 }) {
+            return "clock.fill"
+        }
+        if unknownStates.contains(where: { lowercaseState.hasPrefix($0) || lowercaseState == $0 }) {
+            return "questionmark.circle.fill"
+        }
+
+        return "circle.fill"
     }
 
     var body: some View {
