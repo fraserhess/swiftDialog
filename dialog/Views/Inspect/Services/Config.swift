@@ -705,8 +705,10 @@ class Config {
             warnings.append("Unknown preset '\(config.preset)' - will default to preset1")
         }
         
-        // Check for missing icon files
-        if let iconPath = config.icon, !FileManager.default.fileExists(atPath: iconPath) {
+        // Check for missing icon files (skip SF symbols which start with "sf=" or "SF=")
+        if let iconPath = config.icon,
+           !iconPath.lowercased().hasPrefix("sf="),
+           !FileManager.default.fileExists(atPath: iconPath) {
             warnings.append("Icon file not found: \(iconPath)")
         }
         
@@ -721,7 +723,21 @@ class Config {
                 warnings.append("Color thresholds should be in descending order (excellent > good > warning)")
             }
         }
-        
+
+        // Validate guiIndex values for sequential ordering
+        if !config.items.isEmpty {
+            let guiIndexWarnings = validateGuiIndexSequence(config.items)
+            warnings.append(contentsOf: guiIndexWarnings)
+        }
+
+        // Validate item-level issues (preset-aware)
+        let itemWarnings = validateItems(config.items, preset: config.preset)
+        warnings.append(contentsOf: itemWarnings)
+
+        // Validate preset-specific configuration
+        let presetWarnings = validatePresetSpecific(config)
+        warnings.append(contentsOf: presetWarnings)
+
         // Log warnings
         for warning in warnings {
             writeLog("ConfigurationService: Warning - \(warning)", logLevel: .info)
@@ -729,7 +745,230 @@ class Config {
         
         return warnings
     }
-    
+
+    /// Validate individual item configurations (preset-aware)
+    /// Returns warnings for: duplicate IDs, invalid stepType, invalid actions, etc.
+    private func validateItems(_ items: [InspectConfig.ItemConfig], preset: String) -> [String] {
+        var warnings: [String] = []
+        let normalizedPreset = normalizePreset(preset)
+
+        // Check for duplicate item IDs
+        var seenIds: Set<String> = []
+        for item in items {
+            if seenIds.contains(item.id) {
+                warnings.append("⚠️ Duplicate item ID: '\(item.id)'")
+            } else {
+                seenIds.insert(item.id)
+            }
+        }
+
+        // Valid step types for preset6
+        let validStepTypes = ["info", "confirmation", "processing", "completion"]
+
+        // Valid button actions
+        let validActions = ["url", "request", "custom"]
+
+        // Valid overlay sizes
+        let validOverlaySizes = ["small", "medium", "large"]
+
+        for item in items {
+            let itemPrefix = "Item '\(item.id)'"
+
+            // Check empty displayName (all presets)
+            if item.displayName.trimmingCharacters(in: .whitespaces).isEmpty {
+                warnings.append("⚠️ \(itemPrefix): Empty displayName")
+            }
+
+            // Preset5: Items should have category for grouping
+            if normalizedPreset == "5" && item.category == nil {
+                warnings.append("⚠️ \(itemPrefix): Missing 'category' field (recommended for preset5 grouping)")
+            }
+
+            // Preset5: Items should have plistKey for validation
+            if normalizedPreset == "5" && item.plistKey == nil && item.paths.isEmpty {
+                warnings.append("⚠️ \(itemPrefix): No 'plistKey' or 'paths' for validation (preset5 compliance check)")
+            }
+
+            // Preset6: Validate stepType
+            if normalizedPreset == "6" {
+                if let stepType = item.stepType, !validStepTypes.contains(stepType.lowercased()) {
+                    warnings.append("⚠️ \(itemPrefix): Invalid stepType '\(stepType)' - expected one of: \(validStepTypes.joined(separator: ", "))")
+                }
+
+                // Validate overlay sizes
+                if let overlay = item.itemOverlay, let size = overlay.size, !validOverlaySizes.contains(size.lowercased()) {
+                    warnings.append("⚠️ \(itemPrefix): Invalid itemOverlay size '\(size)' - expected one of: \(validOverlaySizes.joined(separator: ", "))")
+                }
+
+                // Validate guidance content blocks
+                if let guidanceContent = item.guidanceContent {
+                    for (index, block) in guidanceContent.enumerated() {
+                        // Check button actions
+                        if block.type == "button" {
+                            if let action = block.action {
+                                if !validActions.contains(action.lowercased()) {
+                                    warnings.append("⚠️ \(itemPrefix): guidanceContent[\(index)] has invalid button action '\(action)' - expected one of: \(validActions.joined(separator: ", "))")
+                                }
+                                // Check request action has requestId
+                                if action.lowercased() == "request" && (block.requestId == nil || block.requestId?.isEmpty == true) {
+                                    warnings.append("⚠️ \(itemPrefix): guidanceContent[\(index)] button action='request' but no requestId provided")
+                                }
+                                // Check url action has url
+                                if action.lowercased() == "url" && (block.url == nil || block.url?.isEmpty == true) {
+                                    warnings.append("⚠️ \(itemPrefix): guidanceContent[\(index)] button action='url' but no url provided")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return warnings
+    }
+
+    /// Normalize preset name to number (e.g., "preset6" -> "6", "guidance" -> "6")
+    private func normalizePreset(_ preset: String) -> String {
+        let lowered = preset.lowercased()
+
+        // Direct number
+        if let _ = Int(lowered) { return lowered }
+
+        // presetN format
+        if lowered.hasPrefix("preset"), let num = lowered.dropFirst(6).first {
+            return String(num)
+        }
+
+        // Marketing names
+        let presetMap: [String: String] = [
+            "deployment": "1", "cards": "2", "compact": "3",
+            "compliance": "4", "dashboard": "5",
+            "guidance": "6", "guide": "6", "onboarding": "7",
+            "display": "8"
+        ]
+        return presetMap[lowered] ?? "1"
+    }
+
+    /// Validate preset-specific configuration (root-level properties)
+    private func validatePresetSpecific(_ config: InspectConfig) -> [String] {
+        var warnings: [String] = []
+        let preset = normalizePreset(config.preset)
+
+        // Valid values for common properties
+        let validListIndicatorStyles = ["letters", "numbers", "roman"]
+        let validStepStyles = ["plain", "colored", "cards"]
+        let validImageShapes = ["rectangle", "square", "circle"]
+
+        // Validate listIndicatorStyle (all presets)
+        if let style = config.listIndicatorStyle, !validListIndicatorStyles.contains(style.lowercased()) {
+            warnings.append("⚠️ Invalid listIndicatorStyle '\(style)' - expected one of: \(validListIndicatorStyles.joined(separator: ", "))")
+        }
+
+        // Validate stepStyle (preset6)
+        if let style = config.stepStyle, !validStepStyles.contains(style.lowercased()) {
+            warnings.append("⚠️ Invalid stepStyle '\(style)' - expected one of: \(validStepStyles.joined(separator: ", "))")
+        }
+
+        // Validate imageShape (preset6)
+        if let shape = config.imageShape, !validImageShapes.contains(shape.lowercased()) {
+            warnings.append("⚠️ Invalid imageShape '\(shape)' - expected one of: \(validImageShapes.joined(separator: ", "))")
+        }
+
+        // Preset5 (Dashboard): Should have plistSources for compliance data
+        if preset == "5" {
+            if config.plistSources == nil || config.plistSources?.isEmpty == true {
+                warnings.append("⚠️ Preset5: Missing 'plistSources' - required for compliance dashboard data")
+            } else if let sources = config.plistSources {
+                for (index, source) in sources.enumerated() {
+                    // Check plist path exists (if not a URL/pattern)
+                    if !source.path.hasPrefix("http") && !source.path.contains("*") {
+                        let expandedPath = NSString(string: source.path).expandingTildeInPath
+                        if !FileManager.default.fileExists(atPath: expandedPath) {
+                            warnings.append("⚠️ Preset5: plistSources[\(index)] path not found: \(source.path)")
+                        }
+                    }
+                }
+            }
+        }
+
+        // Preset6 (Guidance): Should have items with guidanceContent
+        if preset == "6" {
+            let itemsWithGuidance = config.items.filter { $0.guidanceContent != nil }
+            if itemsWithGuidance.isEmpty && !config.items.isEmpty {
+                warnings.append("⚠️ Preset6: No items have 'guidanceContent' - recommended for workflow steps")
+            }
+
+            // Check actionPipe if using request buttons
+            let hasRequestButtons = config.items.contains { item in
+                item.guidanceContent?.contains { $0.action?.lowercased() == "request" } ?? false
+            }
+            if hasRequestButtons && config.actionPipe == nil {
+                warnings.append("⚠️ Preset6: Items use 'request' button actions but no 'actionPipe' configured")
+            }
+        }
+
+        // Preset8/9 (Picker): Should have pickerConfig
+        if preset == "8" || preset == "9" {
+            if config.pickerConfig == nil {
+                warnings.append("⚠️ Preset\(preset): Missing 'pickerConfig' - recommended for picker mode")
+            }
+        }
+
+        return warnings
+    }
+
+    /// Validate guiIndex values for sequential ordering (0, 1, 2, 3...)
+    /// Returns warnings for: non-zero start, gaps, duplicates
+    private func validateGuiIndexSequence(_ items: [InspectConfig.ItemConfig]) -> [String] {
+        var warnings: [String] = []
+
+        // Extract guiIndex values with item IDs for better error messages
+        let indexedItems = items.map { (id: $0.id, index: $0.guiIndex) }
+        let sortedByIndex = indexedItems.sorted { $0.index < $1.index }
+
+        // Check 1: Should start at 0
+        if let first = sortedByIndex.first, first.index != 0 {
+            warnings.append("⚠️ guiIndex: Sequence should start at 0, but starts at \(first.index) (item: '\(first.id)')")
+        }
+
+        // Check 2: Look for duplicates
+        var seenIndices: [Int: String] = [:] // index -> first item ID that used it
+        for item in sortedByIndex {
+            if let existingId = seenIndices[item.index] {
+                warnings.append("⚠️ guiIndex: Duplicate index \(item.index) found in items '\(existingId)' and '\(item.id)'")
+            } else {
+                seenIndices[item.index] = item.id
+            }
+        }
+
+        // Check 3: Look for gaps in sequence
+        let indices = sortedByIndex.map { $0.index }
+        let uniqueIndices = Set(indices).sorted()
+
+        if uniqueIndices.count > 1 {
+            for i in 0..<(uniqueIndices.count - 1) {
+                let current = uniqueIndices[i]
+                let next = uniqueIndices[i + 1]
+                if next != current + 1 {
+                    // Find which items are around the gap
+                    let beforeItem = sortedByIndex.first { $0.index == current }?.id ?? "?"
+                    let afterItem = sortedByIndex.first { $0.index == next }?.id ?? "?"
+                    let missingIndices = (current + 1)..<next
+                    warnings.append("⚠️ guiIndex: Gap in sequence - missing index(es) \(Array(missingIndices)) between '\(beforeItem)' (\(current)) and '\(afterItem)' (\(next))")
+                }
+            }
+        }
+
+        // Summary if issues found
+        if !warnings.isEmpty {
+            let expected = (0..<items.count).map { String($0) }.joined(separator: ", ")
+            let actual = sortedByIndex.map { "\($0.index)" }.joined(separator: ", ")
+            warnings.insert("⚠️ guiIndex: Expected sequential [0..\(items.count - 1)] but found [\(actual)]", at: 0)
+        }
+
+        return warnings
+    }
+
     // MARK: - Configuration Transformation Helpers
     
     func extractUIConfiguration(from config: InspectConfig) -> UIConfiguration {

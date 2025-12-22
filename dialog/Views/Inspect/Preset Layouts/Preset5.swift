@@ -23,7 +23,9 @@ struct Preset5View: View, InspectLayoutProtocol {
     @State private var criticalIssues: [ComplianceItem] = []
     @State private var allFailingItems: [ComplianceItem] = []
     @State private var lastCheck: String = ""
-    @State private var hasComputedData = false
+    @State private var hasCategories = false  // True once categories are built (doesn't wait for validation)
+    @State private var lastValidationCount = 0  // Track validation progress for incremental updates
+    @State private var categoryIconCache: [String: String] = [:]  // PERF: Cache category icons to avoid O(n) lookup per category
 
     // MARK: - Collapse/Expand All State
     @State private var expandedCategories: Set<String> = []  // Track which categories are expanded
@@ -31,70 +33,90 @@ struct Preset5View: View, InspectLayoutProtocol {
     // MARK: - Search State
     @State private var searchText: String = ""
 
+    // MARK: - Computed Properties
+    private var isValidationComplete: Bool {
+        !inspectState.items.isEmpty &&
+        inspectState.plistValidationResults.count == inspectState.items.count
+    }
+
     init(inspectState: InspectState) {
         self.inspectState = inspectState
     }
 
-    // MARK: - Data Computation (called once via onChange)
+    // MARK: - Data Computation (Optimized Progressive Loading)
 
-    /// Computes all compliance data from items - called only when items change
+    /// Computes categories from items - optimized to minimize redundant work
+    /// Uses cached validation results when available, defaults to "pending" for unvalidated items
     private func computeComplianceData() {
         guard !inspectState.items.isEmpty else { return }
 
-        writeLog("Preset5: Computing compliance data for \(inspectState.items.count) items", logLevel: .debug)
+        let validationCount = inspectState.plistValidationResults.count
+        let totalItems = inspectState.items.count
 
-        // Transform items to ComplianceItem array
-        let complianceItems: [ComplianceItem] = inspectState.items.compactMap { item in
-            let isValid = getValidationResult(for: item)
-            let isInProgress = inspectState.downloadingItems.contains(item.id)
+        // OPTIMIZATION: Skip if nothing changed
+        if hasCategories && validationCount == lastValidationCount {
+            return
+        }
 
+        // PERF FIX: Throttle category recomputation during validation
+        // Without throttling, we do O(n²) work (113 items × 113 calls = 12,000+ iterations)
+        // Per-card progress bars update separately via categoryValidationProgress computed property
+        let isComplete = validationCount == totalItems
+        let itemsSinceLastUpdate = validationCount - lastValidationCount
+        let shouldUpdate = !hasCategories ||       // First time - always compute
+                          isComplete ||            // Final - always compute
+                          validationCount <= 3 ||  // Early feedback
+                          itemsSinceLastUpdate >= 10  // Throttle to every 10 items
+
+        if !shouldUpdate {
+            return
+        }
+
+        // Transform items to ComplianceItem array (only when needed)
+        let complianceItems: [ComplianceItem] = inspectState.items.map { item in
+            let hasValidationResult = inspectState.plistValidationResults[item.id] != nil
+            let isValid = hasValidationResult ? getValidationResult(for: item) : false
             return ComplianceItem(
                 id: item.id,
                 category: getItemCategory(item),
                 finding: isValid,
                 isCritical: getItemCriticality(item),
-                isInProgress: isInProgress
+                isInProgress: !hasValidationResult
             )
         }
 
-        // Update all state at once
+        // PERF: Build icon cache once (avoids O(n) lookup per category - 7 categories × 113 items = 791 iterations)
+        if categoryIconCache.isEmpty {
+            let uniqueCategories = Set(complianceItems.map { $0.category })
+            for category in uniqueCategories {
+                categoryIconCache[category] = computeCategoryIconUncached(category)
+            }
+        }
+
+        // Update state
         categories = categorizeItems(complianceItems)
         overallScore = calculateOverallScore(complianceItems)
-        criticalIssues = complianceItems.filter { !$0.finding && $0.isCritical }
-        allFailingItems = complianceItems.filter { !$0.finding }
+        criticalIssues = complianceItems.filter { !$0.finding && $0.isCritical && !$0.isInProgress }
+        allFailingItems = complianceItems.filter { !$0.finding && !$0.isInProgress }
         lastCheck = getCurrentTimestamp()
-        hasComputedData = true
+        hasCategories = true
+        lastValidationCount = validationCount
 
-        writeLog("Preset5: Computed \(categories.count) categories, score: \(String(format: "%.0f", overallScore * 100))%", logLevel: .debug)
+        writeLog("Preset5: Computed \(categories.count) categories, \(validationCount)/\(totalItems) validated, score: \(String(format: "%.0f", overallScore * 100))%", logLevel: .debug)
     }
 
-    /// Gets validation result from cache or computes it (no state mutation)
+    /// Gets validation result from cache only - NEVER does synchronous validation
+    /// Returns nil if not yet validated (async validation will populate cache)
     private func getValidationResult(for item: InspectConfig.ItemConfig) -> Bool {
-        // First check cached validation results from InspectState
+        // ONLY check cached validation results - never block main thread
+        // Async validation in InspectState.validateAllItems() will populate this cache
         if let cachedResult = inspectState.plistValidationResults[item.id] {
             return cachedResult
         }
 
-        // For plist validation, use Validation service directly
-        if item.plistKey != nil {
-            let basePath = inspectState.uiConfiguration.iconBasePath
-            let request = ValidationRequest(
-                item: item,
-                plistSources: inspectState.plistSources,
-                basePath: basePath
-            )
-            let result = Validation.shared.validateItem(request)
-            return result.isValid
-        }
-
-        // For file existence check
-        let basePath = inspectState.uiConfiguration.iconBasePath
-        let fileExists = item.paths.first(where: { path in
-            let resolvedPath = Validation.shared.resolvePlistPath(path, basePath: basePath)
-            return FileManager.default.fileExists(atPath: resolvedPath)
-        }) != nil
-
-        return fileExists || inspectState.completedItems.contains(item.id)
+        // No cached result yet - return false (item shows as "in progress")
+        // The async validation will update this and trigger recomputation
+        return false
     }
 
     var body: some View {
@@ -107,9 +129,12 @@ struct Preset5View: View, InspectLayoutProtocol {
 
             // CONTENT AREA - Shows loading OR category grid
             ZStack {
-                if inspectState.items.isEmpty || !hasComputedData {
+                if inspectState.items.isEmpty {
+                    // Only show loading when items haven't loaded yet
                     loadingContentView(scale: scale)
                 } else {
+                    // Show categories immediately once items exist
+                    // (validation results update progressively)
                     categoryContentView(scale: scale)
                 }
             }
@@ -120,20 +145,21 @@ struct Preset5View: View, InspectLayoutProtocol {
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             iconCache.cacheMainIcon(for: inspectState)
-            // Compute data if items are already loaded
-            if !inspectState.items.isEmpty && !hasComputedData {
+            // Compute categories immediately if items are already loaded
+            if !inspectState.items.isEmpty {
                 computeComplianceData()
             }
         }
         .onChange(of: inspectState.items.count) { _, newCount in
-            // Compute data when items are loaded
-            if newCount > 0 && !hasComputedData {
+            // Compute categories immediately when items load
+            if newCount > 0 {
                 computeComplianceData()
             }
         }
         .onChange(of: inspectState.plistValidationResults.count) { _, _ in
-            // Recompute when all validations are complete (results cached)
-            if !inspectState.items.isEmpty && inspectState.plistValidationResults.count == inspectState.items.count {
+            // RING BUFFER: Update on EVERY validation result for smooth per-card progress
+            // Each card's progress bar updates as its items complete
+            if !inspectState.items.isEmpty {
                 computeComplianceData()
             }
         }
@@ -192,7 +218,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                             .font(.system(size: 14 * scale))
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
-                    } else if hasComputedData {
+                    } else if hasCategories {
                         Text("Last Check: \(lastCheck)")
                             .font(.system(size: 12 * scale))
                             .foregroundStyle(.secondary)
@@ -201,8 +227,8 @@ struct Preset5View: View, InspectLayoutProtocol {
 
                 Spacer()
 
-                // Status badge on the right (shows loading or status)
-                if hasComputedData {
+                // Status badge on the right (shows validation progress or final status)
+                if isValidationComplete {
                     Text(getOverallStatusText())
                         .font(.system(size: 12 * scale, weight: .semibold))
                         .foregroundStyle(inspectState.colorThresholds.getColor(for: getLiveOverallScore()))
@@ -211,6 +237,17 @@ struct Preset5View: View, InspectLayoutProtocol {
                         .background(
                             Capsule()
                                 .fill(inspectState.colorThresholds.getColor(for: getLiveOverallScore()).opacity(0.15))
+                        )
+                } else if hasCategories {
+                    // Show validation progress
+                    Text("Validating...")
+                        .font(.system(size: 12 * scale, weight: .medium))
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal, 16 * scale)
+                        .padding(.vertical, 8 * scale)
+                        .background(
+                            Capsule()
+                                .fill(Color.orange.opacity(0.15))
                         )
                 } else {
                     Text("Loading...")
@@ -277,12 +314,17 @@ struct Preset5View: View, InspectLayoutProtocol {
                             .fill(Color.gray.opacity(0.2))
                             .frame(height: 12 * scale)
 
-                        // Progress bar (shows validation progress during loading, score after)
+                        // Progress bar (shows pre-cache → validation → score)
                         let progressValue: CGFloat = {
-                            if hasComputedData {
+                            if isValidationComplete {
                                 return getLiveOverallScore()
+                            } else if let preCacheProgress = inspectState.preCacheProgress, preCacheProgress.total > 0 {
+                                // Pre-cache phase: show file loading progress (0-50% of bar)
+                                return CGFloat(preCacheProgress.loaded) / CGFloat(preCacheProgress.total) * 0.3
                             } else if !inspectState.items.isEmpty {
-                                return CGFloat(inspectState.plistValidationResults.count) / CGFloat(inspectState.items.count)
+                                // Validation phase: show validation progress (30-100% of bar)
+                                let validationProgress = CGFloat(inspectState.plistValidationResults.count) / CGFloat(inspectState.items.count)
+                                return 0.3 + (validationProgress * 0.7)
                             }
                             return 0
                         }()
@@ -290,7 +332,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                         RoundedRectangle(cornerRadius: 6 * scale)
                             .fill(
                                 LinearGradient(
-                                    colors: hasComputedData ? [
+                                    colors: isValidationComplete ? [
                                         inspectState.colorThresholds.getColor(for: getLiveOverallScore()),
                                         inspectState.colorThresholds.getColor(for: getLiveOverallScore()).opacity(0.8)
                                     ] : [Color.accentColor, Color.accentColor.opacity(0.8)],
@@ -304,9 +346,14 @@ struct Preset5View: View, InspectLayoutProtocol {
                 }
                 .frame(height: 12 * scale)
 
-                // Total count or loading status
-                if hasComputedData {
+                // Total count or validation progress status
+                if isValidationComplete {
                     Text("Total: \(getLiveTotalCount()) items")
+                        .font(.system(size: 10 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
+                } else if let preCacheProgress = inspectState.preCacheProgress {
+                    // Pre-cache phase: Loading plist files
+                    Text("Loading configuration files... \(preCacheProgress.loaded)/\(preCacheProgress.total)")
                         .font(.system(size: 10 * scale, weight: .medium))
                         .foregroundStyle(.secondary)
                 } else if !inspectState.items.isEmpty {
@@ -436,13 +483,13 @@ struct Preset5View: View, InspectLayoutProtocol {
             .padding(.horizontal, 32 * scale)
             .padding(.vertical, 12 * scale)
 
-            // Category Breakdown Section - More spacious grid layout
+            // Category Breakdown Section - More spacious grid layout with staggered appearance
             ScrollView {
                 LazyVGrid(columns: [
                     GridItem(.flexible(minimum: 340 * scale), spacing: 32 * scale),
                     GridItem(.flexible(minimum: 340 * scale), spacing: 32 * scale)
                 ], spacing: 32 * scale) {
-                    ForEach(filteredCategories, id: \.name) { category in
+                    ForEach(Array(filteredCategories.enumerated()), id: \.element.name) { index, category in
                         CategoryCardView(
                             category: category,
                             scale: scale,
@@ -459,10 +506,20 @@ struct Preset5View: View, InspectLayoutProtocol {
                                 }
                             )
                         )
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                            removal: .opacity
+                        ))
+                        .animation(
+                            .spring(response: 0.4, dampingFraction: 0.8)
+                            .delay(Double(index) * 0.04),  // 40ms stagger per card
+                            value: hasCategories
+                        )
                     }
                 }
                 .padding(.horizontal, 32 * scale)
                 .padding(.top, 20 * scale)
+                .animation(.easeInOut(duration: 0.3), value: filteredCategories.count)
             }
         }
     }
@@ -470,15 +527,28 @@ struct Preset5View: View, InspectLayoutProtocol {
     // MARK: - Footer Section (Always renders immediately)
     @ViewBuilder
     private func footerSection(scale: CGFloat) -> some View {
+        // Get popup button text with fallback (config may not be loaded yet)
+        let popupButtonText = {
+            let configText = inspectState.config?.popupButton
+            let uiText = inspectState.uiConfiguration.popupButtonText
+            // Use config value first, then UI config, then fallback
+            if let text = configText, !text.isEmpty {
+                return text
+            } else if !uiText.isEmpty && uiText != "Install details..." {
+                return uiText
+            }
+            return "View Details"  // Sensible fallback for compliance dashboard
+        }()
+
         HStack(spacing: 20 * scale) {
             // Popup button for details
-            Button(inspectState.uiConfiguration.popupButtonText) {
+            Button(popupButtonText) {
                 showingAboutPopover.toggle()
             }
             .buttonStyle(.plain)
             .foregroundStyle(.blue)
             .font(.body)
-            .disabled(!hasComputedData)  // Disable during loading
+            .disabled(!hasCategories)  // Enable once categories are built (allows viewing details during validation)
             .popover(isPresented: $showingAboutPopover, arrowEdge: .top) {
                 ComplianceDetailsPopoverView(
                     complianceData: categories,
@@ -502,8 +572,16 @@ struct Preset5View: View, InspectLayoutProtocol {
                     .controlSize(.large)
                 }
 
-                let finalButtonText = inspectState.config?.finalButtonText ??
-                                     inspectState.buttonConfiguration.button1Text
+                // Final button with guaranteed fallback
+                let finalButtonText: String = {
+                    if let configText = inspectState.config?.finalButtonText, !configText.isEmpty {
+                        return configText
+                    }
+                    if !inspectState.buttonConfiguration.button1Text.isEmpty {
+                        return inspectState.buttonConfiguration.button1Text
+                    }
+                    return "OK"  // Fallback for compliance dashboard
+                }()
 
                 Button(finalButtonText) {
                     handleFinalButtonPress(buttonText: finalButtonText)
@@ -617,7 +695,13 @@ struct Preset5View: View, InspectLayoutProtocol {
         return "Other"
     }
     
+    // PERF: Use cached icon - cache built once in computeComplianceData()
     private func getCategoryIcon(_ category: String) -> String {
+        return categoryIconCache[category] ?? computeCategoryIconUncached(category)
+    }
+
+    // Actual icon computation (called once per category to build cache)
+    private func computeCategoryIconUncached(_ category: String) -> String {
         // Priority 1: Check if any item has specified a custom categoryIcon for this category
         for item in inspectState.items {
             if let itemCategory = item.category,
@@ -626,7 +710,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                 return categoryIcon
             }
         }
-        
+
         // Priority 2: Check if we have plistSources with an icon configuration
         if let plistSources = inspectState.plistSources {
             for source in plistSources {
@@ -643,7 +727,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                 }
             }
         }
-        
+
         // Priority 3: Simple fallback for common categories - use info icon to indicate help is available
         return "info.circle"
     }
@@ -847,16 +931,30 @@ struct CategoryCardView: View {
     @Binding var isExpanded: Bool  // Controlled by parent for expand/collapse all
     @State private var showingCategoryHelp = false
     @State private var animateProgress = false
+    @State private var cachedSortedItems: [CategoryItemData] = []  // PERF: Cache sorted items
+    @State private var cachedValidationProgress: Double = 0  // PERF: Cache to avoid recomputing on every render
+    @State private var cachedIsFullyValidated: Bool = false
 
-    // Calculate category validation progress
-    private var categoryValidationProgress: Double {
-        let categoryItemIds = Set(category.items.map { $0.id })
-        let validatedCount = categoryItemIds.filter { inspectState.plistValidationResults[$0] != nil }.count
-        return categoryItemIds.isEmpty ? 1.0 : Double(validatedCount) / Double(categoryItemIds.count)
-    }
+    // PERF: Simple accessor for cached value - actual computation in updateValidationProgress()
+    private var categoryValidationProgress: Double { cachedValidationProgress }
+    private var isCategoryFullyValidated: Bool { cachedIsFullyValidated }
 
-    private var isCategoryFullyValidated: Bool {
-        categoryValidationProgress >= 1.0
+    // PERF: Compute validation progress only when validation count changes
+    private func updateValidationProgress() {
+        let total = category.items.count
+        guard total > 0 else {
+            cachedValidationProgress = 1.0
+            cachedIsFullyValidated = true
+            return
+        }
+        var validatedCount = 0
+        for item in category.items {
+            if inspectState.plistValidationResults[item.id] != nil {
+                validatedCount += 1
+            }
+        }
+        cachedValidationProgress = Double(validatedCount) / Double(total)
+        cachedIsFullyValidated = validatedCount == total
     }
 
     var body: some View {
@@ -897,16 +995,30 @@ struct CategoryCardView: View {
                     .font(.system(size: 12 * scale, weight: .medium, design: .monospaced))
                     .foregroundStyle(.secondary)
 
-                // Status badge
-                Text(getStatusText())
-                    .font(.system(size: 10 * scale, weight: .medium))
-                    .foregroundStyle(colorThresholds.getColor(for: category.score))
-                    .padding(.horizontal, 10 * scale)
-                    .padding(.vertical, 4 * scale)
-                    .background(
-                        Capsule()
-                            .fill(colorThresholds.getColor(for: category.score).opacity(0.1))
-                    )
+                // Status badge - shows shimmer effect while validating
+                if isCategoryFullyValidated {
+                    Text(getStatusText())
+                        .font(.system(size: 10 * scale, weight: .medium))
+                        .foregroundStyle(colorThresholds.getColor(for: category.score))
+                        .padding(.horizontal, 10 * scale)
+                        .padding(.vertical, 4 * scale)
+                        .background(
+                            Capsule()
+                                .fill(colorThresholds.getColor(for: category.score).opacity(0.1))
+                        )
+                } else {
+                    // Validating state with shimmer
+                    Text("Validating...")
+                        .font(.system(size: 10 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 10 * scale)
+                        .padding(.vertical, 4 * scale)
+                        .background(
+                            Capsule()
+                                .fill(Color.gray.opacity(0.15))
+                        )
+                        .shimmer()
+                }
             }
             .padding(.horizontal, 20 * scale)
             .padding(.top, 20 * scale)
@@ -958,15 +1070,15 @@ struct CategoryCardView: View {
                     // Items list - takes up most space
                     ScrollView {
                         LazyVStack(spacing: 4 * scale) {
-                            ForEach(getCategoryItems(), id: \.id) { item in
+                            // PERF: Use cached sorted items instead of calling getCategoryItems() twice
+                            ForEach(cachedSortedItems, id: \.id) { item in
                                 ItemRowView(
                                     item: item,
                                     scale: scale,
-                                    colorThresholds: colorThresholds,
-                                    inspectState: inspectState
+                                    colorThresholds: colorThresholds
                                 )
 
-                                if item.id != getCategoryItems().last?.id {
+                                if item.id != cachedSortedItems.last?.id {
                                     Divider()
                                         .padding(.horizontal, 16 * scale)
                                 }
@@ -974,6 +1086,12 @@ struct CategoryCardView: View {
                         }
                     }
                     .frame(maxHeight: 220 * scale)
+                    .onAppear {
+                        // PERF: Cache sorted items once when expanded
+                        if cachedSortedItems.isEmpty {
+                            cachedSortedItems = getCategoryItems()
+                        }
+                    }
 
                     // Right side: Circular progress and metrics - positioned lower
                     VStack(spacing: 12 * scale) {
@@ -1050,9 +1168,21 @@ struct CategoryCardView: View {
                 )
         )
         .onAppear {
+            updateValidationProgress()  // PERF: Initialize cached values
             withAnimation(.spring(response: 0.8, dampingFraction: 0.6).delay(0.1)) {
                 animateProgress = true
             }
+        }
+        .onChange(of: inspectState.plistValidationResults.count) { _, newCount in
+            updateValidationProgress()  // PERF: Update only when validation count changes
+            // Ensure final update when ALL validation completes
+            if newCount == inspectState.items.count {
+                updateValidationProgress()
+            }
+        }
+        .onChange(of: category.passed) { _, _ in
+            // Category was rebuilt with new values - refresh cached progress
+            updateValidationProgress()
         }
     }
     
@@ -1112,7 +1242,7 @@ struct ItemRowView: View {
     let item: CategoryItemData
     let scale: CGFloat
     let colorThresholds: InspectConfig.ColorThresholds
-    @ObservedObject var inspectState: InspectState
+    // PERF: Removed @ObservedObject inspectState - not used in view, was causing all ItemRowViews to re-render on every state change
 
     var body: some View {
         HStack(spacing: 12 * scale) {
@@ -1309,6 +1439,8 @@ struct ComplianceDetailsPopoverView: View {
                                 .padding(.leading, 12)
                             } else {
                                 // File existence check details
+                                // PERF: Use cached validation result instead of blocking FileManager calls
+                                let isValid = inspectState.plistValidationResults[item.id] ?? false
                                 VStack(alignment: .leading, spacing: 4) {
                                     // Evaluation type
                                     HStack {
@@ -1320,59 +1452,34 @@ struct ComplianceDetailsPopoverView: View {
                                             .font(.caption)
                                             .foregroundStyle(.blue)
                                     }
-                                    
-                                    // Check all paths
+
+                                    // Show paths with cached validation status (no FileManager calls)
                                     ForEach(item.paths, id: \.self) { path in
-                                        let fileExists = FileManager.default.fileExists(atPath: path)
                                         HStack {
                                             Text("Path:")
                                                 .font(.caption.weight(.medium))
                                                 .foregroundStyle(.secondary)
                                                 .frame(width: 60, alignment: .leading)
-                                            
+
                                             VStack(alignment: .leading, spacing: 2) {
                                                 Text(path)
                                                     .font(.system(.caption, design: .monospaced))
-                                                    .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: fileExists))
+                                                    .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: isValid))
                                                     .lineLimit(2)
                                                     .textSelection(.enabled)
-                                                
-                                                Text(fileExists ? "✓ File exists" : "✗ File not found")
-                                                    .font(.caption)
-                                                    .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: fileExists))
                                             }
                                         }
                                     }
-                                    
-                                    // File info if exists
-                                    if let existingPath = item.paths.first(where: { FileManager.default.fileExists(atPath: $0) }) {
-                                        if let attributes = try? FileManager.default.attributesOfItem(atPath: existingPath) {
-                                            // File size
-                                            if let fileSize = attributes[.size] as? Int64 {
-                                                HStack {
-                                                    Text("Size:")
-                                                        .font(.caption.weight(.medium))
-                                                        .foregroundStyle(.secondary)
-                                                        .frame(width: 60, alignment: .leading)
-                                                    Text(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))
-                                                        .font(.caption)
-                                                        .foregroundStyle(.secondary)
-                                                }
-                                            }
-                                            
-                                            // Modification date
-                                            if let modDate = attributes[.modificationDate] as? Date {
-                                                HStack {
-                                                    Text("Modified:")
-                                                        .font(.caption.weight(.medium))
-                                                        .foregroundStyle(.secondary)
-                                                        .frame(width: 60, alignment: .leading)
-                                                    Text(modDate, style: .date)
-                                                        .font(.caption)
-                                                        .foregroundStyle(.secondary)
-                                                }
-                                            }
-                                        }
+
+                                    // Status based on cached validation result
+                                    HStack {
+                                        Text("Status:")
+                                            .font(.caption.weight(.medium))
+                                            .foregroundStyle(.secondary)
+                                            .frame(width: 60, alignment: .leading)
+                                        Text(isValid ? "✓ File exists" : "✗ File not found")
+                                            .font(.caption)
+                                            .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: isValid))
                                     }
                                 }
                                 .padding(.leading, 12)
@@ -1384,10 +1491,10 @@ struct ComplianceDetailsPopoverView: View {
                                 .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
                         )
                     }
-                            } // End VStack for category
-                        } // End if let categoryItems
-                    } // End ForEach categories
-                } // End if !inspectState.items.isEmpty
+                } // End VStack for category
+            } // End if let categoryItems
+        } // End ForEach categories
+    } // End if !inspectState.items.isEmpty
                 
                 if inspectState.items.isEmpty && !allFailingItems.isEmpty {
                     // Show enhanced audit issues for complex validation
@@ -1493,30 +1600,10 @@ struct ComplianceDetailsPopoverView: View {
         .frame(maxWidth: 500, maxHeight: 400)
     }
     
-    // Helper function to validate items (uses cache to avoid re-render loops)
+    // PERF: Only use cached validation results - NEVER block main thread with sync validation
     private func isItemValid(_ item: InspectConfig.ItemConfig) -> Bool {
-        // First check cached results
-        if let cachedResult = inspectState.plistValidationResults[item.id] {
-            return cachedResult
-        }
-
-        if item.plistKey != nil {
-            // Use Validation service directly (no state mutation)
-            let basePath = inspectState.uiConfiguration.iconBasePath
-            let request = ValidationRequest(
-                item: item,
-                plistSources: inspectState.plistSources,
-                basePath: basePath
-            )
-            let result = Validation.shared.validateItem(request)
-            return result.isValid
-        } else {
-            let basePath = inspectState.uiConfiguration.iconBasePath
-            return item.paths.first(where: { path in
-                let resolvedPath = Validation.shared.resolvePlistPath(path, basePath: basePath)
-                return FileManager.default.fileExists(atPath: resolvedPath)
-            }) != nil
-        }
+        // Only use cached results - validation should already be complete
+        return inspectState.plistValidationResults[item.id] ?? false
     }
     
     // Enhanced formatting for audit control titles using config data
@@ -1781,5 +1868,44 @@ struct CategoryHelpPopover: View {
 
         // Default format
         return "\(category.passed) of \(category.total) checks passed"
+    }
+}
+
+// MARK: - Shimmer Animation Modifier
+
+/// Creates a subtle shimmer/skeleton loading effect for visual feedback during loading
+struct ShimmerModifier: ViewModifier {
+    @State private var phase: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                GeometryReader { geometry in
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            .clear,
+                            .white.opacity(0.4),
+                            .clear
+                        ]),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .frame(width: geometry.size.width * 2)
+                    .offset(x: phase * geometry.size.width * 2 - geometry.size.width)
+                }
+            )
+            .mask(content)
+            .onAppear {
+                withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+                    phase = 1
+                }
+            }
+    }
+}
+
+extension View {
+    /// Apply shimmer effect for skeleton loading states
+    func shimmer() -> some View {
+        modifier(ShimmerModifier())
     }
 }

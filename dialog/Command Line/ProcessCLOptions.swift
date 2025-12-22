@@ -323,6 +323,61 @@ func processCLOptions(json: JSON = getJSON()) {
         }
         quitDialog(exitCode: appDefaults.exitNow.code)
     }
+    if appArguments.schemaValidate.present {
+        writeLog("\(appArguments.schemaValidate.long) called", logLevel: .info)
+
+        let configPath = appArguments.schemaValidate.value
+        guard !configPath.isEmpty else {
+            print("❌ Error: No config file specified")
+            print("Usage: --schema-validate /path/to/config.json")
+            quitDialog(exitCode: appDefaults.exit201.code)
+            return
+        }
+
+        guard FileManager.default.fileExists(atPath: configPath) else {
+            print("❌ Error: Config file not found: \(configPath)")
+            quitDialog(exitCode: appDefaults.exit201.code)
+            return
+        }
+
+        // Load and validate the config
+        let configService = Config()
+        let result = configService.loadConfiguration(fromFile: configPath)
+
+        switch result {
+        case .success(let configResult):
+            print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            print("  Config Validation: \(configPath)")
+            print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            print("")
+            print("✓ JSON syntax: Valid")
+            print("✓ Preset: \(configResult.config.preset)")
+            print("✓ Items: \(configResult.config.items.count)")
+            print("")
+
+            if configResult.warnings.isEmpty {
+                print("✅ No warnings - config looks good!")
+            } else {
+                print("⚠️  Warnings (\(configResult.warnings.count)):")
+                for warning in configResult.warnings {
+                    print("  • \(warning)")
+                }
+            }
+            print("")
+            quitDialog(exitCode: configResult.warnings.isEmpty ? appDefaults.exit0.code : appDefaults.exit3.code)
+
+        case .failure(let error):
+            print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            print("  Config Validation: \(configPath)")
+            print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            print("")
+            print("❌ Validation failed:")
+            print("  \(error.localizedDescription)")
+            print("")
+            quitDialog(exitCode: appDefaults.exit201.code)
+        }
+        return
+    }
     if appArguments.getVersion.present {
         writeLog("\(appArguments.getVersion.long) called")
         printVersionString()

@@ -102,6 +102,9 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
     @Published var colorThresholds = InspectConfig.ColorThresholds.default
     @Published var plistValidationResults: [String: Bool] = [:] // Track plist validation results
 
+    // MARK: - Pre-cache Progress State (for "Loading configuration files..." indicator)
+    @Published var preCacheProgress: (loaded: Int, total: Int)? = nil  // nil = not started, (x, y) = loading
+
     // MARK: - Plist Monitoring - Generalized from Preset6
     private var plistMonitors: [String: PlistMonitorTask] = [:] // Track active monitoring tasks
     private var jsonMonitors: [String: JsonMonitorTask] = [:] // Track active JSON monitoring tasks
@@ -1029,34 +1032,62 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
     /// This eliminates potential deadlocks and silent crashes in production builds
     func validateAllItems() {
         writeLog("InspectState: Starting async validation of \(items.count) items", logLevel: .info)
-        
-        // Log each item being validated
-        for item in items {
-            writeLog("InspectState: Will validate item '\(item.id)' - plistKey: '\(item.plistKey ?? "nil")', expectedValue: '\(item.expectedValue ?? "nil")', evaluation: '\(item.evaluation ?? "nil")'", logLevel: .info)
+
+        // RING BUFFER: Sort items by category so cards complete in visual order (top-to-bottom)
+        // This creates a smoother loading UX where each category card completes before the next
+        let sortedItems = items.sorted { item1, item2 in
+            let cat1 = item1.category ?? getCategoryPrefix(item1.id)
+            let cat2 = item2.category ?? getCategoryPrefix(item2.id)
+            return cat1 < cat2
         }
-        
-        // Use Task to handle the main actor call properly
+
+        // Log each item being validated (in sorted order)
+        for item in sortedItems {
+            writeLog("InspectState: Will validate item '\(item.id)' - plistKey: '\(item.plistKey ?? "nil")', expectedValue: '\(item.expectedValue ?? "nil")', evaluation: '\(item.evaluation ?? "nil")'", logLevel: .debug)
+        }
+
+        // Use STREAMING validation for per-card progressive updates
+        // Each result is emitted immediately, triggering Preset5's onChange handler
         Task { @MainActor in
-            // Use optimized async validation
-            Validation.shared.validateItemsBatch(items, plistSources: plistSources) { [weak self] results in
-                Task { @MainActor in
-                    guard let self = self else { return }
-                    self.plistValidationResults = results
-                    writeLog("InspectState: Async validation complete. \(results.filter { $0.value }.count) valid items out of \(results.count) total", logLevel: .info)
-                    
-                    // Log each result
-                    for (itemId, isValid) in results {
-                        writeLog("InspectState: Validation result - '\(itemId)': \(isValid)", logLevel: .info)
+            Validation.shared.validateItemsBatchStreaming(
+                sortedItems,
+                plistSources: self.plistSources,
+                onPreCacheProgress: { [weak self] loaded, total in
+                    // Update pre-cache progress for "Loading configuration files..." indicator
+                    self?.preCacheProgress = (loaded, total)
+                },
+                onItemValidated: { [weak self] itemId, isValid in
+                    // Clear pre-cache progress once validation starts
+                    if self?.preCacheProgress != nil {
+                        self?.preCacheProgress = nil
                     }
-                    
-                    // Update UI if needed
-                    self.objectWillChange.send()
+                    // STREAM: Update dictionary immediately for each result
+                    // This triggers onChange in Preset5View for per-card progress
+                    self?.plistValidationResults[itemId] = isValid
+                },
+                completion: { [weak self] results in
+                    guard let self = self else { return }
+                    writeLog("InspectState: Streaming validation complete. \(results.filter { $0.value }.count) valid items out of \(results.count) total", logLevel: .info)
+
+                    // Just clear pre-cache state - no objectWillChange.send() needed
+                    // The streaming updates already triggered all necessary UI refreshes
+                    self.preCacheProgress = nil
                 }
-            }
+            )
         }
     }
-    
-    
+
+    /// Extract category prefix from item ID (e.g., "os_gatekeeper_enable" → "os")
+    /// Used for ring buffer sorting when no explicit category is set
+    private func getCategoryPrefix(_ itemId: String) -> String {
+        // Common prefixes used in mSCP/NIST compliance rules
+        let parts = itemId.components(separatedBy: "_")
+        if let first = parts.first, !first.isEmpty {
+            return first.lowercased()
+        }
+        return itemId
+    }
+
     // NEW: Get actual plist value for display purposes
     @MainActor
     func getPlistValueForDisplay(item: InspectConfig.ItemConfig) -> String? {
