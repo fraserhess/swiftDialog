@@ -675,15 +675,22 @@ struct GuidanceContentView: View {
             }
 
         case "bullets":
-            let resolvedContent = resolveTemplateVariables(block.content ?? "", inspectState: inspectState)
-            HStack(alignment: .top, spacing: 8 * scaleFactor) {
-                Text("•")
-                    .font(.system(size: 13 * scaleFactor, weight: .bold))
-                    .foregroundStyle(.primary)
-                Text(resolvedContent)
-                    .font(.system(size: 13 * scaleFactor))
-                    .foregroundStyle(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
+            if let items = block.items {
+                VStack(alignment: .leading, spacing: 6 * scaleFactor) {
+                    ForEach(items, id: \.self) { item in
+                        if !item.isEmpty {
+                            HStack(alignment: .top, spacing: 8 * scaleFactor) {
+                                Text("•")
+                                    .font(.system(size: 13 * scaleFactor))
+                                    .foregroundStyle(.secondary)
+                                Text(item)
+                                    .font(.system(size: 13 * scaleFactor))
+                                    .foregroundStyle(.primary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
             }
 
         case "label-value":
@@ -4100,15 +4107,15 @@ struct GallerySideContentBlock: View {
                 )
 
         case "bullets":
-            if let content = block.content {
+            if let items = block.items {
                 VStack(alignment: .leading, spacing: 6 * scaleFactor) {
-                    ForEach(content.components(separatedBy: "\n"), id: \.self) { line in
-                        if !line.isEmpty {
+                    ForEach(items, id: \.self) { item in
+                        if !item.isEmpty {
                             HStack(alignment: .top, spacing: 8 * scaleFactor) {
                                 Text("•")
                                     .font(.system(size: 13 * scaleFactor))
                                     .foregroundStyle(.secondary)
-                                Text(line)
+                                Text(item)
                                     .font(.system(size: 13 * scaleFactor))
                                     .foregroundStyle(.primary)
                                     .fixedSize(horizontal: false, vertical: true)
