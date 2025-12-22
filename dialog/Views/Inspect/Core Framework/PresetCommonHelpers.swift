@@ -1168,6 +1168,68 @@ struct GuidanceContentView: View {
             }
             .padding(.vertical, 4 * scaleFactor)
 
+        case "textfield":
+            VStack(alignment: .leading, spacing: 6 * scaleFactor) {
+                HStack {
+                    if let content = block.content, !content.isEmpty {
+                        Text(content)
+                            .font(.system(size: 13 * scaleFactor))
+                            .foregroundStyle(.primary)
+                    }
+
+                    if let helpText = block.helpText, !helpText.isEmpty {
+                        InfoPopoverButton(helpText: helpText, scaleFactor: scaleFactor)
+                    }
+
+                    Spacer()
+
+                    if let fieldId = block.id {
+                        let textBinding = Binding(
+                            get: {
+                                // 1. Check user input first
+                                if let userValue = inspectState.guidanceFormInputs[itemId]?.textfields[fieldId] {
+                                    return userValue
+                                }
+                                // 2. Resolve inherit source
+                                if let inheritSpec = block.inherit {
+                                    if let inherited = inspectState.resolveInheritValue(inheritSpec, basePath: inspectState.uiConfiguration.iconBasePath) {
+                                        return inherited
+                                    }
+                                }
+                                // 3. Fall back to default value
+                                return block.value ?? ""
+                            },
+                            set: { newValue in
+                                if inspectState.guidanceFormInputs[itemId] == nil {
+                                    inspectState.initializeGuidanceFormState(for: itemId)
+                                }
+                                inspectState.guidanceFormInputs[itemId]?.textfields[fieldId] = newValue
+                                writeLog("GuidanceContentView: Textfield '\(fieldId)' updated", logLevel: .info)
+                                inspectState.writeToInteractionLog("textfield:\(itemId):\(fieldId):\(newValue)")
+                            }
+                        )
+
+                        Group {
+                            if block.secure == true {
+                                SecureField(block.placeholder ?? "", text: textBinding)
+                            } else {
+                                TextField(block.placeholder ?? "", text: textBinding)
+                            }
+                        }
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 200 * scaleFactor)
+                    }
+                }
+
+                if block.required == true {
+                    Text("* Required")
+                        .font(.system(size: 11 * scaleFactor))
+                        .foregroundStyle(.orange)
+                        .italic()
+                }
+            }
+            .padding(.vertical, 4 * scaleFactor)
+
         case "button":
             if let buttonLabel = block.content {
                 applyButtonStyle(

@@ -375,7 +375,7 @@ struct InspectConfig: Codable {
 
     // Guidance content blocks for rich text display eg. used in Preset6
     struct GuidanceContent: Codable {
-        let type: String                // "text" | "highlight" | "warning" | "info" | "success" | "bullets" | "arrow" | "image" | "image-carousel" | "video" | "webcontent" | "checkbox" | "dropdown" | "radio" | "toggle" | "slider" | "button" | "status-badge" | "comparison-table" | "phase-tracker" | "progress-bar" | "compliance-card" | "compliance-header"
+        let type: String                // "text" | "highlight" | "warning" | "info" | "success" | "bullets" | "arrow" | "image" | "image-carousel" | "video" | "webcontent" | "checkbox" | "dropdown" | "radio" | "toggle" | "slider" | "textfield" | "button" | "status-badge" | "comparison-table" | "phase-tracker" | "progress-bar" | "compliance-card" | "compliance-header"
         let content: String?            // The actual text content (or button label for type="button") - optional for status monitoring types
         let items: [String]?            // Array of items - e.g. bullets
         let color: String?              // Optional color override (hex format)
@@ -414,6 +414,14 @@ struct InspectConfig: Codable {
             let value: Double           // Numeric value for this step
             let label: String           // Display label (e.g., "1 minute", "30 minutes", "1 hour")
         }
+
+        // Textfield-specific fields (for type="textfield")
+        let placeholder: String?        // Placeholder text when empty
+        let secure: Bool?               // Password mode (hide characters)
+        let inherit: String?            // Value source: "plist:path:key", "defaults:domain:key", "env:NAME", "field:itemId.fieldId"
+        let regex: String?              // Validation pattern (regex)
+        let regexError: String?         // Error message when regex fails
+        let maxLength: Int?             // Maximum character limit
 
         // Button-specific fields (for type="button")
         let action: String?             // Button action: "url", "shell", "request", "custom" (triggers callback)

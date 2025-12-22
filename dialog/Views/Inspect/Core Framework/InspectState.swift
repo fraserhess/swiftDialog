@@ -30,6 +30,7 @@ struct GuidanceFormInputState: Codable {
     var radios: [String: String] = [:]        // radio id -> selected option
     var toggles: [String: Bool] = [:]         // toggle id -> enabled state
     var sliders: [String: Double] = [:]       // slider id -> current value
+    var textfields: [String: String] = [:]    // textfield id -> text value
 }
 
 // MARK: - Configuration Structs for Grouped State
@@ -1770,6 +1771,45 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
 
     // MARK: - Guidance Form Input Management
 
+    /// Resolve inherited value from various sources for textfield pre-population
+    /// Supports: plist:path:key, defaults:domain:key, env:NAME, field:itemId.fieldId
+    @MainActor
+    func resolveInheritValue(_ inheritSpec: String, basePath: String?) -> String? {
+        let parts = inheritSpec.components(separatedBy: ":")
+        guard parts.count >= 2 else { return nil }
+
+        switch parts[0] {
+        case "plist":
+            // plist:/path/to/file.plist:key.path
+            guard parts.count >= 3 else { return nil }
+            let path = parts[1]
+            let key = parts.dropFirst(2).joined(separator: ":")
+            return Validation.shared.getPlistValue(at: path, key: key, basePath: basePath)
+
+        case "defaults":
+            // defaults:com.apple.domain:key.path
+            guard parts.count >= 3 else { return nil }
+            let domain = parts[1]
+            let key = parts.dropFirst(2).joined(separator: ":")
+            return Validation.shared.getUserDefaultsValue(domain: domain, key: key)
+
+        case "env":
+            // env:USER
+            return ProcessInfo.processInfo.environment[parts[1]]
+
+        case "field":
+            // field:itemId.fieldId
+            let fieldParts = parts[1].components(separatedBy: ".")
+            guard fieldParts.count == 2 else { return nil }
+            let itemId = fieldParts[0]
+            let fieldId = fieldParts[1]
+            return guidanceFormInputs[itemId]?.textfields[fieldId]
+
+        default:
+            return nil
+        }
+    }
+
     /// Initialize form input state for an item if not already present
     /// Populates default values from guidance content configuration
     func initializeGuidanceFormState(for itemId: String) {
@@ -1819,13 +1859,20 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                     writeLog("InspectState: Set default radio '\(fieldId)' = '\(value)'", logLevel: .debug)
                 }
 
+            case "textfield":
+                // Use value as default if present (inherit is resolved lazily in getter)
+                if let value = block.value, !value.isEmpty {
+                    newState.textfields[fieldId] = value
+                    writeLog("InspectState: Set default textfield '\(fieldId)' = '\(value)'", logLevel: .debug)
+                }
+
             default:
                 continue
             }
         }
 
         guidanceFormInputs[itemId] = newState
-        writeLog("InspectState: Initialized form state for item '\(itemId)' with \(newState.checkboxes.count) checkboxes, \(newState.dropdowns.count) dropdowns, \(newState.radios.count) radios", logLevel: .info)
+        writeLog("InspectState: Initialized form state for item '\(itemId)' with \(newState.checkboxes.count) checkboxes, \(newState.dropdowns.count) dropdowns, \(newState.radios.count) radios, \(newState.textfields.count) textfields", logLevel: .info)
     }
 
     /// Validate that all required form inputs are filled for a given item
@@ -1872,6 +1919,28 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                     return false
                 }
 
+            case "textfield":
+                // Required textfield must have a value OR have a default/inherit value
+                let userValue = formState.textfields[fieldId] ?? ""
+                let hasValue = !userValue.isEmpty
+                let hasDefault = block.value != nil && !block.value!.isEmpty
+                let hasInherit = block.inherit != nil
+
+                if !hasValue && !hasDefault && !hasInherit {
+                    writeLog("InspectState: Required textfield '\(fieldId)' is empty and no default/inherit", logLevel: .info)
+                    return false
+                }
+
+                // Regex validation (optional)
+                if let regex = block.regex, !userValue.isEmpty {
+                    let pattern = try? NSRegularExpression(pattern: regex)
+                    let range = NSRange(userValue.startIndex..<userValue.endIndex, in: userValue)
+                    if pattern?.firstMatch(in: userValue, range: range) == nil {
+                        writeLog("InspectState: Textfield '\(fieldId)' failed regex validation", logLevel: .info)
+                        return false
+                    }
+                }
+
             default:
                 continue
             }
@@ -1895,6 +1964,7 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
         result["radios"] = formState.radios
         result["toggles"] = formState.toggles
         result["sliders"] = formState.sliders
+        result["textfields"] = formState.textfields
 
         return result
     }
@@ -1924,6 +1994,7 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                     let radios = selection["radios"] as? [String: String] ?? [:]
                     let toggles = selection["toggles"] as? [String: Bool] ?? [:]
                     let sliders = selection["sliders"] as? [String: Double] ?? [:]
+                    let textfields = selection["textfields"] as? [String: String] ?? [:]
 
                     for (fieldId, checked) in checkboxes {
                         print("[PRESET9_FORM] stepId=\(itemId) field=\(fieldId) type=checkbox value=\(checked)")
@@ -1939,6 +2010,9 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                     }
                     for (fieldId, value) in sliders {
                         print("[PRESET9_FORM] stepId=\(itemId) field=\(fieldId) type=slider value=\(value)")
+                    }
+                    for (fieldId, value) in textfields {
+                        print("[PRESET9_FORM] stepId=\(itemId) field=\(fieldId) type=textfield value=\(value)")
                     }
                 }
             }
