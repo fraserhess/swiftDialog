@@ -469,7 +469,8 @@ class Validation: ObservableObject {
     func getUserDefaultsValue(domain: String, key: String) -> String? {
         // Get appropriate UserDefaults instance
         let defaults: UserDefaults?
-        if domain == ".GlobalPreferences" {
+        if domain == ".GlobalPreferences" || domain == "NSGlobalDomain" {
+            // NSGlobalDomain and .GlobalPreferences are special - use standard defaults
             defaults = UserDefaults.standard
         } else {
             defaults = UserDefaults(suiteName: domain)
