@@ -15,222 +15,153 @@ struct Preset5View: View, InspectLayoutProtocol {
     @State private var showDetailOverlay = false
     @State private var showItemDetailOverlay = false
     @State private var selectedItemForDetail: InspectConfig.ItemConfig?
-    @State private var complianceData: [ComplianceCategory] = []
-    @State private var lastCheck: String = ""
+    @StateObject private var iconCache = PresetIconCache()
+
+    // MARK: - Local State for Compliance Data (prevents re-render loops)
+    @State private var categories: [ComplianceCategory] = []
     @State private var overallScore: Double = 0.0
     @State private var criticalIssues: [ComplianceItem] = []
     @State private var allFailingItems: [ComplianceItem] = []
-    @StateObject private var iconCache = PresetIconCache()
+    @State private var lastCheck: String = ""
+    @State private var hasCategories = false  // True once categories are built (doesn't wait for validation)
+    @State private var lastValidationCount = 0  // Track validation progress for incremental updates
+    @State private var categoryIconCache: [String: String] = [:]  // PERF: Cache category icons to avoid O(n) lookup per category
+
+    // MARK: - Collapse/Expand All State
+    @State private var expandedCategories: Set<String> = []  // Track which categories are expanded
+
+    // MARK: - Search State
+    @State private var searchText: String = ""
+
+    // MARK: - Computed Properties
+    private var isValidationComplete: Bool {
+        !inspectState.items.isEmpty &&
+        inspectState.plistValidationResults.count == inspectState.items.count
+    }
 
     init(inspectState: InspectState) {
         self.inspectState = inspectState
     }
 
+    // MARK: - Data Computation (Optimized Progressive Loading)
+
+    /// Computes categories from items - optimized to minimize redundant work
+    /// Uses cached validation results when available, defaults to "pending" for unvalidated items
+    private func computeComplianceData() {
+        guard !inspectState.items.isEmpty else { return }
+
+        let validationCount = inspectState.plistValidationResults.count
+        let totalItems = inspectState.items.count
+
+        // OPTIMIZATION: Skip if nothing changed
+        if hasCategories && validationCount == lastValidationCount {
+            return
+        }
+
+        // PERF FIX: Throttle category recomputation during validation
+        // Without throttling, we do O(n²) work (113 items × 113 calls = 12,000+ iterations)
+        // Per-card progress bars update separately via categoryValidationProgress computed property
+        let isComplete = validationCount == totalItems
+        let itemsSinceLastUpdate = validationCount - lastValidationCount
+        let shouldUpdate = !hasCategories ||       // First time - always compute
+                          isComplete ||            // Final - always compute
+                          validationCount <= 3 ||  // Early feedback
+                          itemsSinceLastUpdate >= 10  // Throttle to every 10 items
+
+        if !shouldUpdate {
+            return
+        }
+
+        // Transform items to ComplianceItem array (only when needed)
+        let complianceItems: [ComplianceItem] = inspectState.items.map { item in
+            let hasValidationResult = inspectState.plistValidationResults[item.id] != nil
+            let isValid = hasValidationResult ? getValidationResult(for: item) : false
+            return ComplianceItem(
+                id: item.id,
+                category: getItemCategory(item),
+                finding: isValid,
+                isCritical: getItemCriticality(item),
+                isInProgress: !hasValidationResult
+            )
+        }
+
+        // PERF: Build icon cache once (avoids O(n) lookup per category - 7 categories × 113 items = 791 iterations)
+        if categoryIconCache.isEmpty {
+            let uniqueCategories = Set(complianceItems.map { $0.category })
+            for category in uniqueCategories {
+                categoryIconCache[category] = computeCategoryIconUncached(category)
+            }
+        }
+
+        // Update state
+        categories = categorizeItems(complianceItems)
+        overallScore = calculateOverallScore(complianceItems)
+        criticalIssues = complianceItems.filter { !$0.finding && $0.isCritical && !$0.isInProgress }
+        allFailingItems = complianceItems.filter { !$0.finding && !$0.isInProgress }
+        lastCheck = getCurrentTimestamp()
+        hasCategories = true
+        lastValidationCount = validationCount
+
+        writeLog("Preset5: Computed \(categories.count) categories, \(validationCount)/\(totalItems) validated, score: \(String(format: "%.0f", overallScore * 100))%", logLevel: .debug)
+    }
+
+    /// Gets validation result from cache only - NEVER does synchronous validation
+    /// Returns nil if not yet validated (async validation will populate cache)
+    private func getValidationResult(for item: InspectConfig.ItemConfig) -> Bool {
+        // ONLY check cached validation results - never block main thread
+        // Async validation in InspectState.validateAllItems() will populate this cache
+        if let cachedResult = inspectState.plistValidationResults[item.id] {
+            return cachedResult
+        }
+
+        // No cached result yet - return false (item shows as "in progress")
+        // The async validation will update this and trigger recomputation
+        return false
+    }
 
     var body: some View {
         let scale: CGFloat = scaleFactor
-        
-        VStack(spacing: 0) {
-            // Header Section with Logo and Title
-            VStack(spacing: 20 * scale) {
-                // Icon and Title - Larger and more prominent
-                HStack(spacing: 20 * scale) {
-                    IconView(
-                        image: iconCache.getMainIconPath(for: inspectState),
-                        overlay: iconCache.getOverlayIconPath(for: inspectState),
-                        defaultImage: "shield.checkered",
-                        defaultColour: "accent"
-                    )
-                    .frame(width: 64 * scale, height: 64 * scale)
-                        .onAppear { iconCache.cacheMainIcon(for: inspectState) }
-                    
-                    VStack(alignment: .leading, spacing: 4 * scale) {
-                        Text(inspectState.uiConfiguration.windowTitle)
-                            .font(.system(size: 22 * scale, weight: .semibold))
-                            .foregroundStyle(.primary)
-                            .lineLimit(2)
-                        
-                        if let message = inspectState.uiConfiguration.subtitleMessage, !message.isEmpty {
-                            Text(message)
-                                .font(.system(size: 14 * scale))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                        } else {
-                            Text("Last Check: \(lastCheck)")
-                                .font(.system(size: 12 * scale))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    // Status badge on the right
-                    Text(getOverallStatusText())
-                        .font(.system(size: 12 * scale, weight: .semibold))
-                        .foregroundStyle(inspectState.colorThresholds.getColor(for: getLiveOverallScore()))
-                        .padding(.horizontal, 16 * scale)
-                        .padding(.vertical, 8 * scale)
-                        .background(
-                            Capsule()
-                                .fill(inspectState.colorThresholds.getColor(for: getLiveOverallScore()).opacity(0.15))
-                        )
-                }
-                .padding(.horizontal, 32 * scale)
-                .padding(.top, 24 * scale)
-                
-                // Progress Bar Section - Horizontal and informative
-                VStack(spacing: 12 * scale) {
-                    // Stats row
-                    HStack(spacing: 32 * scale) {
-                        // Passed
-                        HStack(spacing: 8 * scale) {
-                            Circle()
-                                .fill(inspectState.colorThresholds.getPositiveColor())
-                                .frame(width: 8 * scale, height: 8 * scale)
-                            Text("Passed")
-                                .font(.system(size: 11 * scale, weight: .medium))
-                                .foregroundStyle(.secondary)
-                            Text("\(getLivePassedCount())")
-                                .font(.system(size: 16 * scale, weight: .bold, design: .monospaced))
-                                .foregroundStyle(inspectState.colorThresholds.getPositiveColor())
-                        }
-                        
-                        Spacer()
-                        
-                        // Overall percentage
-                        Text("\(Int(getLiveOverallScore() * 100))%")
-                            .font(.system(size: 20 * scale, weight: .bold, design: .rounded))
-                            .foregroundStyle(.primary)
-                        
-                        Spacer()
-                        
-                        // Failed
-                        HStack(spacing: 8 * scale) {
-                            Text("\(getLiveFailedCount())")
-                                .font(.system(size: 16 * scale, weight: .bold, design: .monospaced))
-                                .foregroundStyle(inspectState.colorThresholds.getNegativeColor())
-                            Text("Failed")
-                                .font(.system(size: 11 * scale, weight: .medium))
-                                .foregroundStyle(.secondary)
-                            Circle()
-                                .fill(inspectState.colorThresholds.getNegativeColor())
-                                .frame(width: 8 * scale, height: 8 * scale)
-                        }
-                    }
-                    
-                    // Progress bar
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            // Background bar
-                            RoundedRectangle(cornerRadius: 6 * scale)
-                                .fill(Color.gray.opacity(0.2))
-                                .frame(height: 12 * scale)
-                            
-                            // Progress bar
-                            RoundedRectangle(cornerRadius: 6 * scale)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            inspectState.colorThresholds.getColor(for: getLiveOverallScore()),
-                                            inspectState.colorThresholds.getColor(for: getLiveOverallScore()).opacity(0.8)
-                                        ],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .frame(width: max(0, geometry.size.width * getLiveOverallScore()), height: 12 * scale)
-                                .animation(.spring(response: 0.8, dampingFraction: 0.6), value: getLiveOverallScore())
-                        }
-                    }
-                    .frame(height: 12 * scale)
-                    
-                    // Total count
-                    Text("Total: \(getLiveTotalCount()) items")
-                        .font(.system(size: 10 * scale, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 32 * scale)
-                .padding(.bottom, 20 * scale)
-            }
-            
-            Spacer()
-            
-            // Category Breakdown Section - More spacious grid layout
-            ScrollView {
-                LazyVGrid(columns: [
-                    GridItem(.flexible(minimum: 340 * scale), spacing: 32 * scale),
-                    GridItem(.flexible(minimum: 340 * scale), spacing: 32 * scale)
-                ], spacing: 32 * scale) {
-                    ForEach(complianceData, id: \.name) { category in
-                        CategoryCardView(category: category, scale: scale, colorThresholds: inspectState.colorThresholds, inspectState: inspectState)
-                    }
-                }
-                .padding(.horizontal, 32 * scale)
-                .padding(.top, 20 * scale)
-            }
-            
-            Spacer()
-            
-            // Bottom Action Area
-            HStack(spacing: 20 * scale) {
-                Button(inspectState.uiConfiguration.popupButtonText) {
-                    showingAboutPopover.toggle()
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.blue)
-                .font(.body)
-                .popover(isPresented: $showingAboutPopover, arrowEdge: .top) {
-                    ComplianceDetailsPopoverView(
-                        complianceData: complianceData,
-                        criticalIssues: criticalIssues,
-                        allFailingItems: allFailingItems,
-                        lastCheck: lastCheck,
-                        inspectState: inspectState
-                    )
-                }
-                
-                Spacer()
-                
-                // Action buttons
-                HStack(spacing: 16) {
-                    if inspectState.buttonConfiguration.button2Visible && !inspectState.buttonConfiguration.button2Text.isEmpty {
-                        Button(inspectState.buttonConfiguration.button2Text) {
-                            writeLog("Preset5View: User clicked button2 (\(inspectState.buttonConfiguration.button2Text)) - exiting with code 2", logLevel: .info)
-                            exit(2)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
-                        // Note: button2 is always enabled when visible
-                    }
-                    
-                    let finalButtonText = inspectState.config?.finalButtonText ??
-                                         inspectState.buttonConfiguration.button1Text
 
-                    Button(finalButtonText) {
-                        handleFinalButtonPress(buttonText: finalButtonText)
-                    }
-                    .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .disabled(inspectState.buttonConfiguration.button1Disabled)
+        // Chrome-first rendering: header and footer always visible
+        VStack(spacing: 0) {
+            // HEADER SECTION - Always renders immediately
+            headerSection(scale: scale)
+
+            // CONTENT AREA - Shows loading OR category grid
+            ZStack {
+                if inspectState.items.isEmpty {
+                    // Only show loading when items haven't loaded yet
+                    loadingContentView(scale: scale)
+                } else {
+                    // Show categories immediately once items exist
+                    // (validation results update progressively)
+                    categoryContentView(scale: scale)
                 }
             }
-            .padding(.horizontal, 32 * scale)
-            .padding(.bottom, 32 * scale)
+
+            // FOOTER SECTION - Always renders immediately
+            footerSection(scale: scale)
         }
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
-            loadComplianceData()
             iconCache.cacheMainIcon(for: inspectState)
+            // Compute categories immediately if items are already loaded
+            if !inspectState.items.isEmpty {
+                computeComplianceData()
+            }
         }
-        .onChange(of: inspectState.items.count) { _, _ in
-            loadComplianceData()
+        .onChange(of: inspectState.items.count) { _, newCount in
+            // Compute categories immediately when items load
+            if newCount > 0 {
+                computeComplianceData()
+            }
         }
-        .onChange(of: inspectState.completedItems) { _, _ in
-            loadComplianceData()
-        }
-        .onChange(of: inspectState.downloadingItems) { _, _ in
-            loadComplianceData()
+        .onChange(of: inspectState.plistValidationResults.count) { _, _ in
+            // RING BUFFER: Update on EVERY validation result for smooth per-card progress
+            // Each card's progress bar updates as its items complete
+            if !inspectState.items.isEmpty {
+                computeComplianceData()
+            }
         }
         .overlay {
             // Help button (positioned according to config)
@@ -261,198 +192,416 @@ struct Preset5View: View, InspectLayoutProtocol {
         )
     }
 
+    // MARK: - Header Section (Always renders immediately)
+    @ViewBuilder
+    private func headerSection(scale: CGFloat) -> some View {
+        VStack(spacing: 20 * scale) {
+            // Icon and Title - Larger and more prominent
+            HStack(spacing: 20 * scale) {
+                IconView(
+                    image: iconCache.getMainIconPath(for: inspectState),
+                    overlay: iconCache.getOverlayIconPath(for: inspectState),
+                    defaultImage: "shield.checkered",
+                    defaultColour: "accent"
+                )
+                .frame(width: 64 * scale, height: 64 * scale)
+                .onAppear { iconCache.cacheMainIcon(for: inspectState) }
+
+                VStack(alignment: .leading, spacing: 4 * scale) {
+                    Text(inspectState.uiConfiguration.windowTitle)
+                        .font(.system(size: 22 * scale, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+
+                    if let message = inspectState.uiConfiguration.subtitleMessage, !message.isEmpty {
+                        Text(message)
+                            .font(.system(size: 14 * scale))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    } else if hasCategories {
+                        Text("Last Check: \(lastCheck)")
+                            .font(.system(size: 12 * scale))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Spacer()
+
+                // Status badge on the right (shows validation progress or final status)
+                if isValidationComplete {
+                    Text(getOverallStatusText())
+                        .font(.system(size: 12 * scale, weight: .semibold))
+                        .foregroundStyle(inspectState.colorThresholds.getColor(for: getLiveOverallScore()))
+                        .padding(.horizontal, 16 * scale)
+                        .padding(.vertical, 8 * scale)
+                        .background(
+                            Capsule()
+                                .fill(inspectState.colorThresholds.getColor(for: getLiveOverallScore()).opacity(0.15))
+                        )
+                } else if hasCategories {
+                    // Show validation progress
+                    Text("Validating...")
+                        .font(.system(size: 12 * scale, weight: .medium))
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal, 16 * scale)
+                        .padding(.vertical, 8 * scale)
+                        .background(
+                            Capsule()
+                                .fill(Color.orange.opacity(0.15))
+                        )
+                } else {
+                    Text("Loading...")
+                        .font(.system(size: 12 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16 * scale)
+                        .padding(.vertical, 8 * scale)
+                        .background(
+                            Capsule()
+                                .fill(Color.gray.opacity(0.15))
+                        )
+                }
+            }
+            .padding(.horizontal, 32 * scale)
+            .padding(.top, 24 * scale)
+
+            // Progress Bar Section - Horizontal with badge-style stats
+            VStack(spacing: 12 * scale) {
+                // Stats badges row (Audit Hub style)
+                HStack(spacing: 12 * scale) {
+                    // All items badge
+                    StatBadge(
+                        value: getLiveTotalCount(),
+                        label: "All",
+                        color: .secondary,
+                        scale: scale
+                    )
+
+                    // Passed badge
+                    StatBadge(
+                        value: getLivePassedCount(),
+                        label: "Passed",
+                        color: inspectState.colorThresholds.getPositiveColor(),
+                        scale: scale
+                    )
+
+                    // Failed badge
+                    StatBadge(
+                        value: getLiveFailedCount(),
+                        label: "Failed",
+                        color: inspectState.colorThresholds.getNegativeColor(),
+                        scale: scale
+                    )
+
+                    Spacer()
+
+                    // Pass Rate percentage (large, on the right)
+                    HStack(spacing: 6 * scale) {
+                        Text("\(String(format: "%.1f", getLiveOverallScore() * 100))%")
+                            .font(.system(size: 24 * scale, weight: .bold, design: .rounded))
+                            .foregroundStyle(inspectState.colorThresholds.getColor(for: getLiveOverallScore()))
+
+                        Text("Pass Rate")
+                            .font(.system(size: 11 * scale, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                // Progress bar
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        // Background bar
+                        RoundedRectangle(cornerRadius: 6 * scale)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(height: 12 * scale)
+
+                        // Progress bar (shows pre-cache → validation → score)
+                        let progressValue: CGFloat = {
+                            if isValidationComplete {
+                                return getLiveOverallScore()
+                            } else if let preCacheProgress = inspectState.preCacheProgress, preCacheProgress.total > 0 {
+                                // Pre-cache phase: show file loading progress (0-50% of bar)
+                                return CGFloat(preCacheProgress.loaded) / CGFloat(preCacheProgress.total) * 0.3
+                            } else if !inspectState.items.isEmpty {
+                                // Validation phase: show validation progress (30-100% of bar)
+                                let validationProgress = CGFloat(inspectState.plistValidationResults.count) / CGFloat(inspectState.items.count)
+                                return 0.3 + (validationProgress * 0.7)
+                            }
+                            return 0
+                        }()
+
+                        RoundedRectangle(cornerRadius: 6 * scale)
+                            .fill(
+                                LinearGradient(
+                                    colors: isValidationComplete ? [
+                                        inspectState.colorThresholds.getColor(for: getLiveOverallScore()),
+                                        inspectState.colorThresholds.getColor(for: getLiveOverallScore()).opacity(0.8)
+                                    ] : [Color.accentColor, Color.accentColor.opacity(0.8)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: max(0, geometry.size.width * progressValue), height: 12 * scale)
+                            .animation(.spring(response: 0.8, dampingFraction: 0.6), value: progressValue)
+                    }
+                }
+                .frame(height: 12 * scale)
+
+                // Total count or validation progress status
+                if isValidationComplete {
+                    Text("Total: \(getLiveTotalCount()) items")
+                        .font(.system(size: 10 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
+                } else if let preCacheProgress = inspectState.preCacheProgress {
+                    // Pre-cache phase: Loading plist files
+                    Text("Loading configuration files... \(preCacheProgress.loaded)/\(preCacheProgress.total)")
+                        .font(.system(size: 10 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
+                } else if !inspectState.items.isEmpty {
+                    Text("Validating \(inspectState.plistValidationResults.count) of \(inspectState.items.count) items...")
+                        .font(.system(size: 10 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Loading configuration...")
+                        .font(.system(size: 10 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 32 * scale)
+            .padding(.bottom, 20 * scale)
+        }
+    }
+
+    // MARK: - Loading Content View (shown in content area during loading)
+    @ViewBuilder
+    private func loadingContentView(scale: CGFloat) -> some View {
+        VStack(spacing: 16 * scale) {
+            Spacer()
+
+            if inspectState.items.isEmpty {
+                // Indeterminate spinner while loading config
+                ProgressView()
+                    .scaleEffect(1.5)
+                Text("Loading configuration...")
+                    .font(.system(size: 14 * scale))
+                    .foregroundStyle(.secondary)
+            } else {
+                // Show category placeholders during validation
+                Text("Preparing compliance data...")
+                    .font(.system(size: 14 * scale))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+    }
+
+    // MARK: - Filtered Categories (for search)
+    private var filteredCategories: [ComplianceCategory] {
+        guard !searchText.isEmpty else { return categories }
+        return categories.filter { category in
+            // Match category name
+            if category.name.localizedCaseInsensitiveContains(searchText) {
+                return true
+            }
+            // Match any item in category
+            return category.items.contains { item in
+                item.id.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+    }
+
+    // MARK: - Category Content View (category grid with expand/collapse)
+    @ViewBuilder
+    private func categoryContentView(scale: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            // Search bar and controls row
+            HStack(spacing: 16 * scale) {
+                // Search bar
+                HStack(spacing: 8 * scale) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 13 * scale))
+                        .foregroundStyle(.secondary)
+
+                    TextField("Search rules...", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13 * scale))
+
+                    if !searchText.isEmpty {
+                        Button(action: { searchText = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 13 * scale))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 12 * scale)
+                .padding(.vertical, 8 * scale)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8 * scale)
+
+                Spacer()
+
+                // Search results count (when filtering)
+                if !searchText.isEmpty {
+                    Text("\(filteredCategories.count) of \(categories.count) categories")
+                        .font(.system(size: 11 * scale))
+                        .foregroundStyle(.secondary)
+                }
+
+                // Expand/Collapse All Toggle
+                Button(action: {
+                    let targetCategories = filteredCategories
+                    let isAllExpanded = targetCategories.allSatisfy { expandedCategories.contains($0.name) }
+                    let categoryNames = targetCategories.map { $0.name }
+
+                    // Staggered animation for visual polish
+                    for (index, name) in categoryNames.enumerated() {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.03) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                if isAllExpanded {
+                                    expandedCategories.remove(name)
+                                } else {
+                                    expandedCategories.insert(name)
+                                }
+                            }
+                        }
+                    }
+                }) {
+                    HStack(spacing: 4 * scale) {
+                        let targetCategories = filteredCategories
+                        let isAllExpanded = targetCategories.allSatisfy { expandedCategories.contains($0.name) }
+                        Image(systemName: isAllExpanded ? "rectangle.compress.vertical" : "rectangle.expand.vertical")
+                            .font(.system(size: 12 * scale))
+                        Text(isAllExpanded ? "Collapse All" : "Expand All")
+                            .font(.system(size: 12 * scale, weight: .medium))
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 32 * scale)
+            .padding(.vertical, 12 * scale)
+
+            // Category Breakdown Section - More spacious grid layout with staggered appearance
+            ScrollView {
+                LazyVGrid(columns: [
+                    GridItem(.flexible(minimum: 340 * scale), spacing: 32 * scale),
+                    GridItem(.flexible(minimum: 340 * scale), spacing: 32 * scale)
+                ], spacing: 32 * scale) {
+                    ForEach(Array(filteredCategories.enumerated()), id: \.element.name) { index, category in
+                        CategoryCardView(
+                            category: category,
+                            scale: scale,
+                            colorThresholds: inspectState.colorThresholds,
+                            inspectState: inspectState,
+                            isExpanded: Binding(
+                                get: { expandedCategories.contains(category.name) },
+                                set: { newValue in
+                                    if newValue {
+                                        expandedCategories.insert(category.name)
+                                    } else {
+                                        expandedCategories.remove(category.name)
+                                    }
+                                }
+                            )
+                        )
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                            removal: .opacity
+                        ))
+                        .animation(
+                            .spring(response: 0.4, dampingFraction: 0.8)
+                            .delay(Double(index) * 0.04),  // 40ms stagger per card
+                            value: hasCategories
+                        )
+                    }
+                }
+                .padding(.horizontal, 32 * scale)
+                .padding(.top, 20 * scale)
+                .animation(.easeInOut(duration: 0.3), value: filteredCategories.count)
+            }
+        }
+    }
+
+    // MARK: - Footer Section (Always renders immediately)
+    @ViewBuilder
+    private func footerSection(scale: CGFloat) -> some View {
+        // Get popup button text with fallback (config may not be loaded yet)
+        let popupButtonText = {
+            let configText = inspectState.config?.popupButton
+            let uiText = inspectState.uiConfiguration.popupButtonText
+            // Use config value first, then UI config, then fallback
+            if let text = configText, !text.isEmpty {
+                return text
+            } else if !uiText.isEmpty && uiText != "Install details..." {
+                return uiText
+            }
+            return "View Details"  // Sensible fallback for compliance dashboard
+        }()
+
+        HStack(spacing: 20 * scale) {
+            // Popup button for details
+            Button(popupButtonText) {
+                showingAboutPopover.toggle()
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.blue)
+            .font(.body)
+            .disabled(!hasCategories)  // Enable once categories are built (allows viewing details during validation)
+            .popover(isPresented: $showingAboutPopover, arrowEdge: .top) {
+                ComplianceDetailsPopoverView(
+                    complianceData: categories,
+                    criticalIssues: criticalIssues,
+                    allFailingItems: allFailingItems,
+                    lastCheck: lastCheck,
+                    inspectState: inspectState
+                )
+            }
+
+            Spacer()
+
+            // Action buttons
+            HStack(spacing: 16) {
+                if inspectState.buttonConfiguration.button2Visible && !inspectState.buttonConfiguration.button2Text.isEmpty {
+                    Button(inspectState.buttonConfiguration.button2Text) {
+                        writeLog("Preset5View: User clicked button2 (\(inspectState.buttonConfiguration.button2Text)) - exiting with code 2", logLevel: .info)
+                        exit(2)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                }
+
+                // Final button with guaranteed fallback
+                let finalButtonText: String = {
+                    if let configText = inspectState.config?.finalButtonText, !configText.isEmpty {
+                        return configText
+                    }
+                    if !inspectState.buttonConfiguration.button1Text.isEmpty {
+                        return inspectState.buttonConfiguration.button1Text
+                    }
+                    return "OK"  // Fallback for compliance dashboard
+                }()
+
+                Button(finalButtonText) {
+                    handleFinalButtonPress(buttonText: finalButtonText)
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(inspectState.buttonConfiguration.button1Disabled)
+            }
+        }
+        .padding(.horizontal, 32 * scale)
+        .padding(.vertical, 20 * scale)
+    }
+
     // MARK: - Icon Resolution Methods
 
     // Icon caching now handled by PresetIconCache
 
     // MARK: - Private Methods
-    
-    private func loadComplianceData() {
-        // Check if we have complex plist sources (for mSCP audit) OR simple item validation
-        let hasComplexPlist = inspectState.plistSources != nil
-        let hasSimpleValidation = inspectState.items.contains { $0.plistKey != nil }
-        let hasRegularItems = !inspectState.items.isEmpty
-        
-        guard hasComplexPlist || hasSimpleValidation || hasRegularItems else {
-            writeLog("Preset5View: No configuration found", logLevel: .info)
-            return
-        }
-        
-        // Handle complex plist sources (existing mSCP audit functionality)
-        if let plistSources = inspectState.plistSources {
-            loadComplexPlistData(from: plistSources)
-            return
-        }
-        
-        // Handle simple validation (plist + file existence checks)
-        if hasSimpleValidation || hasRegularItems {
-            loadSimpleItemValidation()
-        }
-    }
-    
-    private func loadComplexPlistData(from plistSources: [InspectConfig.PlistSourceConfig]) {
-        
-        // Memory-safe loading with autorelease pool
-        autoreleasepool {
-            var allItems: [ComplianceItem] = []
-            var latestCheck = ""
-            
-            // Limit concurrent processing to prevent memory spikes
-            let maxSources = 10
-            let sourcesToProcess = Array(plistSources.prefix(maxSources))
-            
-            if plistSources.count > maxSources {
-                writeLog("Preset5View: Limiting plist processing to \(maxSources) sources", logLevel: .info)
-            }
-            
-            for source in sourcesToProcess {
-                autoreleasepool {
-                    if let result = loadPlistSource(source: source) {
-                        allItems.append(contentsOf: result.items)
-                        if result.lastCheck > latestCheck {
-                            latestCheck = result.lastCheck
-                        }
-                    }
-                }
-            }
-            
-            // Process data with memory cleanup
-            let processedData = autoreleasepool { () -> ([ComplianceCategory], [ComplianceItem], [ComplianceItem]) in
-                let categories = categorizeItems(allItems)
-                let critical = allItems.filter { !$0.finding && $0.isCritical }
-                let allFailing = allItems.filter { !$0.finding }
-                return (categories, critical, allFailing)
-            }
-            
-            // Update UI state
-            complianceData = processedData.0
-            lastCheck = latestCheck.isEmpty ? getCurrentTimestamp() : latestCheck
-            overallScore = calculateOverallScore(allItems)
-            criticalIssues = processedData.1
-            allFailingItems = processedData.2
-            
-            writeLog("Preset5View: Loaded \(allItems.count) items from \(sourcesToProcess.count) plist sources", logLevel: .info)
-        }
-    }
-    
-    private func loadPlistSource(source: InspectConfig.PlistSourceConfig) -> (items: [ComplianceItem], lastCheck: String)? {
-        // Memory safety: Check file size first to avoid loading huge plists
-        let _ = URL(fileURLWithPath: source.path)
-        guard let fileAttributes = try? FileManager.default.attributesOfItem(atPath: source.path),
-              let fileSize = fileAttributes[.size] as? Int64 else {
-            writeLog("Preset5View: Unable to get file attributes for \(source.path)", logLevel: .error)
-            return nil
-        }
-        
-        // Prevent loading files larger than 10MB
-        let maxFileSize: Int64 = 10 * 1024 * 1024 // 10MB
-        if fileSize > maxFileSize {
-            writeLog("Preset5View: Plist file too large (\(fileSize) bytes) at \(source.path)", logLevel: .error)
-            return nil
-        }
-        
-        // Use autorelease pool for memory management
-        return autoreleasepool { () -> (items: [ComplianceItem], lastCheck: String)? in
-            guard let fileData = FileManager.default.contents(atPath: source.path) else {
-                writeLog("Preset5View: Unable to read plist at \(source.path)", logLevel: .error)
-                return nil
-            }
-            
-            do {
-                // Use PropertyListSerialization with explicit cleanup
-                let plistObject = try PropertyListSerialization.propertyList(from: fileData, format: nil)
-                
-                guard let plistContents = plistObject as? [String: Any] else {
-                    writeLog("Preset5View: Invalid plist format at \(source.path)", logLevel: .error)
-                    return nil
-                }
-                
-                var items: [ComplianceItem] = []
-                let lastCheck = plistContents["lastComplianceCheck"] as? String ?? 
-                               plistContents["LastUpdateCheck"] as? String ?? 
-                               getCurrentTimestamp()
-                
-                // Process items with memory-conscious approach
-                let maxItems = 1000 // Prevent processing too many items
-                var processedCount = 0
-                
-                for (key, value) in plistContents {
-                    if processedCount >= maxItems {
-                        writeLog("Preset5View: Limiting plist processing to \(maxItems) items for \(source.path)", logLevel: .info)
-                        break
-                    }
-                    
-                    if shouldProcessKey(key, source: source) {
-                        if let finding = evaluateValue(value, source: source) {
-                            let item = ComplianceItem(
-                                id: String(key), // Ensure string copy, not reference
-                                category: getCategoryForKey(key, source: source),
-                                finding: finding,
-                                isCritical: isCriticalKey(key, source: source),
-                                isInProgress: false  // Plist validation items don't have in-progress state
-                            )
-                            items.append(item)
-                            processedCount += 1
-                        }
-                    }
-                }
-                
-                writeLog("Preset5View: Successfully processed \(items.count) items from \(source.path) (\(fileSize) bytes)", logLevel: .info)
-                return (items, lastCheck)
-                
-            } catch {
-                writeLog("Preset5View: Error parsing plist at \(source.path): \(error)", logLevel: .error)
-                return nil
-            }
-        }
-    }
-    
-    private func shouldProcessKey(_ key: String, source: InspectConfig.PlistSourceConfig) -> Bool {
-        // Skip timestamp and metadata keys
-        let skipKeys = ["lastComplianceCheck", "LastUpdateCheck", "CFBundleVersion", "_"]
-        if skipKeys.contains(key) || key.hasPrefix("_") { return false }
-        
-        // If key mappings exist, only process mapped keys
-        if let keyMappings = source.keyMappings {
-            return keyMappings.contains { $0.key == key }
-        }
-        
-        // For compliance type, process all non-metadata keys
-        if source.type == "compliance" {
-            return true
-        }
-        
-        // For other types, be more selective
-        return true
-    }
-    
-    private func evaluateValue(_ value: Any, source: InspectConfig.PlistSourceConfig) -> Bool? {
-        let successValues = source.successValues ?? ["true", "1", "YES"]
-        
-        if let boolValue = value as? Bool {
-            // Check if the boolean value (as string) is in successValues
-            return successValues.contains(String(boolValue))
-        }
-        
-        if let stringValue = value as? String {
-            return successValues.contains(stringValue)
-        }
-        
-        if let numberValue = value as? NSNumber {
-            return successValues.contains(numberValue.stringValue)
-        }
-        
-        if let dictValue = value as? [String: Any] {
-            // For compliance plists with nested structure
-            if let finding = dictValue["finding"] as? Bool {
-                // Check if the boolean finding value is in successValues
-                return successValues.contains(String(finding))
-            }
-        }
-        
-        return nil
-    }
-    
+
     private func getCategoryForKey(_ key: String, source: InspectConfig.PlistSourceConfig) -> String {
         // Check key mappings first
         if let keyMappings = source.keyMappings {
@@ -489,69 +638,26 @@ struct Preset5View: View, InspectLayoutProtocol {
         
         return false
     }
-    
-    // NEW: Simple item validation for non-audit use cases
-    private func loadSimpleItemValidation() {
-        var items: [ComplianceItem] = []
 
-        for item in inspectState.items {
-            let isValid: Bool
-            let isInProgress: Bool
-
-            // Check if item is currently downloading/installing
-            isInProgress = inspectState.downloadingItems.contains(item.id)
-
-            // Check if this item needs plist validation
-            if item.plistKey != nil {
-                // Use plist validation
-                isValid = inspectState.validatePlistItem(item)
-            } else {
-                // Simple file existence check
-                isValid = item.paths.first(where: { FileManager.default.fileExists(atPath: $0) }) != nil ||
-                         inspectState.completedItems.contains(item.id)
-            }
-
-            // Create ComplianceItem from validation result
-            // Use intelligent categorization with multiple fallback options
-            let category: String
-            let isCritical: Bool
-
-            // Priority 1: Direct category specification
-            if let itemCategory = item.category {
-                category = itemCategory
-                isCritical = false // Can be enhanced later
-            }
-            // Priority 2: plistSources configuration
-            else if let plistKey = item.plistKey,
-                    let firstSource = inspectState.plistSources?.first {
-                category = getCategoryForKey(plistKey, source: firstSource)
-                isCritical = isCriticalKey(plistKey, source: firstSource)
-            }
-            // Priority 3: Fallback for non-plist items
-            else {
-                category = "Applications"
-                isCritical = false
-            }
-
-            let complianceItem = ComplianceItem(
-                id: item.id,
-                category: category,
-                finding: isValid,
-                isCritical: isCritical,
-                isInProgress: isInProgress
-            )
-
-            items.append(complianceItem)
+    // Helper to get category for an item
+    private func getItemCategory(_ item: InspectConfig.ItemConfig) -> String {
+        if let itemCategory = item.category {
+            return itemCategory
+        } else if let plistKey = item.plistKey,
+                  let firstSource = inspectState.plistSources?.first {
+            return getCategoryForKey(plistKey, source: firstSource)
+        } else {
+            return "Applications"
         }
-        
-        // Update UI state with validation results
-        complianceData = categorizeItems(items)
-        lastCheck = getCurrentTimestamp()
-        overallScore = calculateOverallScore(items)
-        criticalIssues = items.filter { !$0.finding && $0.isCritical }
-        allFailingItems = items.filter { !$0.finding }
-        
-        writeLog("Preset5View: Loaded \(items.count) items from validation (plist + file checks)", logLevel: .info)
+    }
+
+    // Helper to get criticality for an item
+    private func getItemCriticality(_ item: InspectConfig.ItemConfig) -> Bool {
+        if let plistKey = item.plistKey,
+           let firstSource = inspectState.plistSources?.first {
+            return isCriticalKey(plistKey, source: firstSource)
+        }
+        return false
     }
     
     private func getCurrentTimestamp() -> String {
@@ -562,18 +668,19 @@ struct Preset5View: View, InspectLayoutProtocol {
     
     private func categorizeItems(_ items: [ComplianceItem]) -> [ComplianceCategory] {
         let grouped = Dictionary(grouping: items) { $0.category }
-        
-        return grouped.map { category, items in
-            let passed = items.filter { $0.finding }.count
-            let total = items.count
+
+        return grouped.map { category, categoryItems in
+            let passed = categoryItems.filter { $0.finding }.count
+            let total = categoryItems.count
             let score = total > 0 ? Double(passed) / Double(total) : 0.0
-            
+
             return ComplianceCategory(
                 name: category,
                 passed: passed,
                 total: total,
                 score: score,
-                icon: getCategoryIcon(category)
+                icon: getCategoryIcon(category),
+                items: categoryItems  // Include items to avoid re-validation in child views
             )
         }.sorted { $0.name < $1.name }
     }
@@ -588,7 +695,13 @@ struct Preset5View: View, InspectLayoutProtocol {
         return "Other"
     }
     
+    // PERF: Use cached icon - cache built once in computeComplianceData()
     private func getCategoryIcon(_ category: String) -> String {
+        return categoryIconCache[category] ?? computeCategoryIconUncached(category)
+    }
+
+    // Actual icon computation (called once per category to build cache)
+    private func computeCategoryIconUncached(_ category: String) -> String {
         // Priority 1: Check if any item has specified a custom categoryIcon for this category
         for item in inspectState.items {
             if let itemCategory = item.category,
@@ -597,7 +710,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                 return categoryIcon
             }
         }
-        
+
         // Priority 2: Check if we have plistSources with an icon configuration
         if let plistSources = inspectState.plistSources {
             for source in plistSources {
@@ -614,7 +727,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                 }
             }
         }
-        
+
         // Priority 3: Simple fallback for common categories - use info icon to indicate help is available
         return "info.circle"
     }
@@ -637,35 +750,25 @@ struct Preset5View: View, InspectLayoutProtocol {
     }
     
     private func getTotalChecks() -> Int {
-        return complianceData.reduce(0) { $0 + $1.total }
+        return categories.reduce(0) { $0 + $1.total }
     }
-    
+
     private func getPassedCount() -> Int {
-        return complianceData.reduce(0) { $0 + $1.passed }
+        return categories.reduce(0) { $0 + $1.passed }
     }
     
     private func getFailedCount() -> Int {
         return getTotalChecks() - getPassedCount()
     }
 
-    // Live calculation methods for real-time updates
+    // Live calculation methods using cached state (no state mutation to avoid re-render loops)
     private func getLivePassedCount() -> Int {
-        var passed = 0
-        for item in inspectState.items {
-            let isValid: Bool
-            if item.plistKey != nil {
-                isValid = inspectState.validatePlistItem(item)
-            } else {
-                isValid = item.paths.first(where: { FileManager.default.fileExists(atPath: $0) }) != nil ||
-                         inspectState.completedItems.contains(item.id)
-            }
-            if isValid { passed += 1 }
-        }
-        return passed
+        // Use categories state which is computed once and cached
+        return categories.reduce(0) { $0 + $1.passed }
     }
 
     private func getLiveTotalCount() -> Int {
-        return inspectState.items.count
+        return categories.reduce(0) { $0 + $1.total }
     }
 
     private func getLiveFailedCount() -> Int {
@@ -673,13 +776,12 @@ struct Preset5View: View, InspectLayoutProtocol {
     }
 
     private func getLiveOverallScore() -> Double {
-        let total = getLiveTotalCount()
-        guard total > 0 else { return 0.0 }
-        return Double(getLivePassedCount()) / Double(total)
+        // Use cached overallScore from state
+        return overallScore
     }
 
     private func getOverallStatusText() -> String {
-        let score = getLiveOverallScore()
+        let score = overallScore
         if score >= 0.95 {
             return "Excellent Compliance"
         } else if score >= 0.8 {
@@ -752,6 +854,28 @@ struct Preset5View: View, InspectLayoutProtocol {
 
 // MARK: - Supporting Views
 
+/// Badge-style stat display (like Audit Builder Hub)
+struct StatBadge: View {
+    let value: Int
+    let label: String
+    let color: Color
+    let scale: CGFloat
+
+    var body: some View {
+        HStack(spacing: 4 * scale) {
+            Text("\(value)")
+                .font(.system(size: 13 * scale, weight: .semibold, design: .rounded))
+            Text(label)
+                .font(.system(size: 11 * scale, weight: .medium))
+        }
+        .foregroundColor(color)
+        .padding(.horizontal, 10 * scale)
+        .padding(.vertical, 6 * scale)
+        .background(color.opacity(0.12))
+        .clipShape(Capsule())
+    }
+}
+
 struct CategoryRowView: View {
     let category: ComplianceCategory
     let scale: CGFloat
@@ -804,19 +928,51 @@ struct CategoryCardView: View {
     let scale: CGFloat
     let colorThresholds: InspectConfig.ColorThresholds
     @ObservedObject var inspectState: InspectState
+    @Binding var isExpanded: Bool  // Controlled by parent for expand/collapse all
     @State private var showingCategoryHelp = false
     @State private var animateProgress = false
-    
+    @State private var cachedSortedItems: [CategoryItemData] = []  // PERF: Cache sorted items
+    @State private var cachedValidationProgress: Double = 0  // PERF: Cache to avoid recomputing on every render
+    @State private var cachedIsFullyValidated: Bool = false
+
+    // PERF: Simple accessor for cached value - actual computation in updateValidationProgress()
+    private var categoryValidationProgress: Double { cachedValidationProgress }
+    private var isCategoryFullyValidated: Bool { cachedIsFullyValidated }
+
+    // PERF: Compute validation progress only when validation count changes
+    private func updateValidationProgress() {
+        let total = category.items.count
+        guard total > 0 else {
+            cachedValidationProgress = 1.0
+            cachedIsFullyValidated = true
+            return
+        }
+        var validatedCount = 0
+        for item in category.items {
+            if inspectState.plistValidationResults[item.id] != nil {
+                validatedCount += 1
+            }
+        }
+        cachedValidationProgress = Double(validatedCount) / Double(total)
+        cachedIsFullyValidated = validatedCount == total
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header with category title
+            // Header with category title - tappable to expand/collapse
             HStack {
                 HStack(spacing: 8 * scale) {
+                    // Chevron indicator
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 12 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 16 * scale)
+
                     Text(category.name)
                         .font(.system(size: 16 * scale, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
-                    
+
                     // Info button next to category name
                     Button(action: {
                         showingCategoryHelp = true
@@ -831,105 +987,168 @@ struct CategoryCardView: View {
                         CategoryHelpPopover(category: category, scale: scale, inspectState: inspectState)
                     }
                 }
-                
+
                 Spacer()
-                
-                // Status badge
-                Text(getStatusText())
-                    .font(.system(size: 10 * scale, weight: .medium))
-                    .foregroundStyle(colorThresholds.getColor(for: category.score))
-                    .padding(.horizontal, 10 * scale)
-                    .padding(.vertical, 4 * scale)
-                    .background(
-                        Capsule()
-                            .fill(colorThresholds.getColor(for: category.score).opacity(0.1))
-                    )
+
+                // Compact progress indicator in header (always visible)
+                Text("\(category.passed)/\(category.total)")
+                    .font(.system(size: 12 * scale, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+
+                // Status badge - shows shimmer effect while validating
+                if isCategoryFullyValidated {
+                    Text(getStatusText())
+                        .font(.system(size: 10 * scale, weight: .medium))
+                        .foregroundStyle(colorThresholds.getColor(for: category.score))
+                        .padding(.horizontal, 10 * scale)
+                        .padding(.vertical, 4 * scale)
+                        .background(
+                            Capsule()
+                                .fill(colorThresholds.getColor(for: category.score).opacity(0.1))
+                        )
+                } else {
+                    // Validating state with shimmer
+                    Text("Validating...")
+                        .font(.system(size: 10 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 10 * scale)
+                        .padding(.vertical, 4 * scale)
+                        .background(
+                            Capsule()
+                                .fill(Color.gray.opacity(0.15))
+                        )
+                        .shimmer()
+                }
             }
             .padding(.horizontal, 20 * scale)
             .padding(.top, 20 * scale)
-            .padding(.bottom, 16 * scale)
-            
-            // Divider
-            Divider()
-                .padding(.horizontal, 20 * scale)
-            
-            // Main content area: Items list on left, Progress indicator on right
-            HStack(alignment: .top, spacing: 24 * scale) {
-                // Items list - takes up most space
-                ScrollView {
-                    LazyVStack(spacing: 4 * scale) {
-                        ForEach(getCategoryItems(), id: \.id) { item in
-                            ItemRowView(
-                                item: item, 
-                                scale: scale, 
-                                colorThresholds: colorThresholds, 
-                                inspectState: inspectState
-                            )
-                            
-                            if item.id != getCategoryItems().last?.id {
-                                Divider()
-                                    .padding(.horizontal, 16 * scale)
+            .padding(.bottom, isCategoryFullyValidated ? 16 * scale : 8 * scale)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    isExpanded.toggle()
+                }
+            }
+
+            // Per-card validation progress bar (shows during validation)
+            if !isCategoryFullyValidated {
+                VStack(spacing: 4 * scale) {
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            // Background track
+                            RoundedRectangle(cornerRadius: 2 * scale)
+                                .fill(Color.gray.opacity(0.15))
+                                .frame(height: 4 * scale)
+
+                            // Progress fill
+                            RoundedRectangle(cornerRadius: 2 * scale)
+                                .fill(Color.accentColor.opacity(0.7))
+                                .frame(width: geometry.size.width * categoryValidationProgress, height: 4 * scale)
+                                .animation(.easeInOut(duration: 0.3), value: categoryValidationProgress)
+                        }
+                    }
+                    .frame(height: 4 * scale)
+                    .padding(.horizontal, 20 * scale)
+
+                    // Validation status text
+                    let validatedCount = Int(categoryValidationProgress * Double(category.items.count))
+                    Text("Validating \(validatedCount)/\(category.items.count)...")
+                        .font(.system(size: 9 * scale, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.bottom, 12 * scale)
+            }
+
+            // Only show divider and content when expanded
+            if isExpanded {
+                // Divider
+                Divider()
+                    .padding(.horizontal, 20 * scale)
+
+                // Main content area: Items list on left, Progress indicator on right
+                HStack(alignment: .top, spacing: 24 * scale) {
+                    // Items list - takes up most space
+                    ScrollView {
+                        LazyVStack(spacing: 4 * scale) {
+                            // PERF: Use cached sorted items instead of calling getCategoryItems() twice
+                            ForEach(cachedSortedItems, id: \.id) { item in
+                                ItemRowView(
+                                    item: item,
+                                    scale: scale,
+                                    colorThresholds: colorThresholds
+                                )
+
+                                if item.id != cachedSortedItems.last?.id {
+                                    Divider()
+                                        .padding(.horizontal, 16 * scale)
+                                }
                             }
                         }
                     }
-                }
-                .frame(maxHeight: 220 * scale)
-                
-                // Right side: Circular progress and metrics - positioned lower
-                VStack(spacing: 12 * scale) {
-                    // Add spacing to push content lower
-                    Spacer()
-                        .frame(height: 20 * scale)
-                    
-                    // Circular progress indicator with percentage inside
-                    ZStack {
-                        Circle()
-                            .stroke(Color.gray.opacity(0.15), lineWidth: 4 * scale)
-                            .frame(width: 60 * scale, height: 60 * scale)
-                        
-                        Circle()
-                            .trim(from: 0, to: animateProgress ? category.score : 0)
-                            .stroke(
-                                colorThresholds.getColor(for: category.score),
-                                style: StrokeStyle(lineWidth: 4 * scale, lineCap: .round)
-                            )
-                            .frame(width: 60 * scale, height: 60 * scale)
-                            .rotationEffect(.degrees(-90))
-                            .animation(.spring(response: 0.8, dampingFraction: 0.6), value: animateProgress)
-                        
-                        // Percentage display inside the ring
-                        Text("\(Int(category.score * 100))%")
-                            .font(.system(size: 12 * scale, weight: .bold, design: .rounded))
-                            .foregroundStyle(.primary)
-                    }
-                    
-                    // Compact status summary
-                    VStack(spacing: 6 * scale) {
-                        HStack(spacing: 6 * scale) {
-                            Circle()
-                                .fill(colorThresholds.getPositiveColor())
-                                .frame(width: 4 * scale, height: 4 * scale)
-                            Text("\(category.passed)")
-                                .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
-                                .foregroundStyle(colorThresholds.getPositiveColor())
-                        }
-                        
-                        HStack(spacing: 6 * scale) {
-                            Circle()
-                                .fill(colorThresholds.getNegativeColor())
-                                .frame(width: 4 * scale, height: 4 * scale)
-                            Text("\(category.total - category.passed)")
-                                .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
-                                .foregroundStyle(colorThresholds.getNegativeColor())
+                    .frame(maxHeight: 220 * scale)
+                    .onAppear {
+                        // PERF: Cache sorted items once when expanded
+                        if cachedSortedItems.isEmpty {
+                            cachedSortedItems = getCategoryItems()
                         }
                     }
-                    
-                    Spacer()
+
+                    // Right side: Circular progress and metrics - positioned lower
+                    VStack(spacing: 12 * scale) {
+                        // Add spacing to push content lower
+                        Spacer()
+                            .frame(height: 20 * scale)
+
+                        // Circular progress indicator with percentage inside
+                        ZStack {
+                            Circle()
+                                .stroke(Color.gray.opacity(0.15), lineWidth: 4 * scale)
+                                .frame(width: 60 * scale, height: 60 * scale)
+
+                            Circle()
+                                .trim(from: 0, to: animateProgress ? category.score : 0)
+                                .stroke(
+                                    colorThresholds.getColor(for: category.score),
+                                    style: StrokeStyle(lineWidth: 4 * scale, lineCap: .round)
+                                )
+                                .frame(width: 60 * scale, height: 60 * scale)
+                                .rotationEffect(.degrees(-90))
+                                .animation(.spring(response: 0.8, dampingFraction: 0.6), value: animateProgress)
+
+                            // Percentage display inside the ring
+                            Text("\(Int(category.score * 100))%")
+                                .font(.system(size: 12 * scale, weight: .bold, design: .rounded))
+                                .foregroundStyle(.primary)
+                        }
+
+                        // Compact status summary
+                        VStack(spacing: 6 * scale) {
+                            HStack(spacing: 6 * scale) {
+                                Circle()
+                                    .fill(colorThresholds.getPositiveColor())
+                                    .frame(width: 4 * scale, height: 4 * scale)
+                                Text("\(category.passed)")
+                                    .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(colorThresholds.getPositiveColor())
+                            }
+
+                            HStack(spacing: 6 * scale) {
+                                Circle()
+                                    .fill(colorThresholds.getNegativeColor())
+                                    .frame(width: 4 * scale, height: 4 * scale)
+                                Text("\(category.total - category.passed)")
+                                    .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(colorThresholds.getNegativeColor())
+                            }
+                        }
+
+                        Spacer()
+                    }
+                    .frame(width: 80 * scale)
                 }
-                .frame(width: 80 * scale)
+                .padding(.horizontal, 20 * scale)
+                .padding(.bottom, 20 * scale)
             }
-            .padding(.horizontal, 20 * scale)
-            .padding(.bottom, 20 * scale)
         }
         .background(
             RoundedRectangle(cornerRadius: 16 * scale)
@@ -949,9 +1168,21 @@ struct CategoryCardView: View {
                 )
         )
         .onAppear {
+            updateValidationProgress()  // PERF: Initialize cached values
             withAnimation(.spring(response: 0.8, dampingFraction: 0.6).delay(0.1)) {
                 animateProgress = true
             }
+        }
+        .onChange(of: inspectState.plistValidationResults.count) { _, newCount in
+            updateValidationProgress()  // PERF: Update only when validation count changes
+            // Ensure final update when ALL validation completes
+            if newCount == inspectState.items.count {
+                updateValidationProgress()
+            }
+        }
+        .onChange(of: category.passed) { _, _ in
+            // Category was rebuilt with new values - refresh cached progress
+            updateValidationProgress()
         }
     }
     
@@ -968,38 +1199,19 @@ struct CategoryCardView: View {
     }
     
     private func getCategoryItems() -> [CategoryItemData] {
-        // Get items that belong to this category
-        let categoryItems = inspectState.items.filter { item in
-            let itemCategory: String
-            if let category = item.category {
-                itemCategory = category
-            } else if let plistKey = item.plistKey,
-                      let firstSource = inspectState.plistSources?.first {
-                itemCategory = getCategoryForKey(plistKey, source: firstSource, inspectState: inspectState)
-            } else {
-                itemCategory = "Applications"
-            }
-            return itemCategory == category.name
-        }
-        
-        // Convert to CategoryItemData
-        return categoryItems.map { item in
-            let isValid: Bool
-            if item.plistKey != nil {
-                isValid = inspectState.validatePlistItem(item)
-            } else {
-                isValid = item.paths.first(where: { FileManager.default.fileExists(atPath: $0) }) != nil ||
-                         inspectState.completedItems.contains(item.id)
-            }
-
-            let isInProgress = inspectState.downloadingItems.contains(item.id)
+        // Use pre-computed items from category (already validated, no re-render loops)
+        return category.items.map { complianceItem in
+            // Look up displayName from inspectState.items
+            let displayName = inspectState.items
+                .first(where: { $0.id == complianceItem.id })?
+                .displayName ?? complianceItem.id
 
             return CategoryItemData(
-                id: item.id,
-                displayName: item.displayName,
-                isValid: isValid,
-                isCritical: false, // Can be enhanced later
-                isInProgress: isInProgress
+                id: complianceItem.id,
+                displayName: displayName,
+                isValid: complianceItem.finding,
+                isCritical: complianceItem.isCritical,
+                isInProgress: complianceItem.isInProgress
             )
         }.sorted { $0.displayName < $1.displayName }
     }
@@ -1030,7 +1242,7 @@ struct ItemRowView: View {
     let item: CategoryItemData
     let scale: CGFloat
     let colorThresholds: InspectConfig.ColorThresholds
-    @ObservedObject var inspectState: InspectState
+    // PERF: Removed @ObservedObject inspectState - not used in view, was causing all ItemRowViews to re-render on every state change
 
     var body: some View {
         HStack(spacing: 12 * scale) {
@@ -1199,7 +1411,7 @@ struct ComplianceDetailsPopoverView: View {
                                         if let actualValue = inspectState.getPlistValueForDisplay(item: item) {
                                             Text(actualValue)
                                                 .font(.system(.caption, design: .monospaced))
-                                                .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: inspectState.validatePlistItem(item)))
+                                                .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: inspectState.plistValidationResults[item.id] ?? false))
                                                 .textSelection(.enabled)
                                         } else {
                                             Text("Key not found")
@@ -1227,6 +1439,8 @@ struct ComplianceDetailsPopoverView: View {
                                 .padding(.leading, 12)
                             } else {
                                 // File existence check details
+                                // PERF: Use cached validation result instead of blocking FileManager calls
+                                let isValid = inspectState.plistValidationResults[item.id] ?? false
                                 VStack(alignment: .leading, spacing: 4) {
                                     // Evaluation type
                                     HStack {
@@ -1238,59 +1452,34 @@ struct ComplianceDetailsPopoverView: View {
                                             .font(.caption)
                                             .foregroundStyle(.blue)
                                     }
-                                    
-                                    // Check all paths
+
+                                    // Show paths with cached validation status (no FileManager calls)
                                     ForEach(item.paths, id: \.self) { path in
-                                        let fileExists = FileManager.default.fileExists(atPath: path)
                                         HStack {
                                             Text("Path:")
                                                 .font(.caption.weight(.medium))
                                                 .foregroundStyle(.secondary)
                                                 .frame(width: 60, alignment: .leading)
-                                            
+
                                             VStack(alignment: .leading, spacing: 2) {
                                                 Text(path)
                                                     .font(.system(.caption, design: .monospaced))
-                                                    .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: fileExists))
+                                                    .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: isValid))
                                                     .lineLimit(2)
                                                     .textSelection(.enabled)
-                                                
-                                                Text(fileExists ? "✓ File exists" : "✗ File not found")
-                                                    .font(.caption)
-                                                    .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: fileExists))
                                             }
                                         }
                                     }
-                                    
-                                    // File info if exists
-                                    if let existingPath = item.paths.first(where: { FileManager.default.fileExists(atPath: $0) }) {
-                                        if let attributes = try? FileManager.default.attributesOfItem(atPath: existingPath) {
-                                            // File size
-                                            if let fileSize = attributes[.size] as? Int64 {
-                                                HStack {
-                                                    Text("Size:")
-                                                        .font(.caption.weight(.medium))
-                                                        .foregroundStyle(.secondary)
-                                                        .frame(width: 60, alignment: .leading)
-                                                    Text(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))
-                                                        .font(.caption)
-                                                        .foregroundStyle(.secondary)
-                                                }
-                                            }
-                                            
-                                            // Modification date
-                                            if let modDate = attributes[.modificationDate] as? Date {
-                                                HStack {
-                                                    Text("Modified:")
-                                                        .font(.caption.weight(.medium))
-                                                        .foregroundStyle(.secondary)
-                                                        .frame(width: 60, alignment: .leading)
-                                                    Text(modDate, style: .date)
-                                                        .font(.caption)
-                                                        .foregroundStyle(.secondary)
-                                                }
-                                            }
-                                        }
+
+                                    // Status based on cached validation result
+                                    HStack {
+                                        Text("Status:")
+                                            .font(.caption.weight(.medium))
+                                            .foregroundStyle(.secondary)
+                                            .frame(width: 60, alignment: .leading)
+                                        Text(isValid ? "✓ File exists" : "✗ File not found")
+                                            .font(.caption)
+                                            .foregroundStyle(inspectState.colorThresholds.getValidationColor(isValid: isValid))
                                     }
                                 }
                                 .padding(.leading, 12)
@@ -1302,10 +1491,10 @@ struct ComplianceDetailsPopoverView: View {
                                 .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
                         )
                     }
-                            } // End VStack for category
-                        } // End if let categoryItems
-                    } // End ForEach categories
-                } // End if !inspectState.items.isEmpty
+                } // End VStack for category
+            } // End if let categoryItems
+        } // End ForEach categories
+    } // End if !inspectState.items.isEmpty
                 
                 if inspectState.items.isEmpty && !allFailingItems.isEmpty {
                     // Show enhanced audit issues for complex validation
@@ -1411,13 +1600,10 @@ struct ComplianceDetailsPopoverView: View {
         .frame(maxWidth: 500, maxHeight: 400)
     }
     
-    // Helper function to validate items
+    // PERF: Only use cached validation results - NEVER block main thread with sync validation
     private func isItemValid(_ item: InspectConfig.ItemConfig) -> Bool {
-        if item.plistKey != nil {
-            return inspectState.validatePlistItem(item)
-        } else {
-            return item.paths.first(where: { FileManager.default.fileExists(atPath: $0) }) != nil
-        }
+        // Only use cached results - validation should already be complete
+        return inspectState.plistValidationResults[item.id] ?? false
     }
     
     // Enhanced formatting for audit control titles using config data
@@ -1514,6 +1700,7 @@ struct ComplianceCategory {
     let total: Int
     let score: Double
     let icon: String
+    let items: [ComplianceItem]  // Include items to avoid re-validation
 }
 
 // MARK: - Category Help Popover
@@ -1681,5 +1868,44 @@ struct CategoryHelpPopover: View {
 
         // Default format
         return "\(category.passed) of \(category.total) checks passed"
+    }
+}
+
+// MARK: - Shimmer Animation Modifier
+
+/// Creates a subtle shimmer/skeleton loading effect for visual feedback during loading
+struct ShimmerModifier: ViewModifier {
+    @State private var phase: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                GeometryReader { geometry in
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            .clear,
+                            .white.opacity(0.4),
+                            .clear
+                        ]),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .frame(width: geometry.size.width * 2)
+                    .offset(x: phase * geometry.size.width * 2 - geometry.size.width)
+                }
+            )
+            .mask(content)
+            .onAppear {
+                withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+                    phase = 1
+                }
+            }
+    }
+}
+
+extension View {
+    /// Apply shimmer effect for skeleton loading states
+    func shimmer() -> some View {
+        modifier(ShimmerModifier())
     }
 }

@@ -123,7 +123,7 @@ struct InspectConfig: Codable {
     let helpButton: HelpButtonConfig?       // Optional help button configuration
     let actionPipe: String?                 // Optional FIFO path for instant script request delivery
 
-    let items: [ItemConfig]
+    var items: [ItemConfig]
 
     // Progress bar configuration for status visualization
     struct ProgressBarConfig: Codable {
@@ -267,6 +267,76 @@ struct InspectConfig: Codable {
             let successState: String?       // State when validation passes (default: "success")
             let failState: String?          // State when validation fails (default: "fail")
         }
+
+        // MARK: - Convenience Initializer for Auto-Discovery
+        /// Creates an ItemConfig with only the essential fields for auto-discovered items
+        init(
+            id: String,
+            displayName: String,
+            icon: String?,
+            paths: [String],
+            guiIndex: Int,
+            category: String? = nil,
+            categoryIcon: String? = nil,
+            plistKey: String? = nil,
+            expectedValue: String? = nil,
+            evaluation: String? = nil
+        ) {
+            self.id = id
+            self.displayName = displayName
+            self.subtitle = nil
+            self.guiIndex = guiIndex
+            self.paths = paths
+            self.icon = icon
+            self.status = nil
+            self.banner = nil
+            self.plistKey = plistKey
+            self.expectedValue = expectedValue
+            self.evaluation = evaluation
+            self.plistRecheckInterval = nil
+            self.useUserDefaults = nil
+            self.category = category
+            self.categoryIcon = categoryIcon
+            self.guidanceTitle = nil
+            self.guidanceContent = nil
+            self.stepType = nil
+            self.autoAdvanceOnComplete = nil
+            self.actionButtonText = nil
+            self.continueButtonText = nil
+            self.finalButtonText = nil
+            self.processingDuration = nil
+            self.processingMessage = nil
+            self.blocking = nil
+            self.required = nil
+            self.observeOnly = nil
+            self.completedStatus = nil
+            self.downloadingStatus = nil
+            self.pendingStatus = nil
+            self.info = nil
+            self.bentoSize = nil
+            self.cardLayout = nil
+            self.gradientColors = nil
+            self.verticalSpacing = nil
+            self.keyPointsText = nil
+            self.highlightColor = nil
+            self.successMessage = nil
+            self.failureMessage = nil
+            self.waitWarningTime = nil
+            self.waitSmallOverrideTime = nil
+            self.waitLargeOverrideTime = nil
+            self.overrideButtonText = nil
+            self.allowOverride = nil
+            self.allowNavigationDuringProcessing = nil
+            self.processingMode = nil
+            self.autoAdvance = nil
+            self.autoResult = nil
+            self.waitForExternalTrigger = nil
+            self.plistMonitors = nil
+            self.jsonMonitors = nil
+            self.itemOverlay = nil
+            self.validationTargetBadge = nil
+            self.introLayoutConfig = nil
+        }
     }
 
     // Completion trigger - defines automatic step completion when plist condition met
@@ -305,7 +375,7 @@ struct InspectConfig: Codable {
 
     // Guidance content blocks for rich text display eg. used in Preset6
     struct GuidanceContent: Codable {
-        let type: String                // "text" | "highlight" | "warning" | "info" | "success" | "bullets" | "arrow" | "image" | "image-carousel" | "video" | "webcontent" | "checkbox" | "dropdown" | "radio" | "toggle" | "slider" | "button" | "status-badge" | "comparison-table" | "phase-tracker" | "progress-bar" | "compliance-card" | "compliance-header"
+        let type: String                // "text" | "highlight" | "warning" | "info" | "success" | "bullets" | "arrow" | "image" | "image-carousel" | "video" | "webcontent" | "checkbox" | "dropdown" | "radio" | "toggle" | "slider" | "textfield" | "button" | "status-badge" | "comparison-table" | "phase-tracker" | "progress-bar" | "compliance-card" | "compliance-header"
         let content: String?            // The actual text content (or button label for type="button") - optional for status monitoring types
         let items: [String]?            // Array of items - e.g. bullets
         let color: String?              // Optional color override (hex format)
@@ -344,6 +414,14 @@ struct InspectConfig: Codable {
             let value: Double           // Numeric value for this step
             let label: String           // Display label (e.g., "1 minute", "30 minutes", "1 hour")
         }
+
+        // Textfield-specific fields (for type="textfield")
+        let placeholder: String?        // Placeholder text when empty
+        let secure: Bool?               // Password mode (hide characters)
+        let inherit: String?            // Value source: "plist:path:key", "defaults:domain:key", "env:NAME", "field:itemId.fieldId"
+        let regex: String?              // Validation pattern (regex)
+        let regexError: String?         // Error message when regex fails
+        let maxLength: Int?             // Maximum character limit
 
         // Button-specific fields (for type="button")
         let action: String?             // Button action: "url", "shell", "request", "custom" (triggers callback)
@@ -414,7 +492,16 @@ struct InspectConfig: Codable {
         let successValues: [String]?        // Values that indicate "success" (for booleans: ["true"])
         let criticalKeys: [String]?         // Keys that are considered critical
         let categoryPrefix: [String: String]? // Map prefixes to category names
+        let categoryIcons: [String: String]? // Map category names to icon strings (e.g., "OS Security": "sf=shield.fill,colour1=#007AFF")
         let maxCheckDetails: Int?           // Max check items to display per category (default: 15)
+
+        // MARK: - Auto-Discovery Options
+        let autoDiscover: Bool?             // If true, auto-generate items from plist keys
+        let findingKey: String?             // Subkey to check for findings (default: "finding")
+        let expectedValue: String?          // Expected value for compliance (default: "false")
+        let evaluation: String?             // Evaluation type: "boolean", "string", etc. (default: "boolean")
+        let excludeKeys: [String]?          // Keys to exclude from auto-discovery
+        let includePattern: String?         // Regex pattern to include keys (optional)
     }
     
     struct KeyMapping: Codable {

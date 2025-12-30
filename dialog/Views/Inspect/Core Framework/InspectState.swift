@@ -30,6 +30,7 @@ struct GuidanceFormInputState: Codable {
     var radios: [String: String] = [:]        // radio id -> selected option
     var toggles: [String: Bool] = [:]         // toggle id -> enabled state
     var sliders: [String: Double] = [:]       // slider id -> current value
+    var textfields: [String: String] = [:]    // textfield id -> text value
 }
 
 // MARK: - Configuration Structs for Grouped State
@@ -101,6 +102,9 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
     @Published var plistSources: [InspectConfig.PlistSourceConfig]?
     @Published var colorThresholds = InspectConfig.ColorThresholds.default
     @Published var plistValidationResults: [String: Bool] = [:] // Track plist validation results
+
+    // MARK: - Pre-cache Progress State (for "Loading configuration files..." indicator)
+    @Published var preCacheProgress: (loaded: Int, total: Int)? = nil  // nil = not started, (x, y) = loading
 
     // MARK: - Plist Monitoring - Generalized from Preset6
     private var plistMonitors: [String: PlistMonitorTask] = [:] // Track active monitoring tasks
@@ -183,24 +187,12 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                 guard let self = self else { return }
                 
                 let loadedConfig = configResult.config
-                
+
                 // Set core configuration
                 self.config = loadedConfig
-                self.items = loadedConfig.items.sorted { $0.guiIndex < $1.guiIndex }
-                
-                // Set plist sources from config - required inpreset5
-                self.plistSources = loadedConfig.plistSources
-                
-                // Set color thresholds from config or use defaults
-                if let colorThresholds = loadedConfig.colorThresholds {
-                    self.colorThresholds = colorThresholds
-                    writeLog("InspectState: Using custom color thresholds - Excellent: \(colorThresholds.excellent), Good: \(colorThresholds.good), Warning: \(colorThresholds.warning)", logLevel: .info)
-                } else {
-                    self.colorThresholds = InspectConfig.ColorThresholds.default
-                    writeLog("InspectState: Using default color thresholds", logLevel: .info)
-                }
-                
-                // Use configuration service to extract grouped configurations
+
+                // PRIORITY: Set UI configuration FIRST before items
+                // This ensures button text, title, etc. are ready before view transitions from loading
                 print("InspectState: About to extract configurations")
                 print("InspectState: loadedConfig.banner = \(loadedConfig.banner ?? "nil")")
                 print("InspectState: loadedConfig.listIndicatorStyle = \(loadedConfig.listIndicatorStyle ?? "nil")")
@@ -212,6 +204,21 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                 print("InspectState: After extraction - uiConfiguration.stepStyle = \(self.uiConfiguration.stepStyle)")
                 self.backgroundConfiguration = self.configurationService.extractBackgroundConfiguration(from: loadedConfig)
                 self.buttonConfiguration = self.configurationService.extractButtonConfiguration(from: loadedConfig)
+
+                // Set plist sources from config - required in preset5
+                self.plistSources = loadedConfig.plistSources
+
+                // Set color thresholds from config or use defaults
+                if let colorThresholds = loadedConfig.colorThresholds {
+                    self.colorThresholds = colorThresholds
+                    writeLog("InspectState: Using custom color thresholds - Excellent: \(colorThresholds.excellent), Good: \(colorThresholds.good), Warning: \(colorThresholds.warning)", logLevel: .info)
+                } else {
+                    self.colorThresholds = InspectConfig.ColorThresholds.default
+                    writeLog("InspectState: Using default color thresholds", logLevel: .info)
+                }
+
+                // Set items LAST - this triggers view transition from loading to main content
+                self.items = loadedConfig.items.sorted { $0.guiIndex < $1.guiIndex }
                 
                 // Set side message rotation if multiple messages exist
                 if self.uiConfiguration.sideMessages.count > 1, let interval = loadedConfig.sideInterval {
@@ -992,13 +999,16 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
         writeLog("InspectState: validatePlistItem called for '\(item.id)' (\(item.displayName))", logLevel: .info)
         writeLog("InspectState: Item details - plistKey: '\(item.plistKey ?? "nil")', expectedValue: '\(item.expectedValue ?? "nil")', evaluation: '\(item.evaluation ?? "nil")'", logLevel: .info)
         writeLog("InspectState: Item paths: \(item.paths)", logLevel: .info)
-        
+        writeLog("InspectState: iconBasePath for relative path resolution: \(uiConfiguration.iconBasePath ?? "nil")", logLevel: .info)
+
         // Use validation service for all validation logic
+        // Pass iconBasePath to allow resolution of relative paths in item.paths
         let request = ValidationRequest(
             item: item,
-            plistSources: plistSources
+            plistSources: plistSources,
+            basePath: uiConfiguration.iconBasePath
         )
-        
+
         let result = Validation.shared.validateItem(request)
         
         // Cache the result for UI consistency
@@ -1023,42 +1033,71 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
     /// This eliminates potential deadlocks and silent crashes in production builds
     func validateAllItems() {
         writeLog("InspectState: Starting async validation of \(items.count) items", logLevel: .info)
-        
-        // Log each item being validated
-        for item in items {
-            writeLog("InspectState: Will validate item '\(item.id)' - plistKey: '\(item.plistKey ?? "nil")', expectedValue: '\(item.expectedValue ?? "nil")', evaluation: '\(item.evaluation ?? "nil")'", logLevel: .info)
+
+        // RING BUFFER: Sort items by category so cards complete in visual order (top-to-bottom)
+        // This creates a smoother loading UX where each category card completes before the next
+        let sortedItems = items.sorted { item1, item2 in
+            let cat1 = item1.category ?? getCategoryPrefix(item1.id)
+            let cat2 = item2.category ?? getCategoryPrefix(item2.id)
+            return cat1 < cat2
         }
-        
-        // Use Task to handle the main actor call properly
+
+        // Log each item being validated (in sorted order)
+        for item in sortedItems {
+            writeLog("InspectState: Will validate item '\(item.id)' - plistKey: '\(item.plistKey ?? "nil")', expectedValue: '\(item.expectedValue ?? "nil")', evaluation: '\(item.evaluation ?? "nil")'", logLevel: .debug)
+        }
+
+        // Use STREAMING validation for per-card progressive updates
+        // Each result is emitted immediately, triggering Preset5's onChange handler
         Task { @MainActor in
-            // Use optimized async validation
-            Validation.shared.validateItemsBatch(items, plistSources: plistSources) { [weak self] results in
-                Task { @MainActor in
-                    guard let self = self else { return }
-                    self.plistValidationResults = results
-                    writeLog("InspectState: Async validation complete. \(results.filter { $0.value }.count) valid items out of \(results.count) total", logLevel: .info)
-                    
-                    // Log each result
-                    for (itemId, isValid) in results {
-                        writeLog("InspectState: Validation result - '\(itemId)': \(isValid)", logLevel: .info)
+            Validation.shared.validateItemsBatchStreaming(
+                sortedItems,
+                plistSources: self.plistSources,
+                onPreCacheProgress: { [weak self] loaded, total in
+                    // Update pre-cache progress for "Loading configuration files..." indicator
+                    self?.preCacheProgress = (loaded, total)
+                },
+                onItemValidated: { [weak self] itemId, isValid in
+                    // Clear pre-cache progress once validation starts
+                    if self?.preCacheProgress != nil {
+                        self?.preCacheProgress = nil
                     }
-                    
-                    // Update UI if needed
-                    self.objectWillChange.send()
+                    // STREAM: Update dictionary immediately for each result
+                    // This triggers onChange in Preset5View for per-card progress
+                    self?.plistValidationResults[itemId] = isValid
+                },
+                completion: { [weak self] results in
+                    guard let self = self else { return }
+                    writeLog("InspectState: Streaming validation complete. \(results.filter { $0.value }.count) valid items out of \(results.count) total", logLevel: .info)
+
+                    // Just clear pre-cache state - no objectWillChange.send() needed
+                    // The streaming updates already triggered all necessary UI refreshes
+                    self.preCacheProgress = nil
                 }
-            }
+            )
         }
     }
-    
-    
+
+    /// Extract category prefix from item ID (e.g., "os_gatekeeper_enable" → "os")
+    /// Used for ring buffer sorting when no explicit category is set
+    private func getCategoryPrefix(_ itemId: String) -> String {
+        // Common prefixes used in mSCP/NIST compliance rules
+        let parts = itemId.components(separatedBy: "_")
+        if let first = parts.first, !first.isEmpty {
+            return first.lowercased()
+        }
+        return itemId
+    }
+
     // NEW: Get actual plist value for display purposes
     @MainActor
     func getPlistValueForDisplay(item: InspectConfig.ItemConfig) -> String? {
         guard let plistKey = item.plistKey else { return nil }
 
         // Use validation service to get the actual plist value
+        // Pass iconBasePath for relative path resolution
         for path in item.paths {
-            if let value = Validation.shared.getPlistValue(at: path, key: plistKey) {
+            if let value = Validation.shared.getPlistValue(at: path, key: plistKey, basePath: uiConfiguration.iconBasePath) {
                 return value
             }
         }
@@ -1732,6 +1771,45 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
 
     // MARK: - Guidance Form Input Management
 
+    /// Resolve inherited value from various sources for textfield pre-population
+    /// Supports: plist:path:key, defaults:domain:key, env:NAME, field:itemId.fieldId
+    @MainActor
+    func resolveInheritValue(_ inheritSpec: String, basePath: String?) -> String? {
+        let parts = inheritSpec.components(separatedBy: ":")
+        guard parts.count >= 2 else { return nil }
+
+        switch parts[0] {
+        case "plist":
+            // plist:/path/to/file.plist:key.path
+            guard parts.count >= 3 else { return nil }
+            let path = parts[1]
+            let key = parts.dropFirst(2).joined(separator: ":")
+            return Validation.shared.getPlistValue(at: path, key: key, basePath: basePath)
+
+        case "defaults":
+            // defaults:com.apple.domain:key.path
+            guard parts.count >= 3 else { return nil }
+            let domain = parts[1]
+            let key = parts.dropFirst(2).joined(separator: ":")
+            return Validation.shared.getUserDefaultsValue(domain: domain, key: key)
+
+        case "env":
+            // env:USER
+            return ProcessInfo.processInfo.environment[parts[1]]
+
+        case "field":
+            // field:itemId.fieldId
+            let fieldParts = parts[1].components(separatedBy: ".")
+            guard fieldParts.count == 2 else { return nil }
+            let itemId = fieldParts[0]
+            let fieldId = fieldParts[1]
+            return guidanceFormInputs[itemId]?.textfields[fieldId]
+
+        default:
+            return nil
+        }
+    }
+
     /// Initialize form input state for an item if not already present
     /// Populates default values from guidance content configuration
     func initializeGuidanceFormState(for itemId: String) {
@@ -1781,13 +1859,20 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                     writeLog("InspectState: Set default radio '\(fieldId)' = '\(value)'", logLevel: .debug)
                 }
 
+            case "textfield":
+                // Use value as default if present (inherit is resolved lazily in getter)
+                if let value = block.value, !value.isEmpty {
+                    newState.textfields[fieldId] = value
+                    writeLog("InspectState: Set default textfield '\(fieldId)' = '\(value)'", logLevel: .debug)
+                }
+
             default:
                 continue
             }
         }
 
         guidanceFormInputs[itemId] = newState
-        writeLog("InspectState: Initialized form state for item '\(itemId)' with \(newState.checkboxes.count) checkboxes, \(newState.dropdowns.count) dropdowns, \(newState.radios.count) radios", logLevel: .info)
+        writeLog("InspectState: Initialized form state for item '\(itemId)' with \(newState.checkboxes.count) checkboxes, \(newState.dropdowns.count) dropdowns, \(newState.radios.count) radios, \(newState.textfields.count) textfields", logLevel: .info)
     }
 
     /// Validate that all required form inputs are filled for a given item
@@ -1834,6 +1919,28 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                     return false
                 }
 
+            case "textfield":
+                // Required textfield must have a value OR have a default/inherit value
+                let userValue = formState.textfields[fieldId] ?? ""
+                let hasValue = !userValue.isEmpty
+                let hasDefault = block.value != nil && !block.value!.isEmpty
+                let hasInherit = block.inherit != nil
+
+                if !hasValue && !hasDefault && !hasInherit {
+                    writeLog("InspectState: Required textfield '\(fieldId)' is empty and no default/inherit", logLevel: .info)
+                    return false
+                }
+
+                // Regex validation (optional)
+                if let regex = block.regex, !userValue.isEmpty {
+                    let pattern = try? NSRegularExpression(pattern: regex)
+                    let range = NSRange(userValue.startIndex..<userValue.endIndex, in: userValue)
+                    if pattern?.firstMatch(in: userValue, range: range) == nil {
+                        writeLog("InspectState: Textfield '\(fieldId)' failed regex validation", logLevel: .info)
+                        return false
+                    }
+                }
+
             default:
                 continue
             }
@@ -1857,6 +1964,7 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
         result["radios"] = formState.radios
         result["toggles"] = formState.toggles
         result["sliders"] = formState.sliders
+        result["textfields"] = formState.textfields
 
         return result
     }
@@ -1886,6 +1994,7 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                     let radios = selection["radios"] as? [String: String] ?? [:]
                     let toggles = selection["toggles"] as? [String: Bool] ?? [:]
                     let sliders = selection["sliders"] as? [String: Double] ?? [:]
+                    let textfields = selection["textfields"] as? [String: String] ?? [:]
 
                     for (fieldId, checked) in checkboxes {
                         print("[PRESET9_FORM] stepId=\(itemId) field=\(fieldId) type=checkbox value=\(checked)")
@@ -1901,6 +2010,9 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
                     }
                     for (fieldId, value) in sliders {
                         print("[PRESET9_FORM] stepId=\(itemId) field=\(fieldId) type=slider value=\(value)")
+                    }
+                    for (fieldId, value) in textfields {
+                        print("[PRESET9_FORM] stepId=\(itemId) field=\(fieldId) type=textfield value=\(value)")
                     }
                 }
             }

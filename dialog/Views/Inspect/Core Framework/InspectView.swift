@@ -128,6 +128,59 @@ private struct CoordinatedConfigErrorView: View {
     let onRetry: () -> Void
     let onQuit: () -> Void
 
+    @State private var copied = false
+
+    /// Format error details for clipboard
+    private var formattedErrorForCopy: String {
+        let error = parsedError
+        var lines: [String] = []
+
+        lines.append("Configuration Error")
+        lines.append("=" .padding(toLength: 40, withPad: "=", startingAt: 0))
+        lines.append("")
+        lines.append("Error: \(error.errorType)")
+
+        if let details = error.details {
+            lines.append("Location: \(details)")
+        }
+
+        if let filePath = error.filePath {
+            if let lineNum = error.lineNumber {
+                lines.append("File: \(filePath):\(lineNum)")
+            } else {
+                lines.append("File: \(filePath)")
+            }
+        }
+
+        if let snippet = error.jsonSnippet {
+            lines.append("")
+            lines.append("Code snippet:")
+            let codeLines = snippet
+                .components(separatedBy: "\n")
+                .filter { $0.contains(":") && $0.trimmingCharacters(in: .whitespaces).first?.isNumber == true }
+            lines.append(contentsOf: codeLines)
+        }
+
+        if let hint = error.hint {
+            lines.append("")
+            lines.append("Hint: \(hint)")
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    /// Copy error details to clipboard
+    private func copyErrorToClipboard() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(formattedErrorForCopy, forType: .string)
+        copied = true
+
+        // Reset after delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            copied = false
+        }
+    }
+
     /// Parse error message into structured components for better display
     // swiftlint:disable:next large_tuple
     private var parsedError: (filePath: String?, errorType: String, details: String?, lineNumber: Int?, jsonSnippet: String?, hint: String?) {
@@ -308,6 +361,16 @@ private struct CoordinatedConfigErrorView: View {
 
             // Buttons
             HStack(spacing: 12) {
+                Button {
+                    copyErrorToClipboard()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                        Text(copied ? "Copied!" : "Copy")
+                    }
+                }
+                .buttonStyle(.bordered)
+
                 Button("Retry") {
                     onRetry()
                 }

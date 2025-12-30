@@ -349,6 +349,15 @@ struct Preset6View: View, InspectLayoutProtocol {
                 autoNavigationWorkItem?.cancel()
                 autoNavigationWorkItem = nil
                 writeLog("Preset6: Cancelled pending auto-navigation due to step change (\(oldStep) → \(newStep))", logLevel: .debug)
+
+                // Re-validate the new step's item if it has validation criteria
+                // This ensures plist values are fresh when navigating to a step
+                if let currentItem = inspectState.items[safe: newStep],
+                   currentItem.plistKey != nil || !currentItem.paths.isEmpty {
+                    Task { @MainActor in
+                        revalidateStepItem(currentItem)
+                    }
+                }
             }
         }
         .onChange(of: inspectState.plistValidationResults) { _, newResults in
@@ -466,6 +475,10 @@ struct Preset6View: View, InspectLayoutProtocol {
                     if isOutro {
                         quitDialog(exitCode: appDefaults.exit0.code)
                     } else {
+                        // Mark intro step as complete before navigating
+                        if let item = item {
+                            handleStepCompletion(item: item)
+                        }
                         navigateToNextStep()
                     }
                 }
@@ -851,7 +864,9 @@ struct Preset6View: View, InspectLayoutProtocol {
                             showItemDetailOverlay = true
                         } : nil
                     )
-                    // No longer need .id() modifier - @Published guarantees updates
+                    // Force re-render when dynamic properties change for this item
+                    // SwiftUI doesn't track dependencies through applyDynamicUpdates closure
+                    .id("guidance-\(item.id)-\(dynamicState.dynamicGuidanceProperties[item.id]?.hashValue ?? 0)")
                 }
 
                 // Custom data display (Phase 2)
@@ -1116,6 +1131,12 @@ struct Preset6View: View, InspectLayoutProtocol {
                 step: block.step,
                 unit: block.unit,
                 discreteSteps: block.discreteSteps,
+                placeholder: block.placeholder,
+                secure: block.secure,
+                inherit: block.inherit,
+                regex: block.regex,
+                regexError: block.regexError,
+                maxLength: block.maxLength,
                 action: block.action,
                 url: block.url,
                 shell: block.shell,
@@ -1200,6 +1221,12 @@ struct Preset6View: View, InspectLayoutProtocol {
             step: block.step,
             unit: block.unit,
             discreteSteps: block.discreteSteps,
+            placeholder: block.placeholder,
+            secure: block.secure,
+            inherit: block.inherit,
+            regex: block.regex,
+            regexError: block.regexError,
+            maxLength: block.maxLength,
             action: block.action,
             url: block.url,
             shell: block.shell,
@@ -2661,6 +2688,39 @@ struct Preset6View: View, InspectLayoutProtocol {
             }
 
             writeLog("Preset6: Validation badge updated for '\(item.id)' → \(state) (valid=\(isValid), blockIndex=\(badgeConfig.blockIndex))", logLevel: .debug)
+        }
+    }
+
+    /// Re-validate a specific step item when navigating to it
+    /// Ensures plist values are fresh (e.g., Action=enrolled might have changed since startup)
+    private func revalidateStepItem(_ item: InspectConfig.ItemConfig) {
+        writeLog("Preset6: Re-validating item '\(item.id)' on step navigation", logLevel: .info)
+
+        // Skip items without validation criteria
+        guard item.plistKey != nil || item.expectedValue != nil else {
+            writeLog("Preset6: Item '\(item.id)' has no plist validation criteria, skipping re-validation", logLevel: .debug)
+            return
+        }
+
+        // Create validation request
+        let request = ValidationRequest(
+            item: item,
+            plistSources: inspectState.plistSources,
+            basePath: inspectState.uiConfiguration.iconBasePath
+        )
+
+        // Run validation (synchronous for immediate UI update)
+        let result = Validation.shared.validateItem(request)
+
+        // Update cached result
+        let oldResult = inspectState.plistValidationResults[item.id]
+        inspectState.plistValidationResults[item.id] = result.isValid
+
+        writeLog("Preset6: Re-validation result for '\(item.id)': \(result.isValid) (was: \(oldResult?.description ?? "nil"))", logLevel: .info)
+
+        // Log actual value for debugging
+        if let details = result.details {
+            writeLog("Preset6: Re-validation details - Expected: \(details.expectedValue ?? "nil"), Actual: \(details.actualValue ?? "nil")", logLevel: .info)
         }
     }
 

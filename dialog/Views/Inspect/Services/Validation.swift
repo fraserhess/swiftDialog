@@ -15,6 +15,13 @@ import Foundation
 struct ValidationRequest {
     let item: InspectConfig.ItemConfig
     let plistSources: [InspectConfig.PlistSourceConfig]?
+    let basePath: String?  // Config directory for resolving relative paths
+
+    init(item: InspectConfig.ItemConfig, plistSources: [InspectConfig.PlistSourceConfig]? = nil, basePath: String? = nil) {
+        self.item = item
+        self.plistSources = plistSources
+        self.basePath = basePath
+    }
 }
 
 struct ValidationResult {
@@ -86,7 +93,7 @@ class Validation: ObservableObject {
         // Process items with controlled concurrency and timeout protection
         await withTaskGroup(of: (String, Bool).self, returning: Void.self) { group in
             // Limit concurrent tasks to avoid overwhelming the system
-            let maxConcurrency = min(4, items.count)
+            let maxConcurrency = min(12, items.count)  // High concurrency for fast validation
             var currentIndex = 0
             
             // Start initial batch of tasks
@@ -173,9 +180,88 @@ class Validation: ObservableObject {
     func validateItemsBatch(_ items: [InspectConfig.ItemConfig],
                            plistSources: [InspectConfig.PlistSourceConfig]? = nil,
                            completion: @escaping ([String: Bool]) -> Void) {
-        
+
         Task { @MainActor in
             let results = await validateItemsBatch(items, plistSources: plistSources)
+            completion(results)
+        }
+    }
+
+    /// STREAMING: Batch validation with per-item callbacks for progressive UI updates
+    /// Each validation result is emitted immediately via onItemValidated callback
+    /// Optional onPreCacheProgress callback reports progress during plist file loading phase
+    func validateItemsBatchStreaming(_ items: [InspectConfig.ItemConfig],
+                                    plistSources: [InspectConfig.PlistSourceConfig]? = nil,
+                                    onPreCacheProgress: ((Int, Int) -> Void)? = nil,
+                                    onItemValidated: @escaping (String, Bool) -> Void,
+                                    completion: @escaping ([String: Bool]) -> Void) {
+
+        Task { @MainActor in
+            isValidating = true
+            validationProgress = 0.0
+
+            defer {
+                isValidating = false
+                validationProgress = 1.0
+            }
+
+            // Pre-cache all unique plist files with progress reporting
+            await withTimeout(seconds: 30.0) { [weak self] in
+                await self?.preCachePlistsAsyncWithProgress(from: items, and: plistSources, onProgress: onPreCacheProgress)
+            }
+
+            let totalItems = items.count
+            var results = [String: Bool]()
+
+            // Process items with controlled concurrency
+            await withTaskGroup(of: (String, Bool).self, returning: Void.self) { group in
+                let maxConcurrency = min(12, items.count)  // High concurrency for fast validation
+                var currentIndex = 0
+
+                // Start initial batch
+                for _ in 0..<min(maxConcurrency, items.count) where currentIndex < items.count {
+                    let item = items[currentIndex]
+                    currentIndex += 1
+
+                    group.addTask(priority: .userInitiated) { [weak self] in
+                        guard let self = self else { return (item.id, false) }
+                        let result = await withTimeout(seconds: 10.0) { [weak self] in
+                            guard let self = self else { return ValidationResult(itemId: item.id, isValid: false, validationType: .fileExistence, details: nil) }
+                            let request = ValidationRequest(item: item, plistSources: plistSources)
+                            return await self.validateItemCachedAsync(request)
+                        }
+                        return (item.id, result?.isValid ?? false)
+                    }
+                }
+
+                // Process results as they complete - emit each one immediately
+                while let (itemId, isValid) = await group.next() {
+                    results[itemId] = isValid
+
+                    // STREAM: Emit this result immediately for per-card progress
+                    await MainActor.run {
+                        onItemValidated(itemId, isValid)
+                        self.validationProgress = Double(results.count) / Double(totalItems)
+                    }
+
+                    // Add next task if available
+                    if currentIndex < items.count {
+                        let nextItem = items[currentIndex]
+                        currentIndex += 1
+
+                        group.addTask(priority: .userInitiated) { [weak self] in
+                            guard let self = self else { return (nextItem.id, false) }
+                            let result = await withTimeout(seconds: 10.0) { [weak self] in
+                                guard let self = self else { return ValidationResult(itemId: nextItem.id, isValid: false, validationType: .fileExistence, details: nil) }
+                                let request = ValidationRequest(item: nextItem, plistSources: plistSources)
+                                return await self.validateItemCachedAsync(request)
+                            }
+                            return (nextItem.id, result?.isValid ?? false)
+                        }
+                    }
+                }
+            }
+
             completion(results)
         }
     }
@@ -186,7 +272,7 @@ class Validation: ObservableObject {
 
         // Check for simplified plist validation first
         if item.plistKey != nil {
-            return validateSimplePlistItemCached(item)
+            return validateSimplePlistItemCached(item, basePath: request.basePath)
         }
 
         // Check for complex plist sources validation
@@ -197,7 +283,7 @@ class Validation: ObservableObject {
         }
 
         // Fallback to file existence validation
-        return validateFileExistence(item)
+        return validateFileExistence(item, basePath: request.basePath)
     }
 
     /// Async version of cached item validation
@@ -206,7 +292,7 @@ class Validation: ObservableObject {
 
         // Check for simplified plist validation first
         if item.plistKey != nil {
-            return await validateSimplePlistItemCachedAsync(item)
+            return await validateSimplePlistItemCachedAsync(item, basePath: request.basePath)
         }
 
         // Check for complex plist sources validation
@@ -217,38 +303,54 @@ class Validation: ObservableObject {
         }
 
         // Fallback to file existence validation
-        return validateFileExistence(item)
+        return validateFileExistence(item, basePath: request.basePath)
     }
 
     /// Main validation entry point (synchronous for backward compatibility)
     func validateItem(_ request: ValidationRequest) -> ValidationResult {
         let item = request.item
-        
+
         // Check for simplified plist validation first
         if item.plistKey != nil {
-            return validateSimplePlistItem(item)
+            return validateSimplePlistItem(item, basePath: request.basePath)
         }
-        
+
         // Check for complex plist sources validation
         if let plistSources = request.plistSources {
             for source in plistSources where item.paths.contains(source.path) {
                 return validateComplexPlistItem(item, source: source)
             }
         }
-        
-        // Fallback to file existence validation
-        return validateFileExistence(item)
+
+        // Fallback to file existence validation with basePath support
+        return validateFileExistence(item, basePath: request.basePath)
     }
 
     // MARK: - Glob Pattern Resolution
 
     /// Resolve glob patterns in plist paths to actual file paths
     /// Supports wildcards for UUID'd files like "*.installinfo.plist"
-    /// - Parameter path: Path that may contain glob patterns (* or ?)
+    /// - Parameters:
+    ///   - path: Path that may contain glob patterns (* or ?) or be relative
+    ///   - basePath: Optional base directory for resolving relative paths (e.g., config file directory)
     /// - Returns: First matching file path, or original path if no pattern or no match
-    func resolvePlistPath(_ path: String) -> String {
-        // Expand tilde first
-        let expandedPath = (path as NSString).expandingTildeInPath
+    func resolvePlistPath(_ path: String, basePath: String? = nil) -> String {
+        // Handle relative paths with basePath
+        var workingPath = path
+        if !path.hasPrefix("/") && !path.hasPrefix("~"), let basePath = basePath {
+            let combined = (basePath as NSString).appendingPathComponent(path)
+            // Normalize the path to resolve .. and .
+            let normalizedCombined = (combined as NSString).standardizingPath
+            if FileManager.default.fileExists(atPath: normalizedCombined) {
+                writeLog("Validation: Resolved relative path '\(path)' with basePath → '\(normalizedCombined)'", logLevel: .info)
+                return normalizedCombined
+            }
+            // Even if file doesn't exist yet, use the combined path for further resolution
+            workingPath = normalizedCombined
+        }
+
+        // Expand tilde
+        let expandedPath = (workingPath as NSString).expandingTildeInPath
 
         // Check if path contains glob patterns
         guard expandedPath.contains("*") || expandedPath.contains("?") else {
@@ -285,9 +387,13 @@ class Validation: ObservableObject {
     }
 
     /// Get actual plist value for display purposes
-    func getPlistValue(at path: String, key: String) -> String? {
-        // Resolve glob patterns first 
-        let resolvedPath = resolvePlistPath(path)
+    /// - Parameters:
+    ///   - path: Path to the plist file (can be relative if basePath is provided)
+    ///   - key: Plist key with optional dot notation for nested keys
+    ///   - basePath: Optional base directory for resolving relative paths
+    func getPlistValue(at path: String, key: String, basePath: String? = nil) -> String? {
+        // Resolve glob patterns and relative paths first
+        let resolvedPath = resolvePlistPath(path, basePath: basePath)
         let expandedPath = (resolvedPath as NSString).expandingTildeInPath
         guard FileManager.default.fileExists(atPath: expandedPath),
               let data = FileManager.default.contents(atPath: expandedPath),
@@ -328,8 +434,8 @@ class Validation: ObservableObject {
     }
 
     /// Convenience overload with different parameter label
-    func getPlistValue(path: String, key: String) -> String? {
-        return getPlistValue(at: path, key: key)
+    func getPlistValue(path: String, key: String, basePath: String? = nil) -> String? {
+        return getPlistValue(at: path, key: key, basePath: basePath)
     }
 
     // MARK: - UserDefaults Support
@@ -363,7 +469,8 @@ class Validation: ObservableObject {
     func getUserDefaultsValue(domain: String, key: String) -> String? {
         // Get appropriate UserDefaults instance
         let defaults: UserDefaults?
-        if domain == ".GlobalPreferences" {
+        if domain == ".GlobalPreferences" || domain == "NSGlobalDomain" {
+            // NSGlobalDomain and .GlobalPreferences are special - use standard defaults
             defaults = UserDefaults.standard
         } else {
             defaults = UserDefaults(suiteName: domain)
@@ -591,17 +698,17 @@ class Validation: ObservableObject {
 
     // MARK: - Private Validation Methods
     
-    private func validateFileExistence(_ item: InspectConfig.ItemConfig) -> ValidationResult {
+    private func validateFileExistence(_ item: InspectConfig.ItemConfig, basePath: String? = nil) -> ValidationResult {
         // Debug logging to understand what's happening
         writeLog("ValidationService: Checking file existence for '\(item.id)'", logLevel: .debug)
-        
+
         var foundPath: String?
         let exists = item.paths.first { path in
-            let expandedPath = (path as NSString).expandingTildeInPath
-            let fileExists = FileManager.default.fileExists(atPath: expandedPath)
-            writeLog("ValidationService: Path '\(path)' expanded to '\(expandedPath)' exists: \(fileExists)", logLevel: .debug)
+            let resolvedPath = resolvePlistPath(path, basePath: basePath)
+            let fileExists = FileManager.default.fileExists(atPath: resolvedPath)
+            writeLog("ValidationService: Path '\(path)' resolved to '\(resolvedPath)' exists: \(fileExists)", logLevel: .debug)
             if fileExists {
-                foundPath = expandedPath
+                foundPath = resolvedPath
             }
             return fileExists
         } != nil
@@ -624,8 +731,10 @@ class Validation: ObservableObject {
     
     // MARK: - Cache Management
 
-    private func preCachePlistsAsync(from items: [InspectConfig.ItemConfig],
-                                    and sources: [InspectConfig.PlistSourceConfig]?) async {
+    /// Pre-cache with progress reporting for UI feedback
+    private func preCachePlistsAsyncWithProgress(from items: [InspectConfig.ItemConfig],
+                                                  and sources: [InspectConfig.PlistSourceConfig]?,
+                                                  onProgress: ((Int, Int) -> Void)?) async {
         var uniquePaths = Set<String>()
 
         // Collect all unique plist paths
@@ -646,16 +755,42 @@ class Validation: ObservableObject {
             }
         }
 
-        // Load all plists into cache concurrently
-        await withTaskGroup(of: Void.self) { group in
-            for path in uniquePaths {
+        let totalFiles = uniquePaths.count
+        var loadedCount = 0
+
+        // Report initial state
+        await MainActor.run {
+            onProgress?(0, totalFiles)
+        }
+
+        // Load all plists into cache with progress tracking
+        let pathsArray = Array(uniquePaths)
+        await withTaskGroup(of: Bool.self) { group in
+            for path in pathsArray {
                 group.addTask(priority: .userInitiated) { [weak self] in
                     _ = await self?.loadPlistCachedAsync(at: path)
+                    return true
+                }
+            }
+
+            // Report progress as each file completes
+            while await group.next() != nil {
+                loadedCount += 1
+                let currentCount = loadedCount
+                let total = totalFiles
+                await MainActor.run {
+                    onProgress?(currentCount, total)
                 }
             }
         }
 
         writeLog("ValidationService: Pre-cached \(uniquePaths.count) plist files", logLevel: .debug)
+    }
+
+    private func preCachePlistsAsync(from items: [InspectConfig.ItemConfig],
+                                    and sources: [InspectConfig.PlistSourceConfig]?) async {
+        // Delegate to progress version without callback
+        await preCachePlistsAsyncWithProgress(from: items, and: sources, onProgress: nil)
     }
 
     private func preCachePlists(from items: [InspectConfig.ItemConfig],
@@ -688,8 +823,9 @@ class Validation: ObservableObject {
         writeLog("ValidationService: Pre-cached \(uniquePaths.count) plist files", logLevel: .debug)
     }
 
-    private func loadPlistCachedAsync(at path: String) async -> [String: Any]? {
-        let expandedPath = (path as NSString).expandingTildeInPath
+    private func loadPlistCachedAsync(at path: String, basePath: String? = nil) async -> [String: Any]? {
+        let resolvedPath = resolvePlistPath(path, basePath: basePath)
+        let expandedPath = (resolvedPath as NSString).expandingTildeInPath
 
         // Check cache first (using actor to ensure thread safety)
         return await withCheckedContinuation { continuation in
@@ -741,8 +877,9 @@ class Validation: ObservableObject {
         }
     }
 
-    private func loadPlistCached(at path: String) -> [String: Any]? {
-        let expandedPath = (path as NSString).expandingTildeInPath
+    private func loadPlistCached(at path: String, basePath: String? = nil) -> [String: Any]? {
+        let resolvedPath = resolvePlistPath(path, basePath: basePath)
+        let expandedPath = (resolvedPath as NSString).expandingTildeInPath
 
         // Check cache first
         return cacheQueue.sync {
@@ -806,13 +943,14 @@ class Validation: ObservableObject {
 
     // MARK: - Async Cached Validation Methods
 
-    private func validateSimplePlistItemCachedAsync(_ item: InspectConfig.ItemConfig) async -> ValidationResult {
+    private func validateSimplePlistItemCachedAsync(_ item: InspectConfig.ItemConfig, basePath: String? = nil) async -> ValidationResult {
         guard let plistKey = item.plistKey else {
             return ValidationResult(itemId: item.id, isValid: false, validationType: .plistValidation, details: nil)
         }
 
         for path in item.paths {
-            if let plist = await loadPlistCachedAsync(at: path) {
+            let resolvedPath = resolvePlistPath(path, basePath: basePath)
+            if let plist = await loadPlistCachedAsync(at: path, basePath: basePath) {
                 let result = validatePlistValue(plist: plist, key: plistKey,
                                                expectedValue: item.expectedValue,
                                                evaluation: item.evaluation)
@@ -823,7 +961,7 @@ class Validation: ObservableObject {
                         isValid: true,
                         validationType: .plistValidation,
                         details: ValidationDetails(
-                            path: path,
+                            path: resolvedPath,
                             key: plistKey,
                             expectedValue: item.expectedValue,
                             actualValue: formatValueForDisplay(actualValue),
@@ -859,13 +997,14 @@ class Validation: ObservableObject {
 
     // MARK: - Cached Validation Methods
 
-    private func validateSimplePlistItemCached(_ item: InspectConfig.ItemConfig) -> ValidationResult {
+    private func validateSimplePlistItemCached(_ item: InspectConfig.ItemConfig, basePath: String? = nil) -> ValidationResult {
         guard let plistKey = item.plistKey else {
             return ValidationResult(itemId: item.id, isValid: false, validationType: .plistValidation, details: nil)
         }
 
         for path in item.paths {
-            if let plist = loadPlistCached(at: path) {
+            let resolvedPath = resolvePlistPath(path, basePath: basePath)
+            if let plist = loadPlistCached(at: path, basePath: basePath) {
                 let result = validatePlistValue(plist: plist, key: plistKey,
                                                expectedValue: item.expectedValue,
                                                evaluation: item.evaluation)
@@ -876,7 +1015,7 @@ class Validation: ObservableObject {
                         isValid: true,
                         validationType: .plistValidation,
                         details: ValidationDetails(
-                            path: path,
+                            path: resolvedPath,
                             key: plistKey,
                             expectedValue: item.expectedValue,
                             actualValue: formatValueForDisplay(actualValue),
@@ -998,23 +1137,23 @@ class Validation: ObservableObject {
         return current
     }
 
-    private func validateSimplePlistItem(_ item: InspectConfig.ItemConfig) -> ValidationResult {
+    private func validateSimplePlistItem(_ item: InspectConfig.ItemConfig, basePath: String? = nil) -> ValidationResult {
         guard let plistKey = item.plistKey else {
             return ValidationResult(itemId: item.id, isValid: false, validationType: .plistValidation, details: nil)
         }
-        
+
         for path in item.paths {
-            let expandedPath = (path as NSString).expandingTildeInPath
-            if let result = checkSimplePlistKey(at: path, key: plistKey, expectedValue: item.expectedValue, evaluation: item.evaluation) {
-                let actualValue = getPlistValue(at: path, key: plistKey)
+            let resolvedPath = resolvePlistPath(path, basePath: basePath)
+            if let result = checkSimplePlistKey(at: path, key: plistKey, expectedValue: item.expectedValue, evaluation: item.evaluation, basePath: basePath) {
+                let actualValue = getPlistValue(at: path, key: plistKey, basePath: basePath)
                 let details = ValidationDetails(
-                    path: expandedPath,
+                    path: resolvedPath,
                     key: plistKey,
                     expectedValue: item.expectedValue,
                     actualValue: actualValue,
                     evaluationType: item.evaluation
                 )
-                
+
                 return ValidationResult(
                     itemId: item.id,
                     isValid: result,
@@ -1023,14 +1162,16 @@ class Validation: ObservableObject {
                 )
             }
         }
-        
+
         // If we reach here, file doesn't exist or key not found - this is a failure
+        let firstPath = item.paths.first ?? ""
+        let resolvedFirstPath = resolvePlistPath(firstPath, basePath: basePath)
         return ValidationResult(
             itemId: item.id,
             isValid: false,
             validationType: .plistValidation,
             details: ValidationDetails(
-                path: item.paths.first ?? "",
+                path: resolvedFirstPath,
                 key: plistKey,
                 expectedValue: item.expectedValue,
                 actualValue: nil,
@@ -1059,8 +1200,9 @@ class Validation: ObservableObject {
     
     // MARK: - Smart Evaluation System
     
-    private func checkSimplePlistKey(at path: String, key: String, expectedValue: String?, evaluation: String? = nil) -> Bool? {
-        let expandedPath = (path as NSString).expandingTildeInPath
+    private func checkSimplePlistKey(at path: String, key: String, expectedValue: String?, evaluation: String? = nil, basePath: String? = nil) -> Bool? {
+        let resolvedPath = resolvePlistPath(path, basePath: basePath)
+        let expandedPath = (resolvedPath as NSString).expandingTildeInPath
         guard FileManager.default.fileExists(atPath: expandedPath),
               let data = FileManager.default.contents(atPath: expandedPath),
               let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
