@@ -80,7 +80,7 @@ struct ButtonConfiguration {
     var button1Text: String = ""             // Text for primary button (loaded from config)
     var button1Disabled: Bool = false
     var button2Text: String = ""             // Text for secondary button (loaded from config)
-    var button2Visible: Bool = true          // Show second button when complete
+    var button2Visible: Bool = false          // Show second button when complete
     var autoEnableButton: Bool = true
     // Note: button2Disabled removed - button2 is always enabled when shown
     // Note: buttonStyle removed - not used in Inspect mode
