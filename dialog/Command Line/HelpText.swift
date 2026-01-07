@@ -586,7 +586,7 @@ struct SDHelp {
 """
 
         argument.dropdownTitle.helpShort = "Select list name"
-        argument.dropdownTitle.helpUsage = "<text>(,radio|required|searchable|name=\"<text>\")"
+        argument.dropdownTitle.helpUsage = "<text>(,radio|required|searchable|multiselect|name=\"<text>\")"
         argument.dropdownTitle.helpLong = """
         Sets the name for a dropdown select list.
 
@@ -623,6 +623,7 @@ struct SDHelp {
             required   - Make that particular list a required item that must have a value before swiftDialog will exit
             searchable - Marks the List as searchable. Typing in the provided textfield will filter the list of results. Useful
                          for long lists or lists with similar items.
+            multiselect- Allows mulltiple options to be selected
 """
 
         argument.dropdownValues.helpShort = "Select list values"

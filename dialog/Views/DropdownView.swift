@@ -62,8 +62,13 @@ struct DropdownView: View {
                                     .frame(idealWidth: fieldwidth*0.20, alignment: .leading)
                                 Spacer()
                             }
-                            if userInputState.dropdownItems[index].style == "searchable" {
-                                SearchablePicker(title: "", allItems: userInputState.dropdownItems[index].values, selection: $selectedOption[index])
+                            if ["searchable", "multiselect"].contains(userInputState.dropdownItems[index].style) {
+                                SearchablePicker(
+                                    title: "",
+                                    allItems: userInputState.dropdownItems[index].values,
+                                    selection: $selectedOption[index],
+                                    allowMultiSelect: userInputState.dropdownItems[index].style == "multiselect"
+                                )
                                     .onChange(of: selectedOption[index]) { _, selectedOption in
                                         userInputState.dropdownItems[index].selectedValue = selectedOption
                                     }
@@ -131,177 +136,553 @@ extension View {
 
 // Implemtation of a searchable picker using TextField and popover with embedded scrollview
 
+// MARK: - Searchable Picker (Single & Multi-Select)
+
 struct SearchablePicker: View {
     let title: String
     let allItems: [String]
     @Binding var selection: String
-
+    var allowMultiSelect: Bool = false
+    
     @State private var searchText = ""
     @State private var showPopup = false
-    @State private var userInteracted = false
     @FocusState private var isFocused: Bool
     @State private var selectedIndex: Int?
     @State private var didAppear = false
     
-    static var lastHandledKeyCodes: Set<Int> = []
-
-    var filteredItems: [String] {
+    // Parse CSV string into Set for multi-select
+    private var selectedItems: Set<String> {
+        guard allowMultiSelect else { return [] }
+        return Set(selection.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
+    }
+    
+    // Items for display (includes dividers for visual separation)
+    private var displayItems: [String] {
         if searchText.isEmpty {
-            allItems
-        } else {
-            allItems.filter { $0.localizedCaseInsensitiveContains(searchText) }
+            return allItems.filter { item in
+                if item.hasPrefix("---") { return true }
+                if allowMultiSelect { return !selectedItems.contains(item) }
+                return true
+            }
+        }
+        // When searching, exclude dividers
+        return allItems.filter { item in
+            guard !item.hasPrefix("---") else { return false }
+            if allowMultiSelect && selectedItems.contains(item) { return false }
+            return item.localizedCaseInsensitiveContains(searchText)
         }
     }
-
+    
+    // Indices of selectable (non-divider) items for keyboard navigation
+    private var selectableIndices: [Int] {
+        displayItems.enumerated().compactMap { index, item in
+            item.hasPrefix("---") ? nil : index
+        }
+    }
+    
+    private var borderColor: Color {
+        isFocused ? Color.accentColor : Color(nsColor: .separatorColor)
+    }
+    
     var body: some View {
-        ZStack {
-            TextField(title, text: $searchText, onEditingChanged: { isEditing in
-                if isEditing && userInteracted {
-                    showPopup.toggle()
-                    selectedIndex = filteredItems.isEmpty ? nil : 0
-                } else {
-                    showPopup = false
-                }
-            })
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+        Group {
+            if allowMultiSelect {
+                multiSelectBody
+            } else {
+                singleSelectBody
+            }
+        }
+    }
+    
+    // MARK: - Single Select Body
+    
+    private var singleSelectBody: some View {
+        HStack(spacing: 0) {
+            TextField(title, text: $searchText)
+                .textFieldStyle(.plain)
                 .focused($isFocused)
                 .onChange(of: searchText) {
-                    userInteracted = true
-                    showPopup = true
-                    selectedIndex = filteredItems.isEmpty ? nil : 0
+                    // Only show popup when actually typing (not on initial load)
+                    if didAppear {
+                        showPopup = true
+                        selectedIndex = selectableIndices.first
+                    }
+                }
+                .onChange(of: isFocused) { _, focused in
+                    if !focused {
+                        // Hide popup when focus leaves
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            if !isFocused {
+                                showPopup = false
+                            }
+                        }
+                    }
                 }
                 .onAppear {
                     searchText = selection
                     showPopup = false
-                    userInteracted = false
-                    didAppear = true
+                    // Delay setting didAppear to prevent onChange triggering on initial value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        didAppear = true
+                    }
                 }
-                .background(KeyHandlerView { event in
-                    handleKey(event)
-                })
-                .popover(isPresented: $showPopup, arrowEdge: .bottom) {
-                    VStack(spacing: 0) {
-                        if filteredItems.isEmpty {
-                            Text("No matches")
-                                .padding()
-                                .foregroundStyle(.secondary)
-                        } else {
-                            ScrollViewReader { proxy in
-                                ScrollView {
-                                    VStack(alignment: .leading, spacing: 0) {
-                                        ForEach(filteredItems.indices, id: \.self) { index in
-                                            let item = filteredItems[index]
-                                            if item.hasPrefix("---") {
-                                                Divider()
-                                                    .padding([.top,.bottom], 5)
-                                            } else {
-                                                Text(item)
-                                                    .id(index)
-                                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                                    .padding(.vertical, 4)
-                                                    .padding(.horizontal, 8)
-                                                    .background(selectedIndex == index ? Color.accentColor.opacity(0.2) : Color.clear)
-                                                    .onTapGesture {
-                                                        select(item)
-                                                    }
-                                            }
-                                        }
-                                    }
-                                }
-                                .onChange(of: selectedIndex) { _, newIndex in
-                                    if let newIndex {
-                                        withAnimation {
-                                            proxy.scrollTo(newIndex, anchor: .center)
-                                        }
-                                    }
-                                }
-                                .frame(width: 200)
-                                .frame(minHeight: 100)
-                                .frame(maxHeight: 350)
+                .onKeyPress(.downArrow) {
+                    if !showPopup {
+                        showPopup = true
+                        selectedIndex = selectableIndices.first
+                    } else {
+                        moveSelection(1)
+                    }
+                    return .handled
+                }
+                .onKeyPress(.upArrow) {
+                    if showPopup {
+                        moveSelection(-1)
+                        return .handled
+                    }
+                    return .ignored
+                }
+                .onKeyPress(.return) {
+                    if showPopup, let index = selectedIndex, index < displayItems.count {
+                        let item = displayItems[index]
+                        if !item.hasPrefix("---") {
+                            select(item)
+                            return .handled
+                        }
+                    }
+                    return .ignored
+                }
+                .onKeyPress(.escape) {
+                    if showPopup {
+                        showPopup = false
+                        return .handled
+                    }
+                    return .ignored
+                }
+            
+            // Chevron button
+            Button {
+                isFocused = true
+                showPopup.toggle()
+                if showPopup {
+                    selectedIndex = selectableIndices.first
+                }
+            } label: {
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(Color(nsColor: .textBackgroundColor))
+        .cornerRadius(6)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(borderColor, lineWidth: isFocused ? 2 : 1)
+        )
+        .popover(isPresented: $showPopup, arrowEdge: .bottom) {
+            dropdownContent
+        }
+    }
+    
+    // MARK: - Multi Select Body
+    
+    private var multiSelectBody: some View {
+        HStack(spacing: 0) {
+            FlowLayout(spacing: 4) {
+                // Display selected tags
+                ForEach(Array(selectedItems).sorted(), id: \.self) { item in
+                    TagView(text: item) {
+                        removeSelection(item)
+                    }
+                }
+                
+                // Search field with backspace handling
+                BackspaceDetectingTextField(
+                    placeholder: selectedItems.isEmpty ? title : "",
+                    text: $searchText,
+                    onBackspaceWhenEmpty: {
+                        if let last = selectedItems.sorted().last {
+                            removeSelection(last)
+                        }
+                    }
+                )
+                .focused($isFocused)
+                .frame(minWidth: 60)
+                .onChange(of: searchText) {
+                    if didAppear {
+                        showPopup = true
+                        selectedIndex = selectableIndices.first
+                    }
+                }
+                .onChange(of: isFocused) { _, focused in
+                    if !focused {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            if !isFocused {
+                                showPopup = false
+                                searchText = ""
                             }
                         }
                     }
-                    .padding()
                 }
+                .onAppear {
+                    showPopup = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        didAppear = true
+                    }
+                }
+                .onSubmit {
+                    if !searchText.isEmpty {
+                        selectHighlightedOrFirst()
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.primary, .clear)
-                    .opacity(searchText.isEmpty ? 0.5 : 0)
-                    .padding(.leading, 3)
-                Spacer()
-                Image(systemName: "chevron.up.chevron.down.square.fill")
-                    .foregroundStyle(.primary, .clear)
-                    .padding(.trailing, 3)
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                userInteracted = true
+            // Chevron button
+            Button {
+                isFocused = true
                 showPopup.toggle()
-                selectedIndex = 0
+                if showPopup {
+                    selectedIndex = selectableIndices.first
+                }
+            } label: {
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
-    }
-
-    private func handleKey(_ event: NSEvent) {
-        // clear previously handled keys for this event
-        SearchablePicker.lastHandledKeyCodes.removeAll()
-        guard isFocused else { return }
-
-        switch event.keyCode {
-        case 125: // ↓
-            userInteracted = true
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(Color(nsColor: .textBackgroundColor))
+        .cornerRadius(6)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(borderColor, lineWidth: isFocused ? 2 : 1)
+        )
+        .onKeyPress(.downArrow) {
             if !showPopup {
                 showPopup = true
-                selectedIndex = 0
+                selectedIndex = selectableIndices.first
             } else {
                 moveSelection(1)
             }
-            SearchablePicker.lastHandledKeyCodes.insert(Int(event.keyCode))
-        case 126: // ↑
-            moveSelection(-1)
-            SearchablePicker.lastHandledKeyCodes.insert(Int(event.keyCode))
-        case 36: // Return
-            if showPopup, let index = selectedIndex, index < filteredItems.count {
-                select(filteredItems[index])
-            } else {
-                return // don’t swallow Return — let it pass through
+            return .handled
+        }
+        .onKeyPress(.upArrow) {
+            if showPopup {
+                moveSelection(-1)
+                return .handled
             }
-            SearchablePicker.lastHandledKeyCodes.insert(Int(event.keyCode))
-        case 53: // Escape
-            showPopup = false
-            SearchablePicker.lastHandledKeyCodes.insert(Int(event.keyCode))
-        default:
-            break
+            return .ignored
+        }
+        .onKeyPress(.return) {
+            if showPopup, let index = selectedIndex, index < displayItems.count {
+                let item = displayItems[index]
+                if !item.hasPrefix("---") {
+                    select(item)
+                    return .handled
+                }
+            }
+            return .ignored
+        }
+        .onKeyPress(.escape) {
+            if showPopup {
+                showPopup = false
+                searchText = ""
+                return .handled
+            }
+            return .ignored
+        }
+        .popover(isPresented: $showPopup, arrowEdge: .bottom) {
+            dropdownContent
         }
     }
-
+    
+    // MARK: - Dropdown Content
+    
+    @ViewBuilder
+    private var dropdownContent: some View {
+        VStack(spacing: 0) {
+            if displayItems.isEmpty || selectableIndices.isEmpty {
+                Text(allowMultiSelect && !selectedItems.isEmpty ? "No more options" : "No matches")
+                    .padding()
+                    .foregroundStyle(.secondary)
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(Array(displayItems.enumerated()), id: \.offset) { index, item in
+                                if item.hasPrefix("---") {
+                                    Divider()
+                                        .padding(.vertical, 5)
+                                        .padding(.horizontal, 10)
+                                } else {
+                                    DropdownRow(
+                                        text: item,
+                                        isHighlighted: selectedIndex == index
+                                    ) {
+                                        select(item)
+                                    }
+                                    .id(index)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .onChange(of: selectedIndex) { _, newIndex in
+                        if let newIndex {
+                            withAnimation {
+                                proxy.scrollTo(newIndex, anchor: .center)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .frame(minWidth: 200, maxWidth: 350)
+        .frame(minHeight: 80, maxHeight: 350)
+    }
+    
+    // MARK: - Selection Helpers
+    
     private func moveSelection(_ delta: Int) {
-        guard showPopup, !filteredItems.isEmpty else { return }
+        guard !selectableIndices.isEmpty else { return }
+        
         if selectedIndex == nil {
-            selectedIndex = 0
+            selectedIndex = delta > 0 ? selectableIndices.first : selectableIndices.last
+        } else if let currentIndex = selectedIndex,
+                  let currentPosition = selectableIndices.firstIndex(of: currentIndex) {
+            let newPosition = currentPosition + delta
+            if newPosition >= 0 && newPosition < selectableIndices.count {
+                selectedIndex = selectableIndices[newPosition]
+            }
         } else {
-            selectedIndex = max(0, min(filteredItems.count - 1, (selectedIndex ?? 0) + delta))
+            selectedIndex = selectableIndices.first
         }
     }
-
+    
+    private func selectHighlightedOrFirst() {
+        guard showPopup else { return }
+        
+        if let index = selectedIndex, index < displayItems.count {
+            let item = displayItems[index]
+            if !item.hasPrefix("---") {
+                select(item)
+            }
+        } else if let firstIndex = selectableIndices.first {
+            select(displayItems[firstIndex])
+        }
+    }
+    
     private func select(_ item: String) {
-        selection = item
-        searchText = item
-        // Keep the popover open briefly so the selection highlights
-        withAnimation {
-            selectedIndex = filteredItems.firstIndex(of: item)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            showPopup = false
-            isFocused = false
+        guard !item.hasPrefix("---") else { return }
+        
+        if allowMultiSelect {
+            var items = selectedItems
+            items.insert(item)
+            selection = items.sorted().joined(separator: ", ")
+            searchText = ""
+            selectedIndex = selectableIndices.first
+        } else {
+            selection = item
+            searchText = item
+            withAnimation {
+                selectedIndex = displayItems.firstIndex(of: item)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                showPopup = false
+                isFocused = false
+            }
         }
     }
+    
+    private func removeSelection(_ item: String) {
+        var items = selectedItems
+        items.remove(item)
+        withAnimation(.easeInOut(duration: 0.15)) {
+            selection = items.sorted().joined(separator: ", ")
+        }
+    }
+}
 
+// MARK: - Backspace Detecting TextField (NSViewRepresentable)
+
+struct BackspaceDetectingTextField: NSViewRepresentable {
+    var placeholder: String
+    @Binding var text: String
+    var onBackspaceWhenEmpty: () -> Void
+    
+    func makeNSView(context: Context) -> NSTextField {
+        let textField = BackspaceTextField()
+        textField.placeholderString = placeholder
+        textField.stringValue = text
+        textField.delegate = context.coordinator
+        textField.isBordered = false
+        textField.backgroundColor = .clear
+        textField.focusRingType = .none
+        textField.onBackspaceWhenEmpty = onBackspaceWhenEmpty
+        return textField
+    }
+    
+    func updateNSView(_ nsView: NSTextField, context: Context) {
+        nsView.placeholderString = placeholder
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+        }
+        if let backspaceField = nsView as? BackspaceTextField {
+            backspaceField.onBackspaceWhenEmpty = onBackspaceWhenEmpty
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: BackspaceDetectingTextField
+        
+        init(_ parent: BackspaceDetectingTextField) {
+            self.parent = parent
+        }
+        
+        func controlTextDidChange(_ obj: Notification) {
+            if let textField = obj.object as? NSTextField {
+                parent.text = textField.stringValue
+            }
+        }
+    }
+}
+
+class BackspaceTextField: NSTextField {
+    var onBackspaceWhenEmpty: (() -> Void)?
+    
+    override func keyDown(with event: NSEvent) {
+        // Check for backspace (keyCode 51) when text is empty
+        if event.keyCode == 51 && stringValue.isEmpty {
+            onBackspaceWhenEmpty?()
+            return
+        }
+        super.keyDown(with: event)
+    }
+}
+
+// MARK: - Tag View
+
+struct TagView: View {
+    let text: String
+    let onRemove: () -> Void
+    
+    @State private var isHovering = false
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(text)
+                .lineLimit(1)
+            
+            Button(action: onRemove) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .opacity(isHovering ? 1 : 0.7)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.accentColor.opacity(0.15))
+        .cornerRadius(4)
+        .overlay(
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
+        )
+        .onHover { isHovering = $0 }
+    }
+}
+
+// MARK: - Dropdown Row
+
+struct DropdownRow: View {
+    let text: String
+    let isHighlighted: Bool
+    let onSelect: () -> Void
+    
+    @State private var isHovering = false
+    
+    var body: some View {
+        Text(text)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
+            .background(isHighlighted || isHovering ? Color.accentColor.opacity(0.15) : Color.clear)
+            .cornerRadius(4)
+            .padding(.horizontal, 4)
+            .contentShape(Rectangle())
+            .onTapGesture(perform: onSelect)
+            .onHover { isHovering = $0 }
+    }
+}
+
+// MARK: - Flow Layout
+
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 4
+    
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let result = arrangeSubviews(proposal: proposal, subviews: subviews)
+        return result.size
+    }
+    
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = arrangeSubviews(proposal: proposal, subviews: subviews)
+        for (index, position) in result.positions.enumerated() {
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y),
+                proposal: ProposedViewSize(subviews[index].sizeThatFits(.unspecified))
+            )
+        }
+    }
+    
+    private func arrangeSubviews(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, positions: [CGPoint]) {
+        let maxWidth = proposal.width ?? .infinity
+        var positions: [CGPoint] = []
+        var currentX: CGFloat = 0
+        var currentY: CGFloat = 0
+        var lineHeight: CGFloat = 0
+        var totalHeight: CGFloat = 0
+        var totalWidth: CGFloat = 0
+        
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            
+            if currentX + size.width > maxWidth && currentX > 0 {
+                currentX = 0
+                currentY += lineHeight + spacing
+                lineHeight = 0
+            }
+            
+            positions.append(CGPoint(x: currentX, y: currentY))
+            
+            lineHeight = max(lineHeight, size.height)
+            currentX += size.width + spacing
+            totalWidth = max(totalWidth, currentX - spacing)
+            totalHeight = currentY + lineHeight
+        }
+        
+        return (CGSize(width: totalWidth, height: max(totalHeight, 20)), positions)
+    }
 }
 
 // MARK: - Key Handler View
 
+/*
 struct KeyHandlerView: NSViewRepresentable {
     var onKeyDown: (NSEvent) -> Void
     static var currentHandler: ((NSEvent) -> Void)?
@@ -343,7 +724,7 @@ struct KeyHandlerView: NSViewRepresentable {
     }
 }
 
-
+*/
 
 
 /*
