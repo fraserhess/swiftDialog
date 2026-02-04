@@ -67,7 +67,8 @@ struct DropdownView: View {
                                     title: "",
                                     allItems: userInputState.dropdownItems[index].values,
                                     selection: $selectedOption[index],
-                                    allowMultiSelect: userInputState.dropdownItems[index].style == "multiselect"
+                                    allowMultiSelect: userInputState.dropdownItems[index].style == "multiselect",
+                                    idealWidth: fieldwidth*0.50
                                 )
                                     .onChange(of: selectedOption[index]) { _, selectedOption in
                                         userInputState.dropdownItems[index].selectedValue = selectedOption
@@ -143,6 +144,7 @@ struct SearchablePicker: View {
     let allItems: [String]
     @Binding var selection: String
     var allowMultiSelect: Bool = false
+    var idealWidth: CGFloat = 200
     
     @State private var searchText = ""
     @State private var showPopup = false
@@ -435,7 +437,7 @@ struct SearchablePicker: View {
                                 }
                             }
                         }
-                        .padding(.vertical, 4)
+                        .padding(8)
                     }
                     .onChange(of: selectedIndex) { _, newIndex in
                         if let newIndex {
@@ -447,8 +449,8 @@ struct SearchablePicker: View {
                 }
             }
         }
-        .frame(minWidth: 200, maxWidth: 350)
-        .frame(minHeight: 80, maxHeight: 350)
+        .frame(idealWidth: idealWidth, maxWidth: 350)
+        .frame(minHeight: 80, maxHeight: 450)
     }
     
     // MARK: - Selection Helpers
@@ -586,6 +588,7 @@ struct TagView: View {
         HStack(spacing: 4) {
             Text(text)
                 .lineLimit(1)
+                .font(.system(size: 12))
             
             Button(action: onRemove) {
                 Image(systemName: "xmark")
