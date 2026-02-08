@@ -495,16 +495,6 @@ private struct Preset5Wrapper: View {
     }
 }
 
-// MARK: - Wrapper for Preset6 to use InspectState
-
-private struct Preset6Wrapper: View {
-    @ObservedObject var coordinator: InspectState
-
-    var body: some View {
-        Preset6View(inspectState: coordinator)
-    }
-}
-
 // MARK: - Wrapper for Preset7 to use InspectState
 
 private struct Preset7Wrapper: View {

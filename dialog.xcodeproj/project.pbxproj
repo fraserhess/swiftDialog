@@ -99,6 +99,7 @@
 		BA71F13D2F38D86C00399EE3 /* SemanticColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA71F1392F38D86C00399EE3 /* SemanticColors.swift */; };
 		BA71F1402F38D87900399EE3 /* FooterBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA71F13E2F38D87900399EE3 /* FooterBar.swift */; };
 		BA71F1412F38D87900399EE3 /* StatusIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA71F13F2F38D87900399EE3 /* StatusIconView.swift */; };
+		CA71F1502F38D87900399EE3 /* OverrideDialogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA71F14F2F38D87900399EE3 /* OverrideDialogView.swift */; };
 		BA71F1432F38DDB700399EE3 /* ValidationCacheHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA71F1422F38DDB700399EE3 /* ValidationCacheHelper.swift */; };
 		BA7CA57C2F231310005A922A /* ContentBlockRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7CA5772F231310005A922A /* ContentBlockRenderer.swift */; };
 		BA7CA57D2F231310005A922A /* TableContentBlocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7CA57A2F231310005A922A /* TableContentBlocks.swift */; };
@@ -319,6 +320,7 @@
 		BA71F13A2F38D86C00399EE3 /* ValidationCacheHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidationCacheHelper.swift; sourceTree = "<group>"; };
 		BA71F13E2F38D87900399EE3 /* FooterBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FooterBar.swift; sourceTree = "<group>"; };
 		BA71F13F2F38D87900399EE3 /* StatusIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusIconView.swift; sourceTree = "<group>"; };
+		CA71F14F2F38D87900399EE3 /* OverrideDialogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverrideDialogView.swift; sourceTree = "<group>"; };
 		BA71F1422F38DDB700399EE3 /* ValidationCacheHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidationCacheHelper.swift; sourceTree = "<group>"; };
 		BA7CA5772F231310005A922A /* ContentBlockRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentBlockRenderer.swift; sourceTree = "<group>"; };
 		BA7CA5782F231310005A922A /* MediaContentBlocks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaContentBlocks.swift; sourceTree = "<group>"; };
@@ -613,6 +615,7 @@
 				BAB7C3CA2F39187B0033C0DC /* InspectBannerView.swift */,
 				BA71F13E2F38D87900399EE3 /* FooterBar.swift */,
 				BA71F13F2F38D87900399EE3 /* StatusIconView.swift */,
+				CA71F14F2F38D87900399EE3 /* OverrideDialogView.swift */,
 				BA2727C62F22F1350027C4BD /* ComplianceComponents.swift */,
 				BA2727C72F22F1350027C4BD /* GuidanceContentView.swift */,
 				BA2727C82F22F1350027C4BD /* IconCache.swift */,
@@ -1066,6 +1069,7 @@
 				CA56BA142F3904C000000004 /* ProcessingStateModule.swift in Sources */,
 				BA71F1402F38D87900399EE3 /* FooterBar.swift in Sources */,
 				BA71F1412F38D87900399EE3 /* StatusIconView.swift in Sources */,
+				CA71F1502F38D87900399EE3 /* OverrideDialogView.swift in Sources */,
 				CA10102F3F10100000002A /* SidebarNavigationModule.swift in Sources */,
 				BAEFDFEA2E83FB310017CFC2 /* InspectConfig.swift in Sources */,
 				BAEFDFEB2E83FB310017CFC2 /* Validation.swift in Sources */,
