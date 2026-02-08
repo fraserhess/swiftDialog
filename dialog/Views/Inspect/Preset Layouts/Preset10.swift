@@ -14,11 +14,11 @@ struct Preset10View: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "square.dashed")
-                .font(.system(size: 48))
-                .foregroundColor(.secondary)
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
             Text("Reserved for future use")
                 .font(.title3)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
