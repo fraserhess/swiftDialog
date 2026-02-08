@@ -424,7 +424,15 @@ struct Preset3View: View, InspectLayoutProtocol {
     }
 
     private func getStatusText(for item: InspectConfig.ItemConfig) -> String {
-        if inspectState.completedItems.contains(item.id) {
+        // Priority 1: Log monitor status (includes failure messages)
+        if let logStatus = inspectState.logMonitorStatuses[item.id] {
+            return logStatus
+        }
+
+        if inspectState.failedItems.contains(item.id) {
+            // Use custom failed status if available
+            return inspectState.config?.uiLabels?.failedStatus ?? "Failed"
+        } else if inspectState.completedItems.contains(item.id) {
             if hasValidationWarning(for: item) {
                 // Use custom validation warning text if available, otherwise default
                 return inspectState.config?.uiLabels?.failedStatus ?? "Failed"
@@ -460,8 +468,10 @@ struct Preset3View: View, InspectLayoutProtocol {
     }
 
     private func getStatusColor(for item: InspectConfig.ItemConfig) -> Color {
-        if inspectState.completedItems.contains(item.id) {
-            return hasValidationWarning(for: item) ? .yellow : .green
+        if inspectState.failedItems.contains(item.id) {
+            return .red
+        } else if inspectState.completedItems.contains(item.id) {
+            return hasValidationWarning(for: item) ? .orange : .green
         } else if inspectState.downloadingItems.contains(item.id) {
             return .blue
         } else {
@@ -471,23 +481,37 @@ struct Preset3View: View, InspectLayoutProtocol {
 
     @ViewBuilder
     private func statusIndicatorWithValidation(for item: InspectConfig.ItemConfig, textColor: Color) -> some View {
+        let isFailed = inspectState.failedItems.contains(item.id)
         let isCompleted = inspectState.completedItems.contains(item.id)
         let hasWarning = hasValidationWarning(for: item)
-        
+
         // Move print statements outside of ViewBuilder context
-        let _ = print("DEBUG Preset3 UI: Item '\(item.id)' - isCompleted: \(isCompleted), hasWarning: \(hasWarning)")
-        
-        if isCompleted {
+        let _ = print("DEBUG Preset3 UI: Item '\(item.id)' - isFailed: \(isFailed), isCompleted: \(isCompleted), hasWarning: \(hasWarning)")
+
+        if isFailed {
+            // Failed - show red X and error message
+            HStack(spacing: 4) {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.red)
+                    .font(.caption)
+                Text(getStatusText(for: item))
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+            }
+            .help("Installation failed")
+        } else if isCompleted {
             // Completed - check for validation warnings (using same logic as Preset2)
             if hasWarning {
                 let _ = print("DEBUG Preset3 UI: Showing 'Check Config' for '\(item.id)'")
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.circle.fill")
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(.orange)
                         .font(.caption)
                     Text("Check Config")
                         .font(.caption)
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(.orange)
                         .fontWeight(.medium)
                 }
                 .help("Configuration validation failed - check plist settings")

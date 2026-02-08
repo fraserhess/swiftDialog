@@ -112,6 +112,7 @@ struct Preset2View: View, InspectLayoutProtocol {
                                 item: item,
                                 isCompleted: inspectState.completedItems.contains(item.id),
                                 isDownloading: inspectState.downloadingItems.contains(item.id),
+                                isFailed: inspectState.failedItems.contains(item.id),
                                 highlightColor: inspectState.uiConfiguration.highlightColor,
                                 scale: scaleFactor,
                                 resolvedIconPath: getIconPathForItem(item),
@@ -154,7 +155,7 @@ struct Preset2View: View, InspectLayoutProtocol {
             }
 
             Spacer()
-                //.frame(maxHeight: 30 * scaleFactor)
+                .frame(maxHeight: 30 * scaleFactor)
 
             // Bottom progress section
             VStack(spacing: 12) {
@@ -230,7 +231,7 @@ struct Preset2View: View, InspectLayoutProtocol {
             .padding(.horizontal, 40 * scaleFactor)
             .padding(.bottom, 24 * scaleFactor)
         }
-        //.frame(width: windowSize.width, height: windowSize.height)
+        .frame(width: windowSize.width, height: windowSize.height)
         .background(Color(NSColor.windowBackgroundColor))
         .ignoresSafeArea()
         .overlay {
@@ -375,16 +376,18 @@ private struct Preset2ItemCardView: View {
     let item: InspectConfig.ItemConfig
     let isCompleted: Bool
     let isDownloading: Bool
+    let isFailed: Bool
     let highlightColor: String
     let scale: CGFloat
     let resolvedIconPath: String
     let inspectState: InspectState
     let onInfoTapped: (() -> Void)?
 
-    init(item: InspectConfig.ItemConfig, isCompleted: Bool, isDownloading: Bool, highlightColor: String, scale: CGFloat, resolvedIconPath: String, inspectState: InspectState, onInfoTapped: (() -> Void)? = nil) {
+    init(item: InspectConfig.ItemConfig, isCompleted: Bool, isDownloading: Bool, isFailed: Bool = false, highlightColor: String, scale: CGFloat, resolvedIconPath: String, inspectState: InspectState, onInfoTapped: (() -> Void)? = nil) {
         self.item = item
         self.isCompleted = isCompleted
         self.isDownloading = isDownloading
+        self.isFailed = isFailed
         self.highlightColor = highlightColor
         self.scale = scale
         self.resolvedIconPath = resolvedIconPath
@@ -411,7 +414,15 @@ private struct Preset2ItemCardView: View {
     }
 
     private func getStatusText() -> String {
-        if isCompleted {
+        // Priority 1: Log monitor status (includes failure messages)
+        if let logStatus = inspectState.logMonitorStatuses[item.id] {
+            return logStatus
+        }
+
+        if isFailed {
+            // Use custom failed status if available
+            return inspectState.config?.uiLabels?.failedStatus ?? "Failed"
+        } else if isCompleted {
             if hasValidationWarning {
                 // Use custom validation warning text if available, otherwise default
                 return inspectState.config?.uiLabels?.failedStatus ?? "Failed"
@@ -447,8 +458,10 @@ private struct Preset2ItemCardView: View {
     }
 
     private func getStatusColor() -> Color {
-        if isCompleted {
-            return hasValidationWarning ? .yellow : .green
+        if isFailed {
+            return .red
+        } else if isCompleted {
+            return hasValidationWarning ? .orange : .green
         } else if isDownloading {
             return .blue
         } else {
@@ -495,9 +508,20 @@ private struct Preset2ItemCardView: View {
                 VStack {
                     HStack {
                         Spacer()
-                        if isCompleted {
+                        if isFailed {
+                            // Red circle with X for failed
                             Circle()
-                                .fill(hasValidationWarning ? Color.yellow : Color.green)
+                                .fill(Color.red)
+                                .frame(width: 26 * scale, height: 26 * scale)
+                                .overlay(
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 12 * scale, weight: .bold))
+                                        .foregroundStyle(.white)
+                                )
+                                .help("Installation failed")
+                        } else if isCompleted {
+                            Circle()
+                                .fill(hasValidationWarning ? Color.orange : Color.green)
                                 .frame(width: 26 * scale, height: 26 * scale)
                                 .overlay(
                                     Image(systemName: hasValidationWarning ? "exclamationmark" : "checkmark")

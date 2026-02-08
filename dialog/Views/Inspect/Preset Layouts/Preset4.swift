@@ -21,8 +21,22 @@ struct Preset4View: View, InspectLayoutProtocol {
 
     // scaleFactor is now provided by InspectLayoutProtocol extension
 
-    // scaleFactor is now provided by InspectLayoutProtocol extension
-    
+    // MARK: - Trigger File Configuration
+
+    /// Final button trigger file path (Preset4 only outputs final triggers)
+    private var finalTriggerFilePath: String {
+        if let customPath = inspectState.config?.triggerFile {
+            let url = URL(fileURLWithPath: customPath)
+            let ext = url.pathExtension
+            let base = url.deletingPathExtension().path
+            return ext.isEmpty ? "\(customPath)_final" : "\(base)_final.\(ext)"
+        }
+        if appArguments.inspectMode.present {
+            return "/tmp/swiftdialog_dev_preset4_final.trigger"
+        }
+        return "/tmp/swiftdialog_\(ProcessInfo.processInfo.processIdentifier)_preset4_final.trigger"
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Simple Header
@@ -325,11 +339,10 @@ struct Preset4View: View, InspectLayoutProtocol {
         }
 
         // Create trigger file
-        let triggerPath = "/tmp/preset4_final_button.trigger"
         let timestamp = ISO8601DateFormatter().string(from: Date())
         let triggerContent = "button_text=\(buttonText)\ntimestamp=\(timestamp)\nstatus=completed\n"
         if let data = triggerContent.data(using: .utf8) {
-            try? data.write(to: URL(fileURLWithPath: triggerPath), options: .atomic)
+            try? data.write(to: URL(fileURLWithPath: finalTriggerFilePath), options: .atomic)
         }
 
         // Write plist

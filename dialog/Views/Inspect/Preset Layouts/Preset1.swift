@@ -223,6 +223,7 @@ struct Preset1View: View, InspectLayoutProtocol {
     // MARK: - Sorting & Status
 
     private func getItemStatusType(for item: InspectConfig.ItemConfig) -> InspectItemStatus {
+        if inspectState.failedItems.contains(item.id) { return .failed("") }
         if inspectState.completedItems.contains(item.id) { return .completed }
         if inspectState.downloadingItems.contains(item.id) { return .downloading }
         return .pending
@@ -296,8 +297,10 @@ struct Preset1View: View, InspectLayoutProtocol {
     }
 
     private func getItemStatusColor(for item: InspectConfig.ItemConfig) -> Color {
-        if inspectState.completedItems.contains(item.id) {
-            return hasValidationWarning(for: item) ? .yellow : .green
+        if inspectState.failedItems.contains(item.id) {
+            return .red
+        } else if inspectState.completedItems.contains(item.id) {
+            return hasValidationWarning(for: item) ? .orange : .green
         } else if inspectState.downloadingItems.contains(item.id) {
             return .blue
         } else {
@@ -308,11 +311,22 @@ struct Preset1View: View, InspectLayoutProtocol {
     @ViewBuilder
     private func statusIndicatorWithValidation(for item: InspectConfig.ItemConfig) -> some View {
         let size: CGFloat = 20 * scaleFactor
-        
-        if inspectState.completedItems.contains(item.id) {
+
+        if inspectState.failedItems.contains(item.id) {
+            // Failed - show red X
+            Circle()
+                .fill(Color.red)
+                .frame(width: size, height: size)
+                .overlay(
+                    Image(systemName: "xmark")
+                        .font(.system(size: size * 0.6, weight: .bold))
+                        .foregroundStyle(.white)
+                )
+                .help("Installation failed")
+        } else if inspectState.completedItems.contains(item.id) {
             // Completed - check for validation warnings
             Circle()
-                .fill(hasValidationWarning(for: item) ? Color.yellow : Color.green)
+                .fill(hasValidationWarning(for: item) ? Color.orange : Color.green)
                 .frame(width: size, height: size)
                 .overlay(
                     Image(systemName: hasValidationWarning(for: item) ? "exclamationmark" : "checkmark")

@@ -161,6 +161,52 @@ struct Preset6View: View, InspectLayoutProtocol {
         inspectState.items.first?.stepType == "intro" ? 1 : 0
     }
 
+    // MARK: - Trigger File Configuration
+
+    /// Computed trigger file path based on mode (dev/prod) and config
+    /// - Priority: 1) Custom path from config, 2) Dev mode path, 3) Prod mode path (PID-based)
+    private var triggerFilePath: String {
+        // 1. Custom path from config takes priority
+        if let customPath = inspectState.config?.triggerFile {
+            return customPath
+        }
+
+        // 2. Dev mode (--inspect-mode): predictable path for inspector tools
+        if appArguments.inspectMode.present {
+            return "/tmp/swiftdialog_dev_preset6.trigger"
+        }
+
+        // 3. Prod mode: unique per instance using PID
+        return "/tmp/swiftdialog_\(ProcessInfo.processInfo.processIdentifier)_preset6.trigger"
+    }
+
+    /// Final button trigger file path (for completion state output)
+    private var finalTriggerFilePath: String {
+        // 1. Custom path from config - append _final suffix
+        if let customPath = inspectState.config?.triggerFile {
+            let url = URL(fileURLWithPath: customPath)
+            let ext = url.pathExtension
+            let base = url.deletingPathExtension().path
+            return ext.isEmpty ? "\(customPath)_final" : "\(base)_final.\(ext)"
+        }
+
+        // 2. Dev mode
+        if appArguments.inspectMode.present {
+            return "/tmp/swiftdialog_dev_preset6_final.trigger"
+        }
+
+        // 3. Prod mode
+        return "/tmp/swiftdialog_\(ProcessInfo.processInfo.processIdentifier)_preset6_final.trigger"
+    }
+
+    /// Trigger mode string for logging
+    private var triggerMode: String {
+        if inspectState.config?.triggerFile != nil {
+            return "custom"
+        }
+        return appArguments.inspectMode.present ? "dev" : "prod"
+    }
+
     init(inspectState: InspectState) {
         self.inspectState = inspectState
     }
@@ -420,6 +466,7 @@ struct Preset6View: View, InspectLayoutProtocol {
     // MARK: - Intro/Outro Full-Screen View
 
     /// Full-screen intro or outro view replacing the normal sidebar + content layout
+    /// Uses shared components from SharedIntroComponents.swift
     @ViewBuilder
     private func introOutroView(isOutro: Bool) -> some View {
         let item = isOutro ? inspectState.items.last : inspectState.items.first
@@ -428,10 +475,15 @@ struct Preset6View: View, InspectLayoutProtocol {
         VStack(spacing: 0) {
             Spacer()
 
-            // Hero Image (uses item.icon with configurable shape)
+            // Hero Image - using shared IntroHeroImage component
             if let iconPath = item?.icon {
-                introHeroImage(path: iconPath, config: config)
-                    .padding(.bottom, 24)
+                IntroHeroImage(
+                    path: iconPath,
+                    shape: config?.heroImageShape ?? "circle",
+                    size: config?.heroImageSize ?? 200,
+                    accentColor: .blue
+                )
+                .padding(.bottom, 24)
             }
 
             // Title (uses guidanceTitle)
@@ -461,17 +513,15 @@ struct Preset6View: View, InspectLayoutProtocol {
 
             Spacer()
 
-            // Bottom bar: Logo + Button
-            HStack {
-                // Optional branding logo (left side)
-                if let logoPath = config?.logoImage {
-                    introLogoView(path: logoPath, maxWidth: config?.logoMaxWidth ?? 120)
-                }
-
-                Spacer()
-
-                // Continue/Finish button
-                Button(item?.continueButtonText ?? (isOutro ? "Finish" : "Continue")) {
+            // Bottom bar: Logo + Button - using shared IntroFooterView
+            IntroFooterView(
+                logoPath: config?.logoImage,
+                logoMaxWidth: config?.logoMaxWidth ?? 120,
+                continueButtonText: item?.continueButtonText ?? (isOutro ? "Finish" : "Continue"),
+                accentColor: .blue,
+                showBackButton: false,
+                onBack: nil,
+                onContinue: {
                     if isOutro {
                         quitDialog(exitCode: appDefaults.exit0.code)
                     } else {
@@ -482,74 +532,9 @@ struct Preset6View: View, InspectLayoutProtocol {
                         navigateToNextStep()
                     }
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 24)
+            )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    /// Hero image for intro/outro view with configurable shape
-    @ViewBuilder
-    private func introHeroImage(path: String, config: InspectConfig.IntroLayoutConfig?) -> some View {
-        let size = config?.heroImageSize ?? 200
-        let shape = config?.heroImageShape ?? "circle"
-
-        Group {
-            if path.hasPrefix("SF=") {
-                // SF Symbol
-                let symbolName = String(path.dropFirst(3))
-                Image(systemName: symbolName)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: size, height: size)
-                    .foregroundStyle(.blue)
-            } else {
-                // Image file - load directly using NSImage
-                if let nsImage = NSImage(contentsOfFile: path) {
-                    Image(nsImage: nsImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: size, height: size)
-                } else {
-                    // Fallback placeholder for missing images
-                    Image(systemName: "photo")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: size, height: size)
-                        .foregroundColor(.secondary)
-                }
-            }
-        }
-        .clipShape(introImageClipShape(shape))
-        .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
-    }
-
-    /// Returns the clip shape for intro hero image based on configuration
-    private func introImageClipShape(_ shape: String) -> some Shape {
-        switch shape {
-        case "roundedSquare":
-            return AnyShape(RoundedRectangle(cornerRadius: 24))
-        case "square":
-            return AnyShape(Rectangle())
-        default: // "circle"
-            return AnyShape(Circle())
-        }
-    }
-
-    /// Branding logo view for intro/outro bottom bar
-    @ViewBuilder
-    private func introLogoView(path: String, maxWidth: Double) -> some View {
-        if let nsImage = NSImage(contentsOfFile: path) {
-            Image(nsImage: nsImage)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(maxWidth: maxWidth)
-        } else {
-            EmptyView()
-        }
     }
 
     @ViewBuilder
@@ -1036,9 +1021,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                     if let failureReason = failedSteps[item.id] {
                         // Failure banner
                         HStack(spacing: 12 * scaleFactor) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 20 * scaleFactor))
-                                .foregroundStyle(.red)
+                            StatusIconView(.failure, size: 20 * scaleFactor)
 
                             VStack(alignment: .leading, spacing: 4 * scaleFactor) {
                                 Text(item.failureMessage ?? "Step Failed")
@@ -1055,19 +1038,17 @@ struct Preset6View: View, InspectLayoutProtocol {
                             Spacer()
                         }
                         .padding(12 * scaleFactor)
-                        .background(Color.red.opacity(0.1))
+                        .background(Color.failureBackground)
                         .clipShape(.rect(cornerRadius: 8))
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                                .stroke(Color.semanticFailure.opacity(0.3), lineWidth: 1)
                         )
                         .padding(.top, 8 * scaleFactor)
                     } else if let successMessage = item.successMessage {
                         // Success banner
                         HStack(spacing: 12 * scaleFactor) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 20 * scaleFactor))
-                                .foregroundStyle(.green)
+                            StatusIconView(.success, size: 20 * scaleFactor)
 
                             Text(successMessage)
                                 .font(.system(size: 14 * scaleFactor, weight: .semibold))
@@ -1076,11 +1057,11 @@ struct Preset6View: View, InspectLayoutProtocol {
                             Spacer()
                         }
                         .padding(12 * scaleFactor)
-                        .background(Color.green.opacity(0.1))
+                        .background(Color.successBackground)
                         .clipShape(.rect(cornerRadius: 8))
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                                .stroke(Color.semanticSuccess.opacity(0.3), lineWidth: 1)
                         )
                         .padding(.top, 8 * scaleFactor)
                     }
@@ -1121,6 +1102,16 @@ struct Preset6View: View, InspectLayoutProtocol {
                 autoplay: block.autoplay,
                 videoHeight: block.videoHeight,
                 webHeight: block.webHeight,
+                portalURL: block.portalURL,
+                portalPath: block.portalPath,
+                portalHeight: block.portalHeight,
+                portalShowHeader: block.portalShowHeader,
+                portalShowRefetch: block.portalShowRefetch,
+                portalOfflineMessage: block.portalOfflineMessage,
+                portalUserAgent: block.portalUserAgent,
+                portalBrandingKey: block.portalBrandingKey,
+                portalBrandingHeader: block.portalBrandingHeader,
+                portalCustomHeaders: block.portalCustomHeaders,
                 id: block.id,
                 required: block.required,
                 options: block.options,
@@ -1182,7 +1173,23 @@ struct Preset6View: View, InspectLayoutProtocol {
                     items: category.items,
                     maxItems: 15,  // TODO: Make configurable via plistSources.maxCheckDetails
                     sortFailedFirst: true
-                )
+                ),
+                columns: block.columns,
+                rows: block.rows,
+                wallpaperCategories: block.wallpaperCategories,
+                wallpaperColumns: block.wallpaperColumns,
+                wallpaperLayout: block.wallpaperLayout,
+                wallpaperImageFit: block.wallpaperImageFit,
+                wallpaperThumbnailHeight: block.wallpaperThumbnailHeight,
+                wallpaperSelectionKey: block.wallpaperSelectionKey,
+                wallpaperShowPath: block.wallpaperShowPath,
+                wallpaperConfirmButton: block.wallpaperConfirmButton,
+                wallpaperMultiSelect: block.wallpaperMultiSelect,
+                installItems: block.installItems,
+                bentoColumns: block.bentoColumns,
+                bentoRowHeight: block.bentoRowHeight,
+                bentoGap: block.bentoGap,
+                bentoCells: block.bentoCells
             )
         }
 
@@ -1211,6 +1218,16 @@ struct Preset6View: View, InspectLayoutProtocol {
             autoplay: block.autoplay,
             videoHeight: block.videoHeight,
             webHeight: block.webHeight,
+            portalURL: block.portalURL,
+            portalPath: block.portalPath,
+            portalHeight: block.portalHeight,
+            portalShowHeader: block.portalShowHeader,
+            portalShowRefetch: block.portalShowRefetch,
+            portalOfflineMessage: block.portalOfflineMessage,
+            portalUserAgent: block.portalUserAgent,
+            portalBrandingKey: block.portalBrandingKey,
+            portalBrandingHeader: block.portalBrandingHeader,
+            portalCustomHeaders: block.portalCustomHeaders,
             id: block.id,
             required: block.required,
             options: block.options,
@@ -1267,7 +1284,23 @@ struct Preset6View: View, InspectLayoutProtocol {
             passed: props["passed"].flatMap { Int($0) } ?? block.passed,
             total: props["total"].flatMap { Int($0) } ?? block.total,
             cardIcon: props["cardIcon"] ?? block.cardIcon,
-            checkDetails: props["checkDetails"] ?? block.checkDetails
+            checkDetails: props["checkDetails"] ?? block.checkDetails,
+            columns: block.columns,
+            rows: block.rows,
+            wallpaperCategories: block.wallpaperCategories,
+            wallpaperColumns: block.wallpaperColumns,
+            wallpaperLayout: block.wallpaperLayout,
+            wallpaperImageFit: block.wallpaperImageFit,
+            wallpaperThumbnailHeight: block.wallpaperThumbnailHeight,
+            wallpaperSelectionKey: block.wallpaperSelectionKey,
+            wallpaperShowPath: block.wallpaperShowPath,
+            wallpaperConfirmButton: block.wallpaperConfirmButton,
+            wallpaperMultiSelect: block.wallpaperMultiSelect,
+            installItems: block.installItems,
+            bentoColumns: block.bentoColumns,
+            bentoRowHeight: block.bentoRowHeight,
+            bentoGap: block.bentoGap,
+            bentoCells: block.bentoCells
         )
     }
 
@@ -1313,16 +1346,18 @@ struct Preset6View: View, InspectLayoutProtocol {
 
             // Status indicator with larger icons - 45px
             HStack(spacing: 6) {
-                Image(systemName: completedSteps.contains(item.id) ?
-                      "checkmark.circle.fill" : "circle.dashed")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(completedSteps.contains(item.id) ?
-                                   .green : getConfigurableHighlightColor())
+                if completedSteps.contains(item.id) {
+                    StatusIconView(.success, size: 14)
+                } else {
+                    Image(systemName: "circle.dashed")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(getConfigurableHighlightColor())
+                }
 
                 Text(completedSteps.contains(item.id) ? "Completed" : "Pending")
                     .font(.system(size: 12 * scaleFactor, weight: .medium))
                     .foregroundStyle(completedSteps.contains(item.id) ?
-                                   .green : .secondary)
+                                   Color.semanticSuccess : .secondary)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
@@ -1332,7 +1367,7 @@ struct Preset6View: View, InspectLayoutProtocol {
                     .overlay(
                         Capsule()
                             .stroke(completedSteps.contains(item.id) ?
-                                  Color.green.opacity(0.3) : getConfigurableHighlightColor().opacity(0.3), lineWidth: 1)
+                                  Color.semanticSuccess.opacity(0.3) : getConfigurableHighlightColor().opacity(0.3), lineWidth: 1)
                     )
                     .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
             )
@@ -1347,13 +1382,11 @@ struct Preset6View: View, InspectLayoutProtocol {
         VStack(spacing: 12 * scaleFactor) {
             Spacer()
 
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 48 * scaleFactor, weight: .medium))
-                .foregroundStyle(.green)
+            StatusIconView(.success, size: 48 * scaleFactor)
                 .background(
                     Circle()
                         .fill(.thinMaterial)
-                        .shadow(color: .green.opacity(0.12), radius: 6, x: 0, y: 1)
+                        .shadow(color: Color.semanticSuccess.opacity(0.12), radius: 6, x: 0, y: 1)
                 )
 
             VStack(spacing: 6) {
@@ -2043,7 +2076,7 @@ struct Preset6View: View, InspectLayoutProtocol {
         let filesToClear = [
             "/tmp/preset6_interaction.plist",
             "/tmp/preset6_interaction.log",
-            "/tmp/preset6_trigger.txt"
+            triggerFilePath
         ]
 
         for filePath in filesToClear {
@@ -2146,13 +2179,12 @@ struct Preset6View: View, InspectLayoutProtocol {
         writeToInteractionLog("final_button:clicked:\(buttonText)")
 
         // 2. Create trigger file (touch equivalent)
-        let triggerPath = "/tmp/preset6_final_button.trigger"
         let timestamp = ISO8601DateFormatter().string(from: Date())
         let triggerContent = "button_text=\(buttonText)\ntimestamp=\(timestamp)\nstatus=completed\n"
 
         if let data = triggerContent.data(using: .utf8) {
-            try? data.write(to: URL(fileURLWithPath: triggerPath), options: .atomic)
-            writeLog("Preset6: Created trigger file at \(triggerPath)", logLevel: .debug)
+            try? data.write(to: URL(fileURLWithPath: finalTriggerFilePath), options: .atomic)
+            writeLog("Preset6: Created trigger file at \(finalTriggerFilePath)", logLevel: .debug)
         }
 
         // 3. Write to plist for structured data access
@@ -2292,7 +2324,7 @@ struct Preset6View: View, InspectLayoutProtocol {
         }
     }
 
-    /// Process a single preset command from /tmp/preset6_trigger.txt
+    /// Process a single preset command from the trigger file
     /// Command format examples:
     /// - "update_guidance:step1:0:New text"
     /// - "success:install_app"
@@ -2525,15 +2557,13 @@ struct Preset6View: View, InspectLayoutProtocol {
     /// Phase 2: Zero-latency file monitoring using DispatchSource
     /// Replaces timer-based polling (500ms latency) with instant file change detection
     private func setupFileMonitoring() {
-        let triggerPath = "/tmp/preset6_trigger.txt"
-
         // Create file if it doesn't exist
-        if !FileManager.default.fileExists(atPath: triggerPath) {
-            FileManager.default.createFile(atPath: triggerPath, contents: nil, attributes: nil)
+        if !FileManager.default.fileExists(atPath: triggerFilePath) {
+            FileManager.default.createFile(atPath: triggerFilePath, contents: nil, attributes: nil)
         }
 
         // Open file descriptor
-        let fileDescriptor = open(triggerPath, O_EVTONLY)
+        let fileDescriptor = open(triggerFilePath, O_EVTONLY)
         guard fileDescriptor >= 0 else {
             writeLog("Preset6: Failed to open trigger file for monitoring", logLevel: .error)
             return
@@ -2562,7 +2592,10 @@ struct Preset6View: View, InspectLayoutProtocol {
         // Store reference
         fileMonitorSource = source
 
-        writeLog("Preset6: File monitoring started with DispatchSource (zero-latency)", logLevel: .info)
+        // Output trigger file info for scripts/inspector to discover
+        print("[SWIFTDIALOG] trigger_file: \(triggerFilePath)")
+        print("[SWIFTDIALOG] trigger_mode: \(triggerMode)")
+        writeLog("Preset6: File monitoring started with DispatchSource at \(triggerFilePath) (mode: \(triggerMode), zero-latency)", logLevel: .info)
     }
 
     /// Setup automatic plist monitors for all items
@@ -2816,23 +2849,21 @@ struct Preset6View: View, InspectLayoutProtocol {
             return
         }
 
-        let triggerPath = "/tmp/preset6_trigger.txt"
-
-        guard FileManager.default.fileExists(atPath: triggerPath) else {
+        guard FileManager.default.fileExists(atPath: triggerFilePath) else {
             return
         }
 
-        guard let content = try? String(contentsOfFile: triggerPath, encoding: .utf8) else {
+        guard let content = try? String(contentsOfFile: triggerFilePath, encoding: .utf8) else {
             return
         }
 
         if appvars.debugMode {
-            writeLog("Preset6: Found legacy trigger file with content: \(content)", logLevel: .debug)
+            writeLog("Preset6: Found trigger file with content: \(content)", logLevel: .debug)
         }
         print("[PRESET6_TRIGGER] Processing: \(content.replacingOccurrences(of: "\n", with: " "))")
 
         // Truncate instead of delete so DispatchSource file descriptor stays valid
-        try? "".write(toFile: triggerPath, atomically: false, encoding: .utf8)
+        try? "".write(toFile: triggerFilePath, atomically: false, encoding: .utf8)
 
         // Process each line using unified command processor
         let lines = content.split(separator: "\n")
@@ -3174,8 +3205,8 @@ struct OverrideDialogView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.green.opacity(0.1))
-                    .foregroundStyle(.green)
+                    .background(Color.successBackground)
+                    .foregroundStyle(Color.semanticSuccess)
                     .clipShape(.rect(cornerRadius: 10))
                 }
                 .buttonStyle(.plain)
@@ -3191,8 +3222,8 @@ struct OverrideDialogView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.red.opacity(0.1))
-                    .foregroundStyle(.red)
+                    .background(Color.failureBackground)
+                    .foregroundStyle(Color.semanticFailure)
                     .clipShape(.rect(cornerRadius: 10))
                 }
                 .buttonStyle(.plain)
@@ -3208,8 +3239,8 @@ struct OverrideDialogView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.blue.opacity(0.1))
-                    .foregroundStyle(.blue)
+                    .background(Color.infoBackground)
+                    .foregroundStyle(Color.semanticInfo)
                     .clipShape(.rect(cornerRadius: 10))
                 }
                 .buttonStyle(.plain)

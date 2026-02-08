@@ -39,6 +39,22 @@ struct Preset5View: View, InspectLayoutProtocol {
         inspectState.plistValidationResults.count == inspectState.items.count
     }
 
+    // MARK: - Trigger File Configuration
+
+    /// Final button trigger file path (Preset5 only outputs final triggers)
+    private var finalTriggerFilePath: String {
+        if let customPath = inspectState.config?.triggerFile {
+            let url = URL(fileURLWithPath: customPath)
+            let ext = url.pathExtension
+            let base = url.deletingPathExtension().path
+            return ext.isEmpty ? "\(customPath)_final" : "\(base)_final.\(ext)"
+        }
+        if appArguments.inspectMode.present {
+            return "/tmp/swiftdialog_dev_preset5_final.trigger"
+        }
+        return "/tmp/swiftdialog_\(ProcessInfo.processInfo.processIdentifier)_preset5_final.trigger"
+    }
+
     init(inspectState: InspectState) {
         self.inspectState = inspectState
     }
@@ -821,12 +837,11 @@ struct Preset5View: View, InspectLayoutProtocol {
         }
 
         // 2. Create trigger file (touch equivalent)
-        let triggerPath = "/tmp/preset5_final_button.trigger"
         let timestamp = ISO8601DateFormatter().string(from: Date())
         let triggerContent = "button_text=\(buttonText)\ntimestamp=\(timestamp)\nstatus=completed\n"
         if let data = triggerContent.data(using: .utf8) {
-            try? data.write(to: URL(fileURLWithPath: triggerPath), options: .atomic)
-            writeLog("Preset5: Created trigger file at \(triggerPath)", logLevel: .debug)
+            try? data.write(to: URL(fileURLWithPath: finalTriggerFilePath), options: .atomic)
+            writeLog("Preset5: Created trigger file at \(finalTriggerFilePath)", logLevel: .debug)
         }
 
         // 3. Write to plist for structured data access
