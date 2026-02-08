@@ -336,7 +336,7 @@ private struct CoordinatedConfigErrorView: View {
                             }
                             .frame(maxHeight: 120)
                             .background(Color(NSColor.textBackgroundColor).opacity(0.5))
-                            .cornerRadius(6)
+                            .clipShape(.rect(cornerRadius: 6))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(Color.orange.opacity(0.3), lineWidth: 1)
@@ -357,13 +357,13 @@ private struct CoordinatedConfigErrorView: View {
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.yellow.opacity(0.1))
-                    .cornerRadius(6)
+                    .clipShape(.rect(cornerRadius: 6))
                 }
             }
             .padding()
             .frame(maxWidth: 500)
             .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(10)
+            .clipShape(.rect(cornerRadius: 10))
 
             // Buttons
             HStack(spacing: 12) {

@@ -706,7 +706,7 @@ struct Preset11View: View {
             return
         }
 
-        let stepId = parts[0]
+        // parts[0] is stepId (unused — block updates are index-based)
         guard let blockIndex = Int(parts[1]) else {
             writeLog("Preset11: Invalid block index in update_guidance: \(parts[1])", logLevel: .error)
             return
@@ -1365,9 +1365,9 @@ struct Preset11View: View {
         .onDisappear {
             stopInstallationMonitoring()
         }
-        .onChange(of: allCompleted) { completed in
+        .onChange(of: allCompleted) {
             // Auto-advance when all items complete (if configured)
-            if completed && (step.autoAdvanceOnComplete ?? false) {
+            if allCompleted && (step.autoAdvanceOnComplete ?? false) {
                 writeLog("Preset11: All installation items completed, auto-advancing", logLevel: .info)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                     goToNextStep()
@@ -1813,11 +1813,11 @@ struct Preset11View: View {
                                 Text(overrideText)
                                     .font(.system(size: 14, weight: .medium))
                             }
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .padding(.horizontal, 24)
                             .padding(.vertical, 10)
                             .background(Color.orange)
-                            .cornerRadius(8)
+                            .clipShape(.rect(cornerRadius: 8))
                         }
                         .buttonStyle(.plain)
 
@@ -1829,7 +1829,7 @@ struct Preset11View: View {
                         }) {
                             Text(overrideText)
                                 .font(.system(size: 12))
-                                .foregroundColor(.orange)
+                                .foregroundStyle(.orange)
                                 .underline()
                         }
                         .buttonStyle(.plain)
@@ -1857,14 +1857,14 @@ struct Preset11View: View {
             VStack(spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 40))
-                    .foregroundColor(.orange)
+                    .foregroundStyle(.orange)
 
                 Text("Skip This Step?")
                     .font(.system(size: 18, weight: .semibold))
 
                 Text("Choose how to record this step's result")
                     .font(.system(size: 13))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
             .padding(.top, 20)
 
@@ -1891,15 +1891,15 @@ struct Preset11View: View {
                 }) {
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(Color.semanticSuccess)
+                            .foregroundStyle(Color.semanticSuccess)
                         Text("Mark as Completed")
-                            .foregroundColor(.primary)
+                            .foregroundStyle(.primary)
                         Spacer()
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(Color.successBackground)
-                    .cornerRadius(8)
+                    .clipShape(.rect(cornerRadius: 8))
                 }
                 .buttonStyle(.plain)
 
@@ -1920,15 +1920,15 @@ struct Preset11View: View {
                 }) {
                     HStack {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(Color.semanticFailure)
+                            .foregroundStyle(Color.semanticFailure)
                         Text("Mark as Failed")
-                            .foregroundColor(.primary)
+                            .foregroundStyle(.primary)
                         Spacer()
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(Color.failureBackground)
-                    .cornerRadius(8)
+                    .clipShape(.rect(cornerRadius: 8))
                 }
                 .buttonStyle(.plain)
 
@@ -1944,15 +1944,15 @@ struct Preset11View: View {
                 }) {
                     HStack {
                         Image(systemName: "forward.fill")
-                            .foregroundColor(.orange)
+                            .foregroundStyle(.orange)
                         Text("Skip (No Status)")
-                            .foregroundColor(.primary)
+                            .foregroundStyle(.primary)
                         Spacer()
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(Color.orange.opacity(0.1))
-                    .cornerRadius(8)
+                    .clipShape(.rect(cornerRadius: 8))
                 }
                 .buttonStyle(.plain)
             }
@@ -1966,14 +1966,14 @@ struct Preset11View: View {
             }) {
                 Text("Cancel")
                     .font(.system(size: 14))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
             .padding(.bottom, 16)
         }
         .frame(width: 320)
         .background(Color(NSColor.windowBackgroundColor))
-        .cornerRadius(12)
+        .clipShape(.rect(cornerRadius: 12))
         .shadow(radius: 20)
     }
 

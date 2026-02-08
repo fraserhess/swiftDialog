@@ -79,7 +79,7 @@ struct IntroHeroImage: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: size, height: size)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
         }
     }
 

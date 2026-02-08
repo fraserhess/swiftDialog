@@ -454,7 +454,7 @@ struct Preset5View: View, InspectLayoutProtocol {
                 .padding(.horizontal, 12 * scale)
                 .padding(.vertical, 8 * scale)
                 .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(8 * scale)
+                .clipShape(.rect(cornerRadius: 8 * scale))
 
                 Spacer()
 
@@ -883,7 +883,7 @@ struct StatBadge: View {
             Text(label)
                 .font(.system(size: 11 * scale, weight: .medium))
         }
-        .foregroundColor(color)
+        .foregroundStyle(color)
         .padding(.horizontal, 10 * scale)
         .padding(.vertical, 6 * scale)
         .background(color.opacity(0.12))
