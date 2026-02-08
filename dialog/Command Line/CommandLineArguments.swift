@@ -150,6 +150,7 @@ struct CommandLineArguments {
     var alwaysReturnUserInput      = CommandlineArgument(long: "alwaysreturninput", isbool: true)
     var removeNotification        = CommandlineArgument(long: "remove", isbool: true)
     var showSoundControls         = CommandlineArgument(long: "showsoundcontrols", isbool: true)
+    var hideOtherApps            = CommandlineArgument(long: "hideotherapps", isbool: true)
 
     // Inspect Mode Arguments
     var inspectMode               = CommandlineArgument(long: "inspect-mode", isbool: true)
@@ -352,6 +353,7 @@ extension CommandLineArguments {
                     case "callingPid": self.callingPid = argument
                     case "playSound": self.playSound = argument
                     case "showSoundControls": self.showSoundControls = argument
+                    case "hideOtherApps": self.hideOtherApps = argument
                     default: break
                     }
                 }
