@@ -77,7 +77,7 @@ struct LogPatternPreset {
         }
 
         // Progress percentage (e.g., "75%")
-        if let percentMatch = trimmed.range(of: #"^\d+%$"#, options: .regularExpression) {
+        if trimmed.range(of: #"^\d+%$"#, options: .regularExpression) != nil {
             return "Downloading \(trimmed)"
         }
 

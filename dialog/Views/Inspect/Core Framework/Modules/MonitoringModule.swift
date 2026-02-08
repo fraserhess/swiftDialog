@@ -480,7 +480,7 @@ class UnifiedMonitoringService: ObservableObject {
 
         for monitor in monitors {
             let expandedPath = (monitor.path as NSString).expandingTildeInPath
-            let interval = Double(monitor.recheckInterval ?? 5)
+            let interval = Double(monitor.recheckInterval)
 
             let timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
                 self?.checkJsonValue(for: item.id, at: expandedPath, config: monitor)

@@ -766,17 +766,12 @@ class Config {
             // Get icon for category (uses config icons if provided, otherwise defaults)
             let icon = getIconForKey(key, category: category, sourceIcon: source.icon, categoryIcons: source.categoryIcons)
 
-            // Check if critical
-            let isCritical = source.criticalKeys?.contains(key) ?? false
-
             // Check keyMappings for overrides
             var finalDisplayName = displayName
             var finalCategory = category
-            var finalIsCritical = isCritical
             if let mapping = source.keyMappings?.first(where: { $0.key == key }) {
                 if let mappedName = mapping.displayName { finalDisplayName = mappedName }
                 if let mappedCategory = mapping.category { finalCategory = mappedCategory }
-                if let mappedCritical = mapping.isCritical { finalIsCritical = mappedCritical }
             }
 
             let item = InspectConfig.ItemConfig(
@@ -1153,7 +1148,6 @@ class Config {
 
         // Summary if issues found
         if !warnings.isEmpty {
-            let expected = (0..<items.count).map { String($0) }.joined(separator: ", ")
             let actual = sortedByIndex.map { "\($0.index)" }.joined(separator: ", ")
             warnings.insert("⚠️ guiIndex: Expected sequential [0..\(items.count - 1)] but found [\(actual)]", at: 0)
         }
