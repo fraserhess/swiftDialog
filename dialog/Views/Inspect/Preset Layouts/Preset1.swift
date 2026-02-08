@@ -288,6 +288,8 @@ struct Preset1View: View, InspectLayoutProtocol {
             if hasValidationWarning(for: item) {
                 // Use custom validation warning text if available, otherwise default
                 return inspectState.config?.uiLabels?.failedStatus ?? "Failed"
+            } else if let bundleInfo = inspectState.getBundleInfoForItem(item) {
+                return bundleInfo
             } else {
                 return getItemStatus(for: item)
             }

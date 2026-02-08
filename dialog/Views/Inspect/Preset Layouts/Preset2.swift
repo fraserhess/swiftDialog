@@ -93,17 +93,22 @@ struct Preset2View: View, InspectLayoutProtocol {
 
             // App cards with navigation arrows
             VStack(spacing: 6 * scaleFactor) {
+                let visibleCount = sizeMode == "compact" ? 4 : (sizeMode == "large" ? 6 : 5)
+                let allItemsFit = inspectState.items.count <= visibleCount
+
                 HStack(spacing: 16 * scaleFactor) {
-                    // Left arrow
-                    Button(action: {
-                        scrollLeft()
-                    }) {
-                        Image(systemName: "chevron.left.circle.fill")
-                            .font(.system(size: 28 * scaleFactor))
-                            .foregroundStyle(canScrollLeft() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
+                    // Left arrow (hidden when all items fit)
+                    if !allItemsFit {
+                        Button(action: {
+                            scrollLeft()
+                        }) {
+                            Image(systemName: "chevron.left.circle.fill")
+                                .font(.system(size: 28 * scaleFactor))
+                                .foregroundStyle(canScrollLeft() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
+                        }
+                        .disabled(!canScrollLeft())
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .disabled(!canScrollLeft())
-                    .buttonStyle(PlainButtonStyle())
 
                     // App cards - show 5 at a time
                     HStack(spacing: 12 * scaleFactor) {
@@ -124,10 +129,11 @@ struct Preset2View: View, InspectLayoutProtocol {
                             )
                         }
 
-                        // Fill remaining slots with placeholder cards if needed
-                        let visibleCount = sizeMode == "compact" ? 4 : (sizeMode == "large" ? 6 : 5)
-                        ForEach(0..<max(0, visibleCount - getVisibleItemsWithOffset().count), id: \.self) { _ in
-                            Preset2PlaceholderCardView(scale: scaleFactor)
+                        // Fill remaining slots with placeholder cards when scrolling
+                        if !allItemsFit {
+                            ForEach(0..<max(0, visibleCount - getVisibleItemsWithOffset().count), id: \.self) { _ in
+                                Preset2PlaceholderCardView(scale: scaleFactor)
+                            }
                         }
                     }
                     .animation(.easeInOut(duration: InspectConstants.standardAnimationDuration), value: scrollOffset)
@@ -140,16 +146,18 @@ struct Preset2View: View, InspectLayoutProtocol {
                         updateScrollForProgress()
                     }
 
-                    // Right arrow
-                    Button(action: {
-                        scrollRight()
-                    }) {
-                        Image(systemName: "chevron.right.circle.fill")
-                            .font(.system(size: 28 * scaleFactor))
-                            .foregroundStyle(canScrollRight() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
+                    // Right arrow (hidden when all items fit)
+                    if !allItemsFit {
+                        Button(action: {
+                            scrollRight()
+                        }) {
+                            Image(systemName: "chevron.right.circle.fill")
+                                .font(.system(size: 28 * scaleFactor))
+                                .foregroundStyle(canScrollRight() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
+                        }
+                        .disabled(!canScrollRight())
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .disabled(!canScrollRight())
-                    .buttonStyle(PlainButtonStyle())
                 }
                 .padding(.horizontal, 40 * scaleFactor)
             }
@@ -426,6 +434,8 @@ private struct Preset2ItemCardView: View {
             if hasValidationWarning {
                 // Use custom validation warning text if available, otherwise default
                 return inspectState.config?.uiLabels?.failedStatus ?? "Failed"
+            } else if let bundleInfo = inspectState.getBundleInfoForItem(item) {
+                return bundleInfo
             } else {
                 // Use the new customization system for completed status
                 if let customStatus = item.completedStatus {
