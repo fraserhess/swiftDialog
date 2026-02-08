@@ -94,6 +94,12 @@ struct InspectView: View {
         case "preset9", "9", "display":
             // Two-panel info display with sidebar
             Preset9Wrapper(coordinator: inspectState)
+        case "preset10", "10", "modern-sidebar":
+            // Modern sidebar variant with clean styling
+            Preset10Wrapper(coordinator: inspectState)
+        case "preset11", "11", "portal", "self-service", "webview-portal":
+            // Self-service portal with branded WebView
+            Preset11Wrapper(coordinator: inspectState)
         default:
             // Default fallback
             Preset1View(inspectState: inspectState)
@@ -577,5 +583,15 @@ private struct Preset9Wrapper: View {
 
     var body: some View {
         Preset9View(inspectState: coordinator)
+    }
+}
+
+// MARK: - Wrapper for Preset11 to use InspectState
+
+private struct Preset11Wrapper: View {
+    @ObservedObject var coordinator: InspectState
+
+    var body: some View {
+        Preset11View(inspectState: coordinator)
     }
 }

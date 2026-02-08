@@ -4,22 +4,45 @@
   "title": "swiftDialog Inspect Mode Configuration",
   "description": "Configuration schema for swiftDialog's Inspect mode presets (preset1-preset9)",
   "type": "object",
-  "required": ["preset", "items"],
+  "required": ["preset"],
   "properties": {
     "preset": {
       "type": "string",
       "enum": [
-        "preset1", "1", "deployment",
-        "preset2", "2", "cards",
-        "preset3", "3", "compact",
-        "preset4", "4", "compliance",
-        "preset5", "5", "dashboard",
-        "preset6", "6", "guidance",
-        "preset7", "7", "guide",
-        "preset8", "8", "onboarding",
-        "preset9", "9", "display"
+        "preset1",
+        "1",
+        "deployment",
+        "preset2",
+        "2",
+        "cards",
+        "preset3",
+        "3",
+        "compact",
+        "preset4",
+        "4",
+        "compliance",
+        "preset5",
+        "5",
+        "dashboard",
+        "preset6",
+        "6",
+        "guidance",
+        "preset7",
+        "7",
+        "guide",
+        "preset8",
+        "8",
+        "onboarding",
+        "preset9",
+        "9",
+        "display",
+        "preset11",
+        "11",
+        "portal",
+        "self-service",
+        "webview-portal"
       ],
-      "description": "The preset layout to use. Each preset has three aliases: preset1/1/deployment (full layout), preset2/2/cards (card grid), preset3/3/compact (minimal list), preset4/4/compliance (plist monitoring), preset5/5/dashboard (status dashboard), preset6/6/guidance (step-by-step wizard), preset7/7/guide (multi-page guide), preset8/8/onboarding (image carousel), preset9/9/display (detailed content viewer)"
+      "description": "The preset layout to use. Each preset has three aliases: preset1/1/deployment (full layout), preset2/2/cards (card grid), preset3/3/compact (minimal list), preset4/4/compliance (plist monitoring), preset5/5/dashboard (status dashboard), preset6/6/guidance (step-by-step wizard), preset7/7/guide (multi-page guide), preset8/8/onboarding (image carousel), preset9/9/display (detailed content viewer), preset11/11/portal (self-service portal with WebView)"
     },
     "title": {
       "type": "string",
@@ -47,7 +70,11 @@
     },
     "overlayicon": {
       "type": "string",
-      "description": "Overlay icon for brand identity badges"
+      "description": "Overlay icon for brand identity badges (lowercase variant)"
+    },
+    "overlayIcon": {
+      "type": "string",
+      "description": "Overlay icon for brand identity badges (camelCase variant)"
     },
     "banner": {
       "type": "string",
@@ -148,6 +175,10 @@
       "type": "boolean",
       "description": "Show secondary button"
     },
+    "hideDefaultButton": {
+      "type": "boolean",
+      "description": "Hide the default/primary button"
+    },
     "autoEnableButton": {
       "type": "boolean",
       "description": "Auto-enable button when conditions met"
@@ -222,8 +253,18 @@
     },
     "items": {
       "type": "array",
-      "description": "Array of item configurations",
+      "description": "Array of item configurations (used by preset1-9)",
       "items": { "$ref": "#/definitions/ItemConfig" }
+    },
+    "introSteps": {
+      "type": "array",
+      "description": "Array of intro steps for Preset11 intro wizard flow",
+      "items": { "$ref": "#/definitions/IntroStep" }
+    },
+    "navigationItems": {
+      "type": "array",
+      "description": "Array of navigation items for Preset10/11 sidebar navigation",
+      "items": { "$ref": "#/definitions/NavigationItem" }
     },
     "plistSources": {
       "type": "array",
@@ -245,7 +286,33 @@
     "detailOverlay": { "$ref": "#/definitions/DetailOverlayConfig" },
     "helpButton": { "$ref": "#/definitions/HelpButtonConfig" },
     "colorThresholds": { "$ref": "#/definitions/ColorThresholds" },
-    "colors": { "$ref": "#/definitions/ProgressBarColors" }
+    "colors": { "$ref": "#/definitions/ProgressBarColors" },
+    "portalConfig": { "$ref": "#/definitions/PortalConfig" },
+    "appConfigSource": { "$ref": "#/definitions/AppConfigSource" },
+    "accentBorderColor": {
+      "type": "string",
+      "description": "Top accent border color for branded presets (hex format, e.g., '#DC0A15')"
+    },
+    "footerBackgroundColor": {
+      "type": "string",
+      "description": "Footer background color (hex format)"
+    },
+    "footerTextColor": {
+      "type": "string",
+      "description": "Footer text color (hex format, for dark backgrounds)"
+    },
+    "footerText": {
+      "type": "string",
+      "description": "Text displayed in footer"
+    },
+    "copyrightText": {
+      "type": "string",
+      "description": "Optional copyright line in footer"
+    },
+    "supportText": {
+      "type": "string",
+      "description": "Optional support contact text in footer"
+    }
   },
   "definitions": {
     "ItemConfig": {
@@ -390,7 +457,13 @@
         },
         "cardLayout": {
           "type": "string",
-          "enum": ["vertical-image-below", "horizontal-image-left", "horizontal-image-right", "pattern", "gradient"],
+          "enum": [
+            "vertical-image-below",
+            "horizontal-image-left",
+            "horizontal-image-right",
+            "pattern",
+            "gradient"
+          ],
           "default": "vertical-image-below",
           "description": "Card layout style"
         },
@@ -484,7 +557,9 @@
           "items": { "$ref": "#/definitions/JsonMonitor" }
         },
         "itemOverlay": { "$ref": "#/definitions/DetailOverlayConfig" },
-        "validationTargetBadge": { "$ref": "#/definitions/ValidationTargetBadge" }
+        "validationTargetBadge": {
+          "$ref": "#/definitions/ValidationTargetBadge"
+        }
       }
     },
     "GuidanceContent": {
@@ -494,11 +569,35 @@
         "type": {
           "type": "string",
           "enum": [
-            "text", "highlight", "warning", "info", "success", "bullets", "arrow",
-            "image", "image-carousel", "video", "webcontent",
-            "checkbox", "dropdown", "radio", "toggle", "slider", "button",
-            "status-badge", "comparison-table", "phase-tracker", "progress-bar",
-            "compliance-card", "compliance-header"
+            "text",
+            "highlight",
+            "warning",
+            "info",
+            "success",
+            "bullets",
+            "arrow",
+            "image",
+            "image-carousel",
+            "video",
+            "webcontent",
+            "portal-webview",
+            "checkbox",
+            "dropdown",
+            "radio",
+            "toggle",
+            "slider",
+            "button",
+            "status-badge",
+            "comparison-table",
+            "phase-tracker",
+            "progress-bar",
+            "compliance-card",
+            "compliance-header",
+            "bento-grid",
+            "install-list",
+            "wallpaper-picker",
+            "feature-table",
+            "textfield"
           ],
           "description": "Content block type"
         },
@@ -552,6 +651,34 @@
           "type": "number",
           "default": 400,
           "description": "Web view height in points"
+        },
+        "portalURL": {
+          "type": "string",
+          "format": "uri",
+          "description": "Override portal URL for this block (uses global portalConfig if nil)"
+        },
+        "portalPath": {
+          "type": "string",
+          "description": "Path within portal (e.g., '/device/self-service')"
+        },
+        "portalHeight": {
+          "type": "number",
+          "default": 400,
+          "description": "Height of embedded portal view in points"
+        },
+        "portalShowHeader": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show portal header bar with refetch button"
+        },
+        "portalShowRefetch": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show refetch button in header"
+        },
+        "portalOfflineMessage": {
+          "type": "string",
+          "description": "Custom message when portal is offline"
         },
         "id": {
           "type": "string",
@@ -722,7 +849,13 @@
         },
         "style": {
           "type": "string",
-          "enum": ["stepper", "progress", "checklist", "indeterminate", "determinate"],
+          "enum": [
+            "stepper",
+            "progress",
+            "checklist",
+            "indeterminate",
+            "determinate"
+          ],
           "description": "Display style for phase-tracker or progress-bar"
         },
         "progress": {
@@ -795,6 +928,70 @@
         "checkDetails": {
           "type": "string",
           "description": "Compact bullet-point details (newline-separated)"
+        },
+        "bentoColumns": {
+          "type": "integer",
+          "default": 4,
+          "description": "Number of columns in bento grid"
+        },
+        "bentoRowHeight": {
+          "type": "number",
+          "default": 140,
+          "description": "Base row height in points for bento grid"
+        },
+        "bentoGap": {
+          "type": "number",
+          "default": 12,
+          "description": "Gap between cells in points for bento grid"
+        },
+        "bentoCells": {
+          "type": "array",
+          "description": "Cell definitions for bento grid",
+          "items": { "$ref": "#/definitions/BentoCellConfig" }
+        },
+        "installItems": {
+          "type": "array",
+          "description": "Installation items for install-list type",
+          "items": { "$ref": "#/definitions/InstallItem" }
+        },
+        "wallpaperSelectionKey": {
+          "type": "string",
+          "description": "Key for storing wallpaper selection"
+        },
+        "wallpaperThumbnailHeight": {
+          "type": "number",
+          "default": 100,
+          "description": "Thumbnail height for wallpaper picker"
+        },
+        "wallpaperLayout": {
+          "type": "string",
+          "enum": ["grid", "list", "carousel"],
+          "default": "grid",
+          "description": "Layout style for wallpaper picker"
+        },
+        "wallpaperCategories": {
+          "type": "array",
+          "description": "Categories of wallpapers to choose from",
+          "items": { "$ref": "#/definitions/WallpaperCategory" }
+        },
+        "items": {
+          "type": "array",
+          "description": "Items for bullets type",
+          "items": { "type": "string" }
+        },
+        "features": {
+          "type": "array",
+          "description": "Features for feature-table type",
+          "items": { "$ref": "#/definitions/FeatureItem" }
+        },
+        "placeholder": {
+          "type": "string",
+          "description": "Placeholder text for textfield type"
+        },
+        "multiline": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable multiline input for textfield"
         }
       }
     },
@@ -845,7 +1042,13 @@
     },
     "PlistMonitor": {
       "type": "object",
-      "required": ["path", "key", "guidanceBlockIndex", "targetProperty", "recheckInterval"],
+      "required": [
+        "path",
+        "key",
+        "guidanceBlockIndex",
+        "targetProperty",
+        "recheckInterval"
+      ],
       "properties": {
         "path": {
           "type": "string",
@@ -890,7 +1093,13 @@
     },
     "JsonMonitor": {
       "type": "object",
-      "required": ["path", "key", "guidanceBlockIndex", "targetProperty", "recheckInterval"],
+      "required": [
+        "path",
+        "key",
+        "guidanceBlockIndex",
+        "targetProperty",
+        "recheckInterval"
+      ],
       "properties": {
         "path": {
           "type": "string",
@@ -934,7 +1143,14 @@
       "properties": {
         "condition": {
           "type": "string",
-          "enum": ["equals", "notEquals", "exists", "match", "greaterThan", "lessThan"],
+          "enum": [
+            "equals",
+            "notEquals",
+            "exists",
+            "match",
+            "greaterThan",
+            "lessThan"
+          ],
           "description": "Trigger condition"
         },
         "value": {
@@ -1536,6 +1752,11 @@
           "type": "boolean",
           "default": false,
           "description": "Allow fullscreen image view"
+        },
+        "wide": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use wider overlay dimensions (900-1100 instead of default 720-880)"
         }
       }
     },
@@ -1638,6 +1859,408 @@
         "criticalColor": {
           "type": "string",
           "description": "Color for critical range (hex)"
+        }
+      }
+    },
+    "PortalConfig": {
+      "type": "object",
+      "description": "Self-service portal configuration with optional authentication. URL can be provided via portalURL or portalURLFile.",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "Provider type for auth flow (e.g., 'generic', 'script', 'mtls')"
+        },
+        "portalURL": {
+          "type": "string",
+          "format": "uri",
+          "description": "Base URL of the self-service portal (fallback if portalURLFile not found)"
+        },
+        "portalURLFile": {
+          "type": "string",
+          "description": "Path to file containing portal URL. Read at launch, overrides portalURL. Useful for dynamic device-specific URLs set by external scripts."
+        },
+        "selfServicePath": {
+          "type": "string",
+          "description": "Path within portal (default: '/')"
+        },
+        "tokenEndpoint": {
+          "type": "string",
+          "description": "Token generation API endpoint"
+        },
+        "tokenRefreshInterval": {
+          "type": "integer",
+          "default": 300,
+          "description": "Refresh token X seconds before expiry"
+        },
+        "authSources": { "$ref": "#/definitions/AuthSources" },
+        "offlineMode": {
+          "type": "string",
+          "enum": ["cache", "fallback", "error"],
+          "default": "fallback",
+          "description": "Behavior when portal is unavailable"
+        },
+        "retryCount": {
+          "type": "integer",
+          "default": 3,
+          "description": "Max retry attempts"
+        },
+        "retryDelay": {
+          "type": "number",
+          "default": 2.0,
+          "description": "Base delay between retries in seconds"
+        },
+        "fallbackMessage": {
+          "type": "string",
+          "description": "Message shown when portal is unavailable"
+        },
+        "supportURL": {
+          "type": "string",
+          "format": "uri",
+          "description": "IT support portal URL"
+        },
+        "supportContact": {
+          "type": "string",
+          "description": "Contact info shown when portal is offline (e.g., phone, email, Slack channel)"
+        },
+        "cacheContentForOffline": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cache HTML for offline viewing"
+        },
+        "cacheDuration": {
+          "type": "integer",
+          "default": 86400,
+          "description": "Cache validity in seconds (default: 24 hours)"
+        },
+        "userAgent": {
+          "type": "string",
+          "description": "Custom User-Agent for web requests (e.g., 'swiftdialog.self-service/1.0'). Allows web services to detect and provide optimized views."
+        },
+        "clientCertSubject": {
+          "type": "string",
+          "description": "Client certificate subject for mTLS authentication. Selects certificate from keychain by matching subject name."
+        }
+      }
+    },
+    "AuthSources": {
+      "type": "object",
+      "description": "Authentication source configuration",
+      "properties": {
+        "staticToken": {
+          "type": "string",
+          "description": "Direct bearer token value (e.g., for Cloudflare)"
+        },
+        "secretFile": {
+          "type": "string",
+          "description": "Path to secret/token file"
+        },
+        "keychainService": {
+          "type": "string",
+          "description": "Keychain service name"
+        },
+        "keychainAccount": {
+          "type": "string",
+          "description": "Keychain account name"
+        },
+        "scriptPath": {
+          "type": "string",
+          "description": "Custom script to generate token"
+        },
+        "scriptTimeout": {
+          "type": "integer",
+          "default": 30,
+          "description": "Script timeout in seconds"
+        },
+        "headerName": {
+          "type": "string",
+          "default": "Authorization",
+          "description": "HTTP header name"
+        },
+        "headerPrefix": {
+          "type": "string",
+          "default": "Bearer ",
+          "description": "Header value prefix"
+        },
+        "clientCertIdentity": {
+          "type": "string",
+          "description": "Common name of client certificate in keychain (for mTLS)"
+        },
+        "clientCertKeychain": {
+          "type": "string",
+          "description": "Keychain name for client certificate"
+        }
+      }
+    },
+    "AppConfigSource": {
+      "type": "object",
+      "description": "MDM AppConfig source for dynamic branding overrides. Maps MDM managed preference keys to existing InspectConfig branding fields.",
+      "properties": {
+        "domain": {
+          "type": "string",
+          "description": "Preference domain (e.g., 'com.company.branding'). Defaults to app bundle identifier."
+        },
+        "highlightColorKey": {
+          "type": "string",
+          "description": "MDM key for highlightColor override"
+        },
+        "accentBorderColorKey": {
+          "type": "string",
+          "description": "MDM key for accentBorderColor override"
+        },
+        "footerBackgroundColorKey": {
+          "type": "string",
+          "description": "MDM key for footerBackgroundColor override"
+        },
+        "footerTextColorKey": {
+          "type": "string",
+          "description": "MDM key for footerTextColor override"
+        },
+        "footerTextKey": {
+          "type": "string",
+          "description": "MDM key for footerText override"
+        },
+        "portalURLKey": {
+          "type": "string",
+          "description": "MDM key for portalConfig.portalURL override"
+        },
+        "supportURLKey": {
+          "type": "string",
+          "description": "MDM key for support URL override"
+        },
+        "logoPathKey": {
+          "type": "string",
+          "description": "MDM key for logoConfig.logoPath override"
+        },
+        "customKeys": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Additional custom key mappings"
+        }
+      }
+    },
+    "IntroStep": {
+      "type": "object",
+      "required": ["id"],
+      "description": "An intro wizard step for Preset11",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the step"
+        },
+        "icon": {
+          "type": "string",
+          "description": "Icon path or SF Symbol (e.g., 'sf=star.fill')"
+        },
+        "content": {
+          "type": "array",
+          "description": "Rich content blocks for the step",
+          "items": { "$ref": "#/definitions/GuidanceContent" }
+        }
+      }
+    },
+    "NavigationItem": {
+      "type": "object",
+      "required": ["id", "title"],
+      "description": "A sidebar navigation item for Preset10/11",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the item"
+        },
+        "title": {
+          "type": "string",
+          "description": "Display title"
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "Optional subtitle"
+        },
+        "icon": {
+          "type": "string",
+          "description": "Icon path or SF Symbol"
+        },
+        "badge": {
+          "type": "string",
+          "description": "Badge text to display"
+        },
+        "content": {
+          "type": "array",
+          "description": "Rich content blocks",
+          "items": { "$ref": "#/definitions/GuidanceContent" }
+        },
+        "detailOverlay": { "$ref": "#/definitions/DetailOverlayConfig" }
+      }
+    },
+    "BentoCellConfig": {
+      "type": "object",
+      "required": ["id", "column", "row"],
+      "description": "Configuration for a bento grid cell",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the cell"
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0-based column position"
+        },
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0-based row position"
+        },
+        "columnSpan": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Number of columns to span (1-4)"
+        },
+        "rowSpan": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Number of rows to span (1-2)"
+        },
+        "contentType": {
+          "type": "string",
+          "enum": ["image", "text", "icon", "mixed"],
+          "description": "Content type for the cell"
+        },
+        "imagePath": {
+          "type": "string",
+          "description": "Path to image file"
+        },
+        "imageFit": {
+          "type": "string",
+          "enum": ["fill", "fit"],
+          "default": "fill",
+          "description": "Image scaling mode"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title text"
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "Subtitle text"
+        },
+        "textSize": {
+          "type": "string",
+          "enum": ["large", "medium", "small"],
+          "default": "medium",
+          "description": "Text size"
+        },
+        "textColor": {
+          "type": "string",
+          "description": "Text color (hex format)"
+        },
+        "sfSymbol": {
+          "type": "string",
+          "description": "SF Symbol name for icon content type"
+        },
+        "iconSize": {
+          "type": "number",
+          "default": 48,
+          "description": "Icon size in points"
+        },
+        "backgroundColor": {
+          "type": "string",
+          "description": "Background color (hex format)"
+        },
+        "cornerRadius": {
+          "type": "number",
+          "default": 12,
+          "description": "Corner radius in points"
+        },
+        "detailOverlay": {
+          "$ref": "#/definitions/DetailOverlayConfig",
+          "description": "Optional detail overlay shown when cell is clicked"
+        }
+      }
+    },
+    "InstallItem": {
+      "type": "object",
+      "required": ["title"],
+      "description": "An item in an install-list",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Application name"
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "Status description"
+        },
+        "icon": {
+          "type": "string",
+          "description": "Icon path or SF Symbol"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["success", "progress", "pending", "wait", "error"],
+          "description": "Installation status"
+        },
+        "progress": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Progress percentage (0-100) for progress status"
+        }
+      }
+    },
+    "WallpaperCategory": {
+      "type": "object",
+      "required": ["title", "images"],
+      "description": "A category of wallpapers",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Category title"
+        },
+        "images": {
+          "type": "array",
+          "description": "Wallpaper images in this category",
+          "items": { "$ref": "#/definitions/WallpaperImage" }
+        }
+      }
+    },
+    "WallpaperImage": {
+      "type": "object",
+      "required": ["path"],
+      "description": "A wallpaper image",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to wallpaper image"
+        },
+        "title": {
+          "type": "string",
+          "description": "Display title for the wallpaper"
+        }
+      }
+    },
+    "FeatureItem": {
+      "type": "object",
+      "required": ["name"],
+      "description": "A feature row in feature-table",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Feature name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Feature description"
+        },
+        "icon": {
+          "type": "string",
+          "description": "SF Symbol or icon path"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether feature is enabled"
         }
       }
     }
