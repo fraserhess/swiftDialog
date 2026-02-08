@@ -481,7 +481,7 @@ struct Preset11View: View {
                 writeLog("Preset11: Invalid set command format: \(trimmedLine)", logLevel: .error)
             }
         } else if trimmedLine.hasPrefix("goto:") {
-            // Alias for navigate (Preset10 compatibility)
+            // Alias for navigate (Preset6 compatibility)
             let stepId = String(trimmedLine.dropFirst(5))
             writeLog("Preset11: Received goto command for step '\(stepId)'", logLevel: .info)
             navigateToStep(stepId: stepId)

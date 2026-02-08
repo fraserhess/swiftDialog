@@ -27,6 +27,7 @@
         "preset6",
         "6",
         "guidance",
+        "modern-sidebar",
         "preset7",
         "7",
         "guide",
@@ -42,7 +43,7 @@
         "self-service",
         "webview-portal"
       ],
-      "description": "The preset layout to use. Each preset has three aliases: preset1/1/deployment (full layout), preset2/2/cards (card grid), preset3/3/compact (minimal list), preset4/4/compliance (plist monitoring), preset5/5/dashboard (status dashboard), preset6/6/guidance (step-by-step wizard), preset7/7/guide (multi-page guide), preset8/8/onboarding (image carousel), preset9/9/display (detailed content viewer), preset11/11/portal (self-service portal with WebView)"
+      "description": "The preset layout to use. Each preset has three aliases: preset1/1/deployment (full layout), preset2/2/cards (card grid), preset3/3/compact (minimal list), preset4/4/compliance (plist monitoring), preset5/5/dashboard (status dashboard), preset6/6/guidance/modern-sidebar (modern sidebar wizard), preset7/7/guide (multi-page guide), preset8/8/onboarding (image carousel), preset9/9/display (detailed content viewer), preset11/11/portal (self-service portal with WebView)"
     },
     "title": {
       "type": "string",
@@ -263,7 +264,7 @@
     },
     "navigationItems": {
       "type": "array",
-      "description": "Array of navigation items for Preset10/11 sidebar navigation",
+      "description": "Array of navigation items for Preset6/11 sidebar navigation",
       "items": { "$ref": "#/definitions/NavigationItem" }
     },
     "plistSources": {
@@ -2061,7 +2062,7 @@
     "NavigationItem": {
       "type": "object",
       "required": ["id", "title"],
-      "description": "A sidebar navigation item for Preset10/11",
+      "description": "A sidebar navigation item for Preset6/11",
       "properties": {
         "id": {
           "type": "string",

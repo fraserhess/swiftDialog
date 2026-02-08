@@ -82,8 +82,8 @@ struct InspectView: View {
         case "preset5", "5", "dashboard":
             // Compliance dashboard with plist checks
             Preset5Wrapper(coordinator: inspectState)
-        case "preset6", "6", "guidance":
-            // Progress Stepper with Side Panel (blocking steps)
+        case "preset6", "6", "guidance", "modern-sidebar":
+            // Modern sidebar variant with clean styling
             Preset6Wrapper(coordinator: inspectState)
         case "preset7", "7", "guide":
             // Interactive step-by-step guide with images
@@ -94,9 +94,6 @@ struct InspectView: View {
         case "preset9", "9", "display":
             // Two-panel info display with sidebar
             Preset9Wrapper(coordinator: inspectState)
-        case "preset10", "10", "modern-sidebar":
-            // Modern sidebar variant with clean styling
-            Preset10Wrapper(coordinator: inspectState)
         case "preset11", "11", "portal", "self-service", "webview-portal":
             // Self-service portal with branded WebView
             Preset11Wrapper(coordinator: inspectState)

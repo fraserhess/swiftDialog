@@ -26,7 +26,7 @@ public enum InspectSizes {
         case "portal", "self-service", "webview-portal":
             return "preset11"
         case "bento", "modern-sidebar":
-            return "preset10"
+            return "preset6"
         default:
             return lowercased
         }
@@ -78,11 +78,11 @@ public enum InspectSizes {
             }
 
         case "preset6":
-            // Progress Stepper with Side Panel (formerly Preset9)
+            // Modern Sidebar Variant
             switch mode {
-            case "compact": return (900, 650)
-            case "large": return (1200, 800)
-            default: return (1000, 700)  // standard
+            case "compact": return (720, 480)
+            case "large": return (960, 640)
+            default: return (800, 560)  // standard
             }
 
         case "preset7":
@@ -105,14 +105,6 @@ public enum InspectSizes {
             case "compact": return (1000, 680)
             case "large": return (1400, 950)
             default: return (1200, 750)  // standard - increased for better text balance
-            }
-
-        case "preset10":
-            // Modern Sidebar Variant (~20% smaller than preset6)
-            switch mode {
-            case "compact": return (720, 480)
-            case "large": return (960, 640)
-            default: return (800, 560)  // standard
             }
 
         case "preset11":

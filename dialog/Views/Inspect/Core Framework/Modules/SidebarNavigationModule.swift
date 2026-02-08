@@ -7,7 +7,7 @@
 //  Reusable sidebar navigation module for step-based workflows.
 //  Provides a modern vertical stepper with clean Preset11-style aesthetics.
 //
-//  Used by: Preset10 (modern sidebar variant)
+//  Used by: Preset6 (modern sidebar variant)
 //
 
 import SwiftUI

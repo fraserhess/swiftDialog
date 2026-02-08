@@ -289,11 +289,6 @@ class Progress: ObservableObject {
         return presetData[key]
     }
 
-    // For Preset6 image rotation
-    func updatePreset6Images(images: [String], currentIndex: Int, rotationEnabled: Bool) {
-        // Progress tracking removed - no longer needed
-    }
-
     // For Preset1 spinner
     func updatePreset1Spinner(active: Bool) {
         _ = Array(getDownloadingItems())

@@ -369,7 +369,7 @@ struct InspectConfig: Codable {
         let paths: [String]
         let icon: String?
         let status: String?             // Optional: status icon for list items (e.g., "shield", "checkmark.circle.fill") - supports dynamic updates via listitem: commands
-        let banner: String?             // Optional: banner image path for preset10 cards
+        let banner: String?             // Optional: banner image path for preset cards
         let plistKey: String?           // Optional: plist key to check - used in compliance dashboards like preset5
         let expectedValue: String?      // Optional: expected value for the key - used in compliance dashboards like preset5
         let evaluation: String?         // Optional: evaluation type (equals, boolean, exists, contains, range) - used in compliance dashboards like preset5
@@ -399,7 +399,7 @@ struct InspectConfig: Codable {
         let downloadingStatus: String?  // Custom text for downloading state (overrides "Installing...")
         let pendingStatus: String?      // Custom text for pending state (overrides "Waiting")
 
-        // Bento box (Preset10) simple content
+        // Bento box simple content
         let info: [String]?             // Simple bullet-point list for cards
         let bentoSize: String?          // Card size: "small", "medium", "large", "wide", "tall" (default: "medium")
         let cardLayout: String?         // Card layout: "vertical-image-below", "horizontal-image-left", "horizontal-image-right", "pattern", "gradient" (default: "vertical-image-below")

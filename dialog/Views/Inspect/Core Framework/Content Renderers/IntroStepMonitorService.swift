@@ -105,7 +105,7 @@ class IntroStepMonitorService: ObservableObject {
         writeLog("IntroStepMonitorService: Started monitoring \(monitors.count) plist sources", logLevel: .info)
     }
 
-    /// Start monitoring plist files for an item (Preset10 item-based model)
+    /// Start monitoring plist files for an item (Preset6 item-based model)
     /// - Parameters:
     ///   - item: The item configuration
     ///   - onCompletionTrigger: Optional callback when a completion trigger fires
