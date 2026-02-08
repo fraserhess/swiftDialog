@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/swiftDialog/swiftDialog/inspect-config.schema.json",
   "title": "swiftDialog Inspect Mode Configuration",
-  "description": "Configuration schema for swiftDialog's Inspect mode presets (preset1-preset9)",
+  "description": "Configuration schema for swiftDialog's Inspect mode presets (preset1-preset11)",
   "type": "object",
   "required": ["preset"],
   "properties": {
@@ -37,13 +37,15 @@
         "preset9",
         "9",
         "display",
+        "preset10",
+        "10",
         "preset11",
         "11",
         "portal",
         "self-service",
         "webview-portal"
       ],
-      "description": "The preset layout to use. Each preset has three aliases: preset1/1/deployment (full layout), preset2/2/cards (card grid), preset3/3/compact (minimal list), preset4/4/compliance (plist monitoring), preset5/5/dashboard (status dashboard), preset6/6/guidance/modern-sidebar (modern sidebar wizard), preset7/7/guide (multi-page guide), preset8/8/onboarding (image carousel), preset9/9/display (detailed content viewer), preset11/11/portal (self-service portal with WebView)"
+      "description": "The preset layout to use. Each preset has three aliases: preset1/1/deployment (full layout), preset2/2/cards (card grid), preset3/3/compact (minimal list), preset4/4/compliance (plist monitoring), preset5/5/dashboard (status dashboard), preset6/6/guidance/modern-sidebar (modern sidebar wizard), preset7/7/guide (multi-page guide), preset8/8/onboarding (image carousel), preset9/9/display (detailed content viewer), preset10/10 (reserved), preset11/11/portal (self-service portal with WebView)"
     },
     "title": {
       "type": "string",

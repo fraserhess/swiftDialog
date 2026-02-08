@@ -94,6 +94,9 @@ struct InspectView: View {
         case "preset9", "9", "display":
             // Two-panel info display with sidebar
             Preset9Wrapper(coordinator: inspectState)
+        case "preset10", "10":
+            // Reserved placeholder
+            Preset10Wrapper(coordinator: inspectState)
         case "preset11", "11", "portal", "self-service", "webview-portal":
             // Self-service portal with branded WebView
             Preset11Wrapper(coordinator: inspectState)

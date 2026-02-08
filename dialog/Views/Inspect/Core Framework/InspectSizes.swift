@@ -107,6 +107,10 @@ public enum InspectSizes {
             default: return (1200, 750)  // standard - increased for better text balance
             }
 
+        case "preset10":
+            // Reserved placeholder
+            return (500, 300)
+
         case "preset11":
             // Onboarding / Self-Service Portal
             // Fixed window sizes for consistent experience:

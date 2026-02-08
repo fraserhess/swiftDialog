@@ -79,6 +79,7 @@
 		BA05AF1C2F1C2B9B001367A5 /* AppConfigService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA05AF162F1C2B9B001367A5 /* AppConfigService.swift */; };
 		BA05AF1D2F1C2B9B001367A5 /* PortalAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA05AF172F1C2B9B001367A5 /* PortalAuthService.swift */; };
 		BA05AF1F2F1C2C66001367A5 /* Preset11.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA05AF1E2F1C2C66001367A5 /* Preset11.swift */; };
+		CA10102F3F10100000001B /* Preset10.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA10102F3F10100000001A /* Preset10.swift */; };
 		BA05AF212F1C37DA001367A5 /* SharedIntroComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA05AF202F1C37DA001367A5 /* SharedIntroComponents.swift */; };
 		BA2727CD2F22F1350027C4BD /* ComplianceComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA2727C62F22F1350027C4BD /* ComplianceComponents.swift */; };
 		BA2727CE2F22F1350027C4BD /* StatusComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA2727CA2F22F1350027C4BD /* StatusComponents.swift */; };
@@ -300,6 +301,7 @@
 		BA05AF172F1C2B9B001367A5 /* PortalAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortalAuthService.swift; sourceTree = "<group>"; };
 		BA05AF182F1C2B9B001367A5 /* PortalWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortalWebView.swift; sourceTree = "<group>"; };
 		BA05AF1E2F1C2C66001367A5 /* Preset11.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preset11.swift; sourceTree = "<group>"; };
+		CA10102F3F10100000001A /* Preset10.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preset10.swift; sourceTree = "<group>"; };
 		BA05AF202F1C37DA001367A5 /* SharedIntroComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedIntroComponents.swift; sourceTree = "<group>"; };
 		BA2727C62F22F1350027C4BD /* ComplianceComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplianceComponents.swift; sourceTree = "<group>"; };
 		BA2727C72F22F1350027C4BD /* GuidanceContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidanceContentView.swift; sourceTree = "<group>"; };
@@ -686,6 +688,7 @@
 				BAEFDFD22E83FB310017CFC2 /* Preset7.swift */,
 				BA2812012EBA183A00384582 /* Preset8.swift */,
 				BA2812042EBA183A00384582 /* Preset9.swift */,
+				CA10102F3F10100000001A /* Preset10.swift */,
 				BA05AF1E2F1C2C66001367A5 /* Preset11.swift */,
 			);
 			path = "Preset Layouts";
@@ -1119,6 +1122,7 @@
 				CC2190552A7BCD5600269525 /* Colour+Additions.swift in Sources */,
 				41832B6E2843143C0062AA1F /* ErrorView.swift in Sources */,
 				BA05AF1F2F1C2C66001367A5 /* Preset11.swift in Sources */,
+				CA10102F3F10100000001B /* Preset10.swift in Sources */,
 				41A5A6A628E546A000BD3D5E /* WebContentView.swift in Sources */,
 				41A5A6A928E66D0C00BD3D5E /* CKMediaView.swift in Sources */,
 				419D11462E73E62400298C8C /* IndeterminateProgressView.swift in Sources */,
