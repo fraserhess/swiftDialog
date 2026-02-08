@@ -224,10 +224,6 @@ func quitDialog(exitCode: Int32, exitMessage: String? = "", observedObject: Dial
             }
         }
     }
-    if appArguments.hideOtherApps.present {
-        NSApp.unhideAllApplications(nil)
-    }
-    
     exit(exitCode)
 }
 
@@ -381,24 +377,5 @@ var isLaptop: Bool {
 func activateDialog() {
     DispatchQueue.main.async {
         NSApplication.shared.activate(ignoringOtherApps: true)
-    }
-}
-
-func hideAllApps(_ hideApps: Bool = false) {
-    if !hideApps {
-        return
-    }
-    
-    NSApp.hideOtherApplications(nil)
-    
-    // Get parent process ID
-    let parentPID = getppid()
-    
-    // Find and hide the parent application
-    let runningApps = NSWorkspace.shared.runningApplications
-    if let parentApp = runningApps.first(where: {
-        $0.processIdentifier == parentPID
-    }) {
-        parentApp.hide()
     }
 }

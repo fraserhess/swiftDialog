@@ -226,8 +226,6 @@ struct dialogApp: App {
         if appArguments.playSound.present {
             AudioManager.shared.playAudio(from: appArguments.playSound.value)
         }
-        
-        hideAllApps(appArguments.hideOtherApps.present)
     }
 
     var body: some Scene {

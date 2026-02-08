@@ -489,16 +489,6 @@ struct SDHelp {
 
         All other functions are available but the user is prevented from interacting with any other app until swiftDialog is exited.
 """
-        
-        argument.hideOtherApps.helpShort = "Hide all other apps when launching a dialog window"
-        argument.hideOtherApps.helpUsage = ""
-        argument.hideOtherApps.helpLong = """
-        This mode will hide all other apps when dialog launches.
-
-        When dialog exits, unhidden apps will re-appear*
-
-        * Note: previously hidden apps are not tracked so the unhide action will make all apps unhide, including apps that were hidden prior to dialog launching.
-"""
 
         argument.progressBar.helpShort = "Enable interactive progress bar"
         argument.progressBar.helpUsage = "[<int>]"
