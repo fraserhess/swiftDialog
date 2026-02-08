@@ -155,7 +155,7 @@ struct Preset2View: View, InspectLayoutProtocol {
             }
 
             Spacer()
-                .frame(maxHeight: 30 * scaleFactor)
+                //.frame(maxHeight: 30 * scaleFactor)
 
             // Bottom progress section
             VStack(spacing: 12) {
@@ -231,7 +231,7 @@ struct Preset2View: View, InspectLayoutProtocol {
             .padding(.horizontal, 40 * scaleFactor)
             .padding(.bottom, 24 * scaleFactor)
         }
-        .frame(width: windowSize.width, height: windowSize.height)
+        //.frame(width: windowSize.width, height: windowSize.height)
         .background(Color(NSColor.windowBackgroundColor))
         .ignoresSafeArea()
         .overlay {
