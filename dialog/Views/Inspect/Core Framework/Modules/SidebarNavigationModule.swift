@@ -327,10 +327,10 @@ struct SidebarNavigationModule_Previews: PreviewProvider {
     static var previews: some View {
         SidebarNavigationModule(
             items: [
-                InspectConfig.ItemConfig(id: "step1", title: "Welcome"),
-                InspectConfig.ItemConfig(id: "step2", title: "Configure Settings"),
-                InspectConfig.ItemConfig(id: "step3", title: "Install Software"),
-                InspectConfig.ItemConfig(id: "step4", title: "Complete Setup")
+                InspectConfig.ItemConfig(id: "step1", displayName: "Welcome"),
+                InspectConfig.ItemConfig(id: "step2", displayName: "Configure Settings"),
+                InspectConfig.ItemConfig(id: "step3", displayName: "Install Software"),
+                InspectConfig.ItemConfig(id: "step4", displayName: "Complete Setup")
             ],
             currentStep: 1,
             completedSteps: ["step1"],

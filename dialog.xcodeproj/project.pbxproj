@@ -79,7 +79,6 @@
 		BA05AF1C2F1C2B9B001367A5 /* AppConfigService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA05AF162F1C2B9B001367A5 /* AppConfigService.swift */; };
 		BA05AF1D2F1C2B9B001367A5 /* PortalAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA05AF172F1C2B9B001367A5 /* PortalAuthService.swift */; };
 		BA05AF1F2F1C2C66001367A5 /* Preset11.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA05AF1E2F1C2C66001367A5 /* Preset11.swift */; };
-		CA10102F3F10100000001B /* Preset10.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA10102F3F10100000001A /* Preset10.swift */; };
 		BA05AF212F1C37DA001367A5 /* SharedIntroComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA05AF202F1C37DA001367A5 /* SharedIntroComponents.swift */; };
 		BA2727CD2F22F1350027C4BD /* ComplianceComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA2727C62F22F1350027C4BD /* ComplianceComponents.swift */; };
 		BA2727CE2F22F1350027C4BD /* StatusComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA2727CA2F22F1350027C4BD /* StatusComponents.swift */; };
@@ -100,7 +99,6 @@
 		BA71F13D2F38D86C00399EE3 /* SemanticColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA71F1392F38D86C00399EE3 /* SemanticColors.swift */; };
 		BA71F1402F38D87900399EE3 /* FooterBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA71F13E2F38D87900399EE3 /* FooterBar.swift */; };
 		BA71F1412F38D87900399EE3 /* StatusIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA71F13F2F38D87900399EE3 /* StatusIconView.swift */; };
-		CA71F1502F38D87900399EE3 /* OverrideDialogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA71F14F2F38D87900399EE3 /* OverrideDialogView.swift */; };
 		BA71F1432F38DDB700399EE3 /* ValidationCacheHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA71F1422F38DDB700399EE3 /* ValidationCacheHelper.swift */; };
 		BA7CA57C2F231310005A922A /* ContentBlockRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7CA5772F231310005A922A /* ContentBlockRenderer.swift */; };
 		BA7CA57D2F231310005A922A /* TableContentBlocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7CA57A2F231310005A922A /* TableContentBlocks.swift */; };
@@ -133,6 +131,7 @@
 		BAEFDFF72E83FB310017CFC2 /* InspectLayoutProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAEFDFC62E83FB310017CFC2 /* InspectLayoutProtocol.swift */; };
 		BAEFDFF82E83FB310017CFC2 /* Monitoring.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAEFDFD72E83FB310017CFC2 /* Monitoring.swift */; };
 		BD99BB252E1C051801571AFC /* LogMonitorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3676BA7D8D6D91825FA4306 /* LogMonitorService.swift */; };
+		CA10102F3F10100000001B /* Preset10.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA10102F3F10100000001A /* Preset10.swift */; };
 		CA10102F3F10100000002A /* SidebarNavigationModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA10102F3F10100000002B /* SidebarNavigationModule.swift */; };
 		CA22BB012F390600001367A5 /* PresetCommonHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA22BB002F390600001367A5 /* PresetCommonHelpers.swift */; };
 		CA56BA112F3904C000000001 /* InstallationProgressModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA56BA012F3904C000000001 /* InstallationProgressModule.swift */; };
@@ -140,6 +139,7 @@
 		CA56BA132F3904C000000003 /* PreferencesModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA56BA032F3904C000000003 /* PreferencesModule.swift */; };
 		CA56BA142F3904C000000004 /* ProcessingStateModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA56BA042F3904C000000004 /* ProcessingStateModule.swift */; };
 		CA56BA162F3904C000000006 /* ComplianceAggregatorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA56BA062F3904C000000006 /* ComplianceAggregatorService.swift */; };
+		CA71F1502F38D87900399EE3 /* OverrideDialogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA71F14F2F38D87900399EE3 /* OverrideDialogView.swift */; };
 		CC21904B2A7B994A00269525 /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC21904A2A7B994A00269525 /* Preferences.swift */; };
 		CC21904E2A7BC3E000269525 /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC21904D2A7BC3E000269525 /* Strings.swift */; };
 		CC2190502A7BC9FE00269525 /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC21904F2A7BC9FE00269525 /* Log.swift */; };
@@ -301,7 +301,6 @@
 		BA05AF172F1C2B9B001367A5 /* PortalAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortalAuthService.swift; sourceTree = "<group>"; };
 		BA05AF182F1C2B9B001367A5 /* PortalWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortalWebView.swift; sourceTree = "<group>"; };
 		BA05AF1E2F1C2C66001367A5 /* Preset11.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preset11.swift; sourceTree = "<group>"; };
-		CA10102F3F10100000001A /* Preset10.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preset10.swift; sourceTree = "<group>"; };
 		BA05AF202F1C37DA001367A5 /* SharedIntroComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedIntroComponents.swift; sourceTree = "<group>"; };
 		BA2727C62F22F1350027C4BD /* ComplianceComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplianceComponents.swift; sourceTree = "<group>"; };
 		BA2727C72F22F1350027C4BD /* GuidanceContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidanceContentView.swift; sourceTree = "<group>"; };
@@ -322,7 +321,6 @@
 		BA71F13A2F38D86C00399EE3 /* ValidationCacheHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidationCacheHelper.swift; sourceTree = "<group>"; };
 		BA71F13E2F38D87900399EE3 /* FooterBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FooterBar.swift; sourceTree = "<group>"; };
 		BA71F13F2F38D87900399EE3 /* StatusIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusIconView.swift; sourceTree = "<group>"; };
-		CA71F14F2F38D87900399EE3 /* OverrideDialogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverrideDialogView.swift; sourceTree = "<group>"; };
 		BA71F1422F38DDB700399EE3 /* ValidationCacheHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidationCacheHelper.swift; sourceTree = "<group>"; };
 		BA7CA5772F231310005A922A /* ContentBlockRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentBlockRenderer.swift; sourceTree = "<group>"; };
 		BA7CA5782F231310005A922A /* MediaContentBlocks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaContentBlocks.swift; sourceTree = "<group>"; };
@@ -354,6 +352,7 @@
 		BAEFDFDD2E83FB310017CFC2 /* ImageResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageResolver.swift; sourceTree = "<group>"; };
 		BAEFDFDE2E83FB310017CFC2 /* InspectCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectCoordinator.swift; sourceTree = "<group>"; };
 		BAEFDFDF2E83FB310017CFC2 /* InstallationInfoPopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallationInfoPopoverView.swift; sourceTree = "<group>"; };
+		CA10102F3F10100000001A /* Preset10.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preset10.swift; sourceTree = "<group>"; };
 		CA10102F3F10100000002B /* SidebarNavigationModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarNavigationModule.swift; sourceTree = "<group>"; };
 		CA22BB002F390600001367A5 /* PresetCommonHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetCommonHelpers.swift; sourceTree = "<group>"; };
 		CA56BA012F3904C000000001 /* InstallationProgressModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallationProgressModule.swift; sourceTree = "<group>"; };
@@ -361,6 +360,7 @@
 		CA56BA032F3904C000000003 /* PreferencesModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesModule.swift; sourceTree = "<group>"; };
 		CA56BA042F3904C000000004 /* ProcessingStateModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessingStateModule.swift; sourceTree = "<group>"; };
 		CA56BA062F3904C000000006 /* ComplianceAggregatorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplianceAggregatorService.swift; sourceTree = "<group>"; };
+		CA71F14F2F38D87900399EE3 /* OverrideDialogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverrideDialogView.swift; sourceTree = "<group>"; };
 		CC21904A2A7B994A00269525 /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
 		CC21904D2A7BC3E000269525 /* Strings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Strings.swift; sourceTree = "<group>"; };
 		CC21904F2A7BC9FE00269525 /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
@@ -1381,12 +1381,14 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = dialog/dialog.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"dialog/Preview Content\"";
-				DEVELOPMENT_TEAM = PWA5E9TQ59;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = D6G4X4D7C9;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = dialog/Info.plist;
@@ -1411,12 +1413,14 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = dialog/dialog.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"dialog/Preview Content\"";
-				DEVELOPMENT_TEAM = PWA5E9TQ59;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = D6G4X4D7C9;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = dialog/Info.plist;
@@ -1525,7 +1529,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = PWA5E9TQ59;
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = D6G4X4D7C9;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -1551,7 +1555,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = PWA5E9TQ59;
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = D6G4X4D7C9;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -1576,7 +1580,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = PWA5E9TQ59;
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = D6G4X4D7C9;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -1601,7 +1605,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = PWA5E9TQ59;
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = D6G4X4D7C9;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;

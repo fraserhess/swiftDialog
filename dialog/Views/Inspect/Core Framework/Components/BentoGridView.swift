@@ -682,6 +682,8 @@ struct BentoGridView_Previews: PreviewProvider {
                     textColor: nil,
                     sfSymbol: nil,
                     iconSize: nil,
+                    iconColor: nil,
+                    iconWeight: nil,
                     backgroundColor: "#E8F4FD",
                     cornerRadius: nil,
                     detailOverlay: nil
@@ -701,6 +703,8 @@ struct BentoGridView_Previews: PreviewProvider {
                     textColor: nil,
                     sfSymbol: "square.grid.2x2",
                     iconSize: 48,
+                    iconColor: nil,
+                    iconWeight: nil,
                     backgroundColor: "#F5F5F5",
                     cornerRadius: nil,
                     detailOverlay: nil
@@ -720,6 +724,8 @@ struct BentoGridView_Previews: PreviewProvider {
                     textColor: nil,
                     sfSymbol: nil,
                     iconSize: nil,
+                    iconColor: nil,
+                    iconWeight: nil,
                     backgroundColor: "#E8FDE8",
                     cornerRadius: nil,
                     detailOverlay: nil

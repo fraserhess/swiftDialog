@@ -458,9 +458,9 @@ struct InspectConfig: Codable {
         init(
             id: String,
             displayName: String,
-            icon: String?,
-            paths: [String],
-            guiIndex: Int,
+            icon: String? = nil,
+            paths: [String] = [],
+            guiIndex: Int = 0,
             category: String? = nil,
             categoryIcon: String? = nil,
             plistKey: String? = nil,

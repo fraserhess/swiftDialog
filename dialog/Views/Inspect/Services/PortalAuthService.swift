@@ -796,7 +796,7 @@ class MTLSSessionDelegate: NSObject, URLSessionDelegate {
     func urlSession(
         _ session: URLSession,
         didReceive challenge: URLAuthenticationChallenge,
-        completionHandler: @escaping @Sendable (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
     ) {
         // Handle client certificate challenge
         if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodClientCertificate {
