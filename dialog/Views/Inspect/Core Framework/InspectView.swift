@@ -82,8 +82,8 @@ struct InspectView: View {
         case "preset5", "5", "dashboard":
             // Compliance dashboard with plist checks
             Preset5Wrapper(coordinator: inspectState)
-        case "preset6", "6", "guidance":
-            // Progress Stepper with Side Panel (blocking steps)
+        case "preset6", "6", "guidance", "modern-sidebar":
+            // Modern sidebar variant with clean styling
             Preset6Wrapper(coordinator: inspectState)
         case "preset7", "7", "guide":
             // Interactive step-by-step guide with images
@@ -94,6 +94,12 @@ struct InspectView: View {
         case "preset9", "9", "display":
             // Two-panel info display with sidebar
             Preset9Wrapper(coordinator: inspectState)
+        case "preset10", "10":
+            // Reserved placeholder
+            Preset10Wrapper(coordinator: inspectState)
+        case "preset11", "11", "portal", "self-service", "webview-portal":
+            // Self-service portal with branded WebView
+            Preset11Wrapper(coordinator: inspectState)
         default:
             // Default fallback
             Preset1View(inspectState: inspectState)
@@ -330,7 +336,7 @@ private struct CoordinatedConfigErrorView: View {
                             }
                             .frame(maxHeight: 120)
                             .background(Color(NSColor.textBackgroundColor).opacity(0.5))
-                            .cornerRadius(6)
+                            .clipShape(.rect(cornerRadius: 6))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(Color.orange.opacity(0.3), lineWidth: 1)
@@ -351,13 +357,13 @@ private struct CoordinatedConfigErrorView: View {
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.yellow.opacity(0.1))
-                    .cornerRadius(6)
+                    .clipShape(.rect(cornerRadius: 6))
                 }
             }
             .padding()
             .frame(maxWidth: 500)
             .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(10)
+            .clipShape(.rect(cornerRadius: 10))
 
             // Buttons
             HStack(spacing: 12) {
@@ -492,16 +498,6 @@ private struct Preset5Wrapper: View {
     }
 }
 
-// MARK: - Wrapper for Preset6 to use InspectState
-
-private struct Preset6Wrapper: View {
-    @ObservedObject var coordinator: InspectState
-
-    var body: some View {
-        Preset6View(inspectState: coordinator)
-    }
-}
-
 // MARK: - Wrapper for Preset7 to use InspectState
 
 private struct Preset7Wrapper: View {
@@ -577,5 +573,15 @@ private struct Preset9Wrapper: View {
 
     var body: some View {
         Preset9View(inspectState: coordinator)
+    }
+}
+
+// MARK: - Wrapper for Preset11 to use InspectState
+
+private struct Preset11Wrapper: View {
+    @ObservedObject var coordinator: InspectState
+
+    var body: some View {
+        Preset11View(inspectState: coordinator)
     }
 }

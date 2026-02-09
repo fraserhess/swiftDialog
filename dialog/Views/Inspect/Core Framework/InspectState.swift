@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
 enum LoadingState: Equatable {
     case loading
@@ -92,7 +93,28 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
     @Published var loadingState: LoadingState = .loading
     @Published var items: [InspectConfig.ItemConfig] = []
     @Published var config: InspectConfig?
-    
+
+    // MARK: - Debug Mode (Cross-Preset)
+
+    /// Determines if presets should skip completed steps on subsequent launches.
+    /// Returns `false` (don't skip) when debug mode is active via:
+    /// 1. `DIALOG_DEBUG_MODE=1` environment variable
+    /// 2. `debugMode: true` in config JSON
+    /// This allows testing/demo scenarios to always start from step 1 while preserving form values.
+    var shouldSkipCompletedSteps: Bool {
+        // Environment variable override takes priority
+        if ProcessInfo.processInfo.environment["DIALOG_DEBUG_MODE"] != nil {
+            writeLog("InspectState: Debug mode enabled via DIALOG_DEBUG_MODE environment variable", logLevel: .info)
+            return false
+        }
+        // Config-based debug mode
+        if config?.debugMode == true {
+            writeLog("InspectState: Debug mode enabled via config debugMode: true", logLevel: .info)
+            return false
+        }
+        return true  // Normal behavior: skip if completed
+    }
+
     // MARK: - Grouped Configuration State
     @Published var uiConfiguration = UIConfiguration()
     @Published var backgroundConfiguration = BackgroundConfiguration()
@@ -133,9 +155,20 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
     // MARK: - Dynamic State (Needs @Published for UI updates)
     @Published var completedItems: Set<String> = []
     @Published var downloadingItems: Set<String> = []
+    @Published var failedItems: Set<String> = []  // Items that failed installation (detected from log monitor)
+
+    // MARK: - Wallpaper Selection State (Preset6 wallpaper-picker)
+    @Published var wallpaperSelection: [String: String] = [:]  // selectionKey → full image path
 
     // MARK: - Form Input State (Preset9 and other guidance content)
     @Published var guidanceFormInputs: [String: GuidanceFormInputState] = [:]
+
+    // MARK: - Log Monitor State (Cross-Preset)
+    @Published var logMonitorStatuses: [String: String] = [:]  // itemId -> status from log monitoring
+    private var logMonitorCancellable: AnyCancellable?
+
+    // MARK: - User Values (for override results, etc.)
+    @Published var userValues: [String: String] = [:]  // General key-value store for user selections/results
 
     private var appInspector: AppInspector?
     @Published var configurationSource: ConfigurationSource = .testData
@@ -259,8 +292,11 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
 
                 // Initialize progress tracker
                 self.initializeProgressTracker()
+
+                // Setup log monitoring (cross-preset feature)
+                self.setupLogMonitoring(config: loadedConfig)
             }
-            
+
         case .failure(let error):
             writeLog("InspectState: Configuration loading failed - \(error.localizedDescription)", logLevel: .error)
             DispatchQueue.main.async { [weak self] in
@@ -372,7 +408,90 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
         
         writeLog("FSEvents monitoring active", logLevel: .info)
     }
-    
+
+    // MARK: - Log Monitoring Setup
+
+    private func setupLogMonitoring(config: InspectConfig) {
+        // Check if log monitoring is configured
+        guard config.logMonitor != nil || config.logMonitors != nil else {
+            return
+        }
+
+        writeLog("InspectState: Setting up log monitoring", logLevel: .info)
+
+        // Set items for auto-matching
+        LogMonitorService.shared.setItems(items)
+
+        // Configure the service
+        LogMonitorService.shared.configure(with: config)
+
+        // Subscribe to status changes
+        logMonitorCancellable = LogMonitorService.shared.$latestStatuses
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] statuses in
+                guard let self = self else { return }
+                self.logMonitorStatuses = statuses
+
+                // Update failed/completed/updating items based on log monitor status
+                for (itemId, status) in statuses {
+                    if status.hasPrefix("Failed") {
+                        // Mark as failed, remove from other states
+                        self.failedItems.insert(itemId)
+                        self.downloadingItems.remove(itemId)
+                        // Don't remove from completedItems - failure after completion is still failed
+                        writeLog("InspectState: Item '\(itemId)' marked as failed from log monitor", logLevel: .info)
+                    } else if status == "Completed" {
+                        // Mark as completed (from log monitor, e.g., "Touched bundle")
+                        self.completedItems.insert(itemId)
+                        self.downloadingItems.remove(itemId)
+                        self.failedItems.remove(itemId)
+                        writeLog("InspectState: Item '\(itemId)' marked as completed from log monitor", logLevel: .info)
+                    } else if self.isUpdatingStatus(status) {
+                        // Updating/reinstalling: move from completed to downloading to show progress
+                        // This handles the case where an app is already installed but being updated
+                        if self.completedItems.contains(itemId) {
+                            self.completedItems.remove(itemId)
+                            self.downloadingItems.insert(itemId)
+                            writeLog("InspectState: Item '\(itemId)' moved to updating state from log monitor: \(status)", logLevel: .info)
+                        } else if !self.downloadingItems.contains(itemId) {
+                            // Not completed and not downloading - add to downloading
+                            self.downloadingItems.insert(itemId)
+                            writeLog("InspectState: Item '\(itemId)' marked as downloading from log monitor: \(status)", logLevel: .info)
+                        }
+                    }
+                }
+            }
+    }
+
+    /// Check if a log monitor status indicates an update/install is in progress
+    /// These statuses should move an item from "completed" to "updating" state
+    private func isUpdatingStatus(_ status: String) -> Bool {
+        let updatingPrefixes = [
+            "Installing",
+            "Extracting",
+            "Downloading",
+            "Mounting",
+            "Copying",
+            "Unpacking",
+            "Verifying",
+            "Updating",
+            "Running script"
+        ]
+
+        for prefix in updatingPrefixes {
+            if status.hasPrefix(prefix) {
+                return true
+            }
+        }
+
+        // Also check for percentage progress (e.g., "Downloading 45%")
+        if status.contains("%") {
+            return true
+        }
+
+        return false
+    }
+
     private func performRobustAppCheck() {
         // Simple, timer-based monitoring - checks all app states every 2 seconds
         // This ensures 100% reliability for detecting app installations
@@ -2137,6 +2256,68 @@ class InspectState: ObservableObject, FileMonitorDelegate, @unchecked Sendable {
     }
 
     // MARK: - Helper Functions
+
+    // MARK: - Bundle Info Reading (Cross-Preset)
+
+    /// Reads bundle info from an installed app's Info.plist
+    /// - Parameters:
+    ///   - appPath: Path to the .app bundle (e.g., "/Applications/Cloudflare WARP.app")
+    ///   - infoType: Type of info to retrieve: "version", "build", "identifier", "all"
+    /// - Returns: The requested bundle info string, or nil if not found
+    func getBundleInfo(appPath: String, infoType: String) -> String? {
+        let infoPlistPath = (appPath as NSString).appendingPathComponent("Contents/Info.plist")
+
+        guard FileManager.default.fileExists(atPath: infoPlistPath),
+              let plist = NSDictionary(contentsOfFile: infoPlistPath) else {
+            writeLog("InspectState: Could not read Info.plist at \(infoPlistPath)", logLevel: .debug)
+            return nil
+        }
+
+        let version = plist["CFBundleShortVersionString"] as? String
+        let build = plist["CFBundleVersion"] as? String
+        let identifier = plist["CFBundleIdentifier"] as? String
+
+        switch infoType.lowercased() {
+        case "version":
+            return version
+        case "build":
+            return build
+        case "identifier":
+            return identifier
+        case "all":
+            // Format: "16.105.3 (16.105.26020123) - com.microsoft.Word"
+            var parts: [String] = []
+            if let v = version {
+                if let b = build {
+                    parts.append("\(v) (\(b))")
+                } else {
+                    parts.append(v)
+                }
+            } else if let b = build {
+                parts.append(b)
+            }
+            if let id = identifier {
+                parts.append(id)
+            }
+            return parts.isEmpty ? nil : parts.joined(separator: " - ")
+        default:
+            writeLog("InspectState: Unknown bundle info type '\(infoType)', use 'version', 'build', 'identifier', or 'all'", logLevel: .info)
+            return version // Default to version
+        }
+    }
+
+    /// Returns bundle info for an item if it has a valid path and showBundleInfo is configured
+    /// - Parameter item: The ItemConfig to get bundle info for
+    /// - Returns: Bundle info string or nil
+    func getBundleInfoForItem(_ item: InspectConfig.ItemConfig) -> String? {
+        guard let infoType = item.showBundleInfo,
+              let firstPath = item.paths.first,
+              firstPath.hasSuffix(".app"),
+              FileManager.default.fileExists(atPath: firstPath) else {
+            return nil
+        }
+        return getBundleInfo(appPath: firstPath, infoType: infoType)
+    }
 
     // MARK: - FileMonitorDelegate
 

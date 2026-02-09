@@ -141,6 +141,39 @@ struct Preset7View: View, InspectLayoutProtocol {
         colorScheme == .dark ? Color.white.opacity(0.3) : Color.black.opacity(0.3)
     }
 
+    // MARK: - Trigger File Configuration
+
+    /// Computed trigger file path based on mode (dev/prod) and config
+    private var triggerFilePath: String {
+        if let customPath = inspectState.config?.triggerFile {
+            return customPath
+        }
+        if appArguments.inspectMode.present {
+            return "/tmp/swiftdialog_dev_preset7.trigger"
+        }
+        return "/tmp/swiftdialog_\(ProcessInfo.processInfo.processIdentifier)_preset7.trigger"
+    }
+
+    /// Final button trigger file path
+    private var finalTriggerFilePath: String {
+        if let customPath = inspectState.config?.triggerFile {
+            let url = URL(fileURLWithPath: customPath)
+            let ext = url.pathExtension
+            let base = url.deletingPathExtension().path
+            return ext.isEmpty ? "\(customPath)_final" : "\(base)_final.\(ext)"
+        }
+        if appArguments.inspectMode.present {
+            return "/tmp/swiftdialog_dev_preset7_final.trigger"
+        }
+        return "/tmp/swiftdialog_\(ProcessInfo.processInfo.processIdentifier)_preset7_final.trigger"
+    }
+
+    /// Trigger mode string for logging
+    private var triggerMode: String {
+        if inspectState.config?.triggerFile != nil { return "custom" }
+        return appArguments.inspectMode.present ? "dev" : "prod"
+    }
+
     // Calculate contrasting text color for button based on accent color luminance
     private func contrastingTextColor(for backgroundColor: Color) -> Color {
         // Extract RGB components from the background color
@@ -1154,7 +1187,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 // Large success icon (green checkmark shield)
                 ZStack {
                     Circle()
-                        .fill(Color(hex: "#34C759").opacity(0.15))
+                        .fill(Color.successBackground)
                         .frame(width: 140 * scaleFactor, height: 140 * scaleFactor)
 
                     if currentItem.icon != nil {
@@ -1164,7 +1197,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                         // Default green checkmark shield
                         Image(systemName: "checkmark.shield.fill")
                             .font(.system(size: 72 * scaleFactor, weight: .regular))
-                            .foregroundStyle(Color(hex: "#34C759"))
+                            .foregroundStyle(Color.semanticSuccess)
                     }
                 }
 
@@ -1479,7 +1512,7 @@ struct Preset7View: View, InspectLayoutProtocol {
                 HStack(spacing: 12) {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.system(size: 26 * scaleFactor, weight: .semibold))
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.semanticSuccess)
                         .symbolEffect(.bounce, value: showSuccess)
 
                     Text(inspectState.config?.uiLabels?.completionMessage ?? "All Complete!")
@@ -1885,7 +1918,7 @@ struct Preset7View: View, InspectLayoutProtocol {
         let filesToClear = [
             "/tmp/preset7_interaction.plist",
             "/tmp/preset7_interaction.log",
-            "/tmp/preset7_trigger.txt"
+            triggerFilePath
         ]
 
         for filePath in filesToClear {
@@ -1919,14 +1952,12 @@ struct Preset7View: View, InspectLayoutProtocol {
             return
         }
 
-        let triggerPath = "/tmp/preset7_trigger.txt"
-
-        guard FileManager.default.fileExists(atPath: triggerPath) else {
+        guard FileManager.default.fileExists(atPath: triggerFilePath) else {
             return
         }
 
         // Read content before removing
-        guard let content = try? String(contentsOfFile: triggerPath, encoding: .utf8) else {
+        guard let content = try? String(contentsOfFile: triggerFilePath, encoding: .utf8) else {
             return
         }
 
@@ -1937,7 +1968,7 @@ struct Preset7View: View, InspectLayoutProtocol {
         print("[PRESET7_TRIGGER] Processing: \(content.replacingOccurrences(of: "\n", with: " "))")
 
         // Remove trigger file after successful read
-        try? FileManager.default.removeItem(atPath: triggerPath)
+        try? FileManager.default.removeItem(atPath: triggerFilePath)
 
         let lines = content.split(separator: "\n")
         for line in lines {
@@ -2171,12 +2202,11 @@ struct Preset7View: View, InspectLayoutProtocol {
         }
 
         // 2. Create trigger file (touch equivalent)
-        let triggerPath = "/tmp/preset7_final_button.trigger"
         let timestamp = ISO8601DateFormatter().string(from: Date())
         let triggerContent = "button_text=\(buttonText)\ntimestamp=\(timestamp)\nstatus=completed\n"
         if let data = triggerContent.data(using: .utf8) {
-            try? data.write(to: URL(fileURLWithPath: triggerPath), options: .atomic)
-            writeLog("Preset7: Created trigger file at \(triggerPath)", logLevel: .debug)
+            try? data.write(to: URL(fileURLWithPath: finalTriggerFilePath), options: .atomic)
+            writeLog("Preset7: Created trigger file at \(finalTriggerFilePath)", logLevel: .debug)
         }
 
         // 3. Write to plist for structured data access
@@ -2355,9 +2385,7 @@ struct StepCard: View {
                         VStack {
                             HStack {
                                 Spacer()
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 20 * scaleFactor))
-                                    .foregroundStyle(.green)
+                                StatusIconView(.success, size: 20 * scaleFactor)
                                     .background(Circle().fill(cardBackgroundColor).padding(-2))
                             }
                             Spacer()
@@ -2485,9 +2513,9 @@ struct StepCard: View {
     private var iconTintColor: Color {
         // Dynamic accent tint for icons
         if isCompleted {
-            return .green
+            return .semanticSuccess
         } else if isFailed {
-            return .orange
+            return .semanticWarning
         } else {
             return accentColor
         }

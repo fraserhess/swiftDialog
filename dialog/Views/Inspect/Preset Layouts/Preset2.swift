@@ -93,17 +93,22 @@ struct Preset2View: View, InspectLayoutProtocol {
 
             // App cards with navigation arrows
             VStack(spacing: 6 * scaleFactor) {
+                let visibleCount = sizeMode == "compact" ? 4 : (sizeMode == "large" ? 6 : 5)
+                let allItemsFit = inspectState.items.count <= visibleCount
+
                 HStack(spacing: 16 * scaleFactor) {
-                    // Left arrow
-                    Button(action: {
-                        scrollLeft()
-                    }) {
-                        Image(systemName: "chevron.left.circle.fill")
-                            .font(.system(size: 28 * scaleFactor))
-                            .foregroundStyle(canScrollLeft() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
+                    // Left arrow (hidden when all items fit)
+                    if !allItemsFit {
+                        Button(action: {
+                            scrollLeft()
+                        }) {
+                            Image(systemName: "chevron.left.circle.fill")
+                                .font(.system(size: 28 * scaleFactor))
+                                .foregroundStyle(canScrollLeft() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
+                        }
+                        .disabled(!canScrollLeft())
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .disabled(!canScrollLeft())
-                    .buttonStyle(PlainButtonStyle())
 
                     // App cards - show 5 at a time
                     HStack(spacing: 12 * scaleFactor) {
@@ -112,6 +117,7 @@ struct Preset2View: View, InspectLayoutProtocol {
                                 item: item,
                                 isCompleted: inspectState.completedItems.contains(item.id),
                                 isDownloading: inspectState.downloadingItems.contains(item.id),
+                                isFailed: inspectState.failedItems.contains(item.id),
                                 highlightColor: inspectState.uiConfiguration.highlightColor,
                                 scale: scaleFactor,
                                 resolvedIconPath: getIconPathForItem(item),
@@ -123,10 +129,11 @@ struct Preset2View: View, InspectLayoutProtocol {
                             )
                         }
 
-                        // Fill remaining slots with placeholder cards if needed
-                        let visibleCount = sizeMode == "compact" ? 4 : (sizeMode == "large" ? 6 : 5)
-                        ForEach(0..<max(0, visibleCount - getVisibleItemsWithOffset().count), id: \.self) { _ in
-                            Preset2PlaceholderCardView(scale: scaleFactor)
+                        // Fill remaining slots with placeholder cards when scrolling
+                        if !allItemsFit {
+                            ForEach(0..<max(0, visibleCount - getVisibleItemsWithOffset().count), id: \.self) { _ in
+                                Preset2PlaceholderCardView(scale: scaleFactor)
+                            }
                         }
                     }
                     .animation(.easeInOut(duration: InspectConstants.standardAnimationDuration), value: scrollOffset)
@@ -139,16 +146,18 @@ struct Preset2View: View, InspectLayoutProtocol {
                         updateScrollForProgress()
                     }
 
-                    // Right arrow
-                    Button(action: {
-                        scrollRight()
-                    }) {
-                        Image(systemName: "chevron.right.circle.fill")
-                            .font(.system(size: 28 * scaleFactor))
-                            .foregroundStyle(canScrollRight() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
+                    // Right arrow (hidden when all items fit)
+                    if !allItemsFit {
+                        Button(action: {
+                            scrollRight()
+                        }) {
+                            Image(systemName: "chevron.right.circle.fill")
+                                .font(.system(size: 28 * scaleFactor))
+                                .foregroundStyle(canScrollRight() ? Color(hex: inspectState.uiConfiguration.highlightColor) : .gray.opacity(0.3))
+                        }
+                        .disabled(!canScrollRight())
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .disabled(!canScrollRight())
-                    .buttonStyle(PlainButtonStyle())
                 }
                 .padding(.horizontal, 40 * scaleFactor)
             }
@@ -375,16 +384,18 @@ private struct Preset2ItemCardView: View {
     let item: InspectConfig.ItemConfig
     let isCompleted: Bool
     let isDownloading: Bool
+    let isFailed: Bool
     let highlightColor: String
     let scale: CGFloat
     let resolvedIconPath: String
     let inspectState: InspectState
     let onInfoTapped: (() -> Void)?
 
-    init(item: InspectConfig.ItemConfig, isCompleted: Bool, isDownloading: Bool, highlightColor: String, scale: CGFloat, resolvedIconPath: String, inspectState: InspectState, onInfoTapped: (() -> Void)? = nil) {
+    init(item: InspectConfig.ItemConfig, isCompleted: Bool, isDownloading: Bool, isFailed: Bool = false, highlightColor: String, scale: CGFloat, resolvedIconPath: String, inspectState: InspectState, onInfoTapped: (() -> Void)? = nil) {
         self.item = item
         self.isCompleted = isCompleted
         self.isDownloading = isDownloading
+        self.isFailed = isFailed
         self.highlightColor = highlightColor
         self.scale = scale
         self.resolvedIconPath = resolvedIconPath
@@ -411,10 +422,20 @@ private struct Preset2ItemCardView: View {
     }
 
     private func getStatusText() -> String {
-        if isCompleted {
+        // Priority 1: Log monitor status (includes failure messages)
+        if let logStatus = inspectState.logMonitorStatuses[item.id] {
+            return logStatus
+        }
+
+        if isFailed {
+            // Use custom failed status if available
+            return inspectState.config?.uiLabels?.failedStatus ?? "Failed"
+        } else if isCompleted {
             if hasValidationWarning {
                 // Use custom validation warning text if available, otherwise default
                 return inspectState.config?.uiLabels?.failedStatus ?? "Failed"
+            } else if let bundleInfo = inspectState.getBundleInfoForItem(item) {
+                return bundleInfo
             } else {
                 // Use the new customization system for completed status
                 if let customStatus = item.completedStatus {
@@ -447,8 +468,10 @@ private struct Preset2ItemCardView: View {
     }
 
     private func getStatusColor() -> Color {
-        if isCompleted {
-            return hasValidationWarning ? .yellow : .green
+        if isFailed {
+            return .red
+        } else if isCompleted {
+            return hasValidationWarning ? .orange : .green
         } else if isDownloading {
             return .blue
         } else {
@@ -495,9 +518,20 @@ private struct Preset2ItemCardView: View {
                 VStack {
                     HStack {
                         Spacer()
-                        if isCompleted {
+                        if isFailed {
+                            // Red circle with X for failed
                             Circle()
-                                .fill(hasValidationWarning ? Color.yellow : Color.green)
+                                .fill(Color.red)
+                                .frame(width: 26 * scale, height: 26 * scale)
+                                .overlay(
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 12 * scale, weight: .bold))
+                                        .foregroundStyle(.white)
+                                )
+                                .help("Installation failed")
+                        } else if isCompleted {
+                            Circle()
+                                .fill(hasValidationWarning ? Color.orange : Color.green)
                                 .frame(width: 26 * scale, height: 26 * scale)
                                 .overlay(
                                     Image(systemName: hasValidationWarning ? "exclamationmark" : "checkmark")

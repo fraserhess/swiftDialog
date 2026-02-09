@@ -17,11 +17,19 @@ public enum InspectSizes {
     /// - Parameter preset: Preset name (e.g., "6" or "preset6")
     /// - Returns: Canonical preset name (e.g., "preset6")
     private static func normalizePreset(_ preset: String) -> String {
-        if let number = Int(preset), number >= 1 && number <= 9 {
+        if let number = Int(preset), number >= 1 && number <= 11 {
             return "preset\(number)"
         }
-        // Already in canonical form or unknown
-        return preset.lowercased()
+        // Handle named aliases
+        let lowercased = preset.lowercased()
+        switch lowercased {
+        case "portal", "self-service", "webview-portal":
+            return "preset11"
+        case "bento", "modern-sidebar":
+            return "preset6"
+        default:
+            return lowercased
+        }
     }
 
     /// Get the window size for a specific preset and size mode
@@ -70,11 +78,11 @@ public enum InspectSizes {
             }
 
         case "preset6":
-            // Progress Stepper with Side Panel (formerly Preset9)
+            // Modern Sidebar Variant
             switch mode {
-            case "compact": return (900, 650)
-            case "large": return (1200, 800)
-            default: return (1000, 700)  // standard
+            case "compact": return (720, 480)
+            case "large": return (960, 640)
+            default: return (800, 560)  // standard
             }
 
         case "preset7":
@@ -97,6 +105,22 @@ public enum InspectSizes {
             case "compact": return (1000, 680)
             case "large": return (1400, 950)
             default: return (1200, 750)  // standard - increased for better text balance
+            }
+
+        case "preset10":
+            // Reserved placeholder
+            return (500, 300)
+
+        case "preset11":
+            // Onboarding / Self-Service Portal
+            // Fixed window sizes for consistent experience:
+            // - Compact/default: 1024×640 (minimum)
+            // - Standard: 1100×700 (ideal)
+            // - Large: 1200×800 (maximum)
+            switch mode {
+            case "compact": return (1024, 640)   // Minimum/default
+            case "large": return (1200, 800)     // Maximum
+            default: return (1100, 700)          // Ideal
             }
 
         default:

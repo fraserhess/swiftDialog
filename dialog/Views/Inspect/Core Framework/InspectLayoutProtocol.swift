@@ -103,6 +103,7 @@ extension InspectLayoutProtocol {
     /// This allows for both global customization (e.g., changing "Installed" to "Complete" app-wide)
     /// and item-specific customization (e.g., different terminology for different workflow types)
     func getItemStatus(for item: InspectConfig.ItemConfig) -> String {
+        // Priority 1: Completed items always show completion status
         if inspectState.completedItems.contains(item.id) {
             // Priority: item-specific > global UILabels > default
             if let customStatus = item.completedStatus {
@@ -113,8 +114,10 @@ extension InspectLayoutProtocol {
                 return "Completed"
             }
         } else if inspectState.downloadingItems.contains(item.id) {
-            // Priority: item-specific > global UILabels > default
-            if let customStatus = item.downloadingStatus {
+            // Priority: log monitor > item-specific > global UILabels > default
+            if let logStatus = inspectState.logMonitorStatuses[item.id] {
+                return logStatus
+            } else if let customStatus = item.downloadingStatus {
                 return customStatus
             } else if let globalStatus = inspectState.config?.uiLabels?.downloadingStatus {
                 return globalStatus
@@ -122,8 +125,10 @@ extension InspectLayoutProtocol {
                 return "Installing..."
             }
         } else {
-            // Priority: item-specific > global UILabels > default
-            if let customStatus = item.pendingStatus {
+            // Pending: log monitor > item-specific > global UILabels > default
+            if let logStatus = inspectState.logMonitorStatuses[item.id] {
+                return logStatus
+            } else if let customStatus = item.pendingStatus {
                 return customStatus
             } else if let globalStatus = inspectState.config?.uiLabels?.pendingStatus {
                 return globalStatus

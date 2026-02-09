@@ -324,52 +324,154 @@ class Config {
     func loadConfiguration(_ request: ConfigurationRequest = .default, fromFile: String = "") -> Result<ConfigurationResult, ConfigurationError> {
         // Priority 1: Use explicit file path if provided
         if !fromFile.isEmpty {
+            // Check if it's a URL
+            if fromFile.hasPrefix("http://") || fromFile.hasPrefix("https://") {
+                writeLog("ConfigurationService: Using config from URL: \(fromFile)", logLevel: .info)
+                return loadConfigurationFromURL(fromFile)
+            }
             writeLog("ConfigurationService: Using config from provided file: \(fromFile)", logLevel: .info)
             return loadConfigurationFromFile(at: fromFile)
         }
-        
+
         // Priority 2: Get config path from environment
         if let configPath = getConfigPath(from: request.environmentVariable) {
+            // Check if it's a URL
+            if configPath.hasPrefix("http://") || configPath.hasPrefix("https://") {
+                writeLog("ConfigurationService: Using config from URL (env): \(configPath)", logLevel: .info)
+                return loadConfigurationFromURL(configPath)
+            }
             writeLog("ConfigurationService: Using config from environment: \(configPath)", logLevel: .info)
             return loadConfigurationFromFile(at: configPath)
         }
-        
+
         // Priority 3: Check if fallback is allowed
         guard request.fallbackToTestData else {
             return .failure(.missingEnvironmentVariable(name: request.environmentVariable))
         }
-        
+
         writeLog("ConfigurationService: No config path provided, using test data", logLevel: .info)
         return createTestConfiguration()
     }
+
+    /// Load configuration from a remote URL
+    /// Resources (images, icons) are resolved from iconBasePath (local) or current directory
+    func loadConfigurationFromURL(_ urlString: String) -> Result<ConfigurationResult, ConfigurationError> {
+        guard let url = URL(string: urlString) else {
+            return .failure(.fileNotFound(path: urlString))
+        }
+
+        // Synchronous download for simplicity (config loading happens at startup)
+        let semaphore = DispatchSemaphore(value: 0)
+        var downloadedData: Data?
+        var downloadError: Error?
+
+        let task = URLSession.shared.dataTask(with: url) { data, response, error in
+            downloadedData = data
+            downloadError = error
+            semaphore.signal()
+        }
+        task.resume()
+
+        // Wait with timeout (10 seconds)
+        let result = semaphore.wait(timeout: .now() + 10)
+        if result == .timedOut {
+            writeLog("ConfigurationService: URL request timed out: \(urlString)", logLevel: .error)
+            return .failure(.fileNotFound(path: urlString))
+        }
+
+        guard let data = downloadedData, downloadError == nil else {
+            writeLog("ConfigurationService: Failed to download config from URL: \(downloadError?.localizedDescription ?? "unknown error")", logLevel: .error)
+            return .failure(.fileNotFound(path: urlString))
+        }
+
+        do {
+            // Parse JSON for pre-processing
+            var jsonData = data
+            if var jsonObject = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+
+                // If iconBasePath is nil or missing, use current working directory
+                if jsonObject["iconBasePath"] == nil {
+                    let currentDirectory = FileManager.default.currentDirectoryPath
+                    jsonObject["iconBasePath"] = currentDirectory
+                    writeLog("ConfigurationService: Remote config - auto-set iconBasePath to: \(currentDirectory)", logLevel: .info)
+                }
+
+                // Resolve brand palette tokens BEFORE decoding
+                if let brandPalette = jsonObject["brandPalette"] as? [String: Any] {
+                    print("🎨 CONFIG: Found brandPalette with \(brandPalette.count) keys: \(Array(brandPalette.keys))")
+                    jsonObject = resolveBrandTokens(in: jsonObject, palette: brandPalette)
+                    print("🎨 CONFIG: Token resolution completed")
+                    writeLog("ConfigurationService: Resolved brand palette tokens", logLevel: .info)
+                } else {
+                    print("🎨 CONFIG: No brandPalette found in config")
+                }
+
+                if let modifiedData = try? JSONSerialization.data(withJSONObject: jsonObject, options: []) {
+                    jsonData = modifiedData
+                }
+            }
+
+            let decoder = JSONDecoder()
+            let config = try decoder.decode(InspectConfig.self, from: jsonData)
+
+            let processedConfig = applyConfigurationDefaults(to: config)
+            let warnings = validateConfiguration(processedConfig)
+
+            writeLog("ConfigurationService: Successfully loaded configuration from URL: \(urlString)", logLevel: .info)
+            writeLog("ConfigurationService: Loaded \(config.items.count) items", logLevel: .info)
+
+            return .success(ConfigurationResult(
+                config: processedConfig,
+                source: .file(path: urlString),  // Track as URL source
+                warnings: warnings
+            ))
+
+        } catch let error {
+            let jsonString = String(data: data, encoding: .utf8)
+            let detailedError = ConfigurationError.formatJSONError(error, jsonString: jsonString)
+            writeLog("ConfigurationService: Configuration loading failed from URL \(urlString):\n\(detailedError)", logLevel: .error)
+            return .failure(.invalidJSON(path: urlString, error: error))
+        }
+    }
     
-    /// Fallback: Load configuration from specific file path 
+    /// Fallback: Load configuration from specific file path
     /// TODO: Reevaluate as this has been brittle - loading from file system to late to initialize UI accordingly
     func loadConfigurationFromFile(at path: String) -> Result<ConfigurationResult, ConfigurationError> {
+        print("🔧 CONFIG: loadConfigurationFromFile called with path: \(path)")
+
         // Check if file exists
         guard FileManager.default.fileExists(atPath: path) else {
             return .failure(.fileNotFound(path: path))
         }
-        
+
         do {
             // Load and parse JSON
             let data = try Data(contentsOf: URL(fileURLWithPath: path))
 
-            // Auto-detect iconBasePath if not explicitly set
+            // Parse JSON to dictionary for pre-processing
             var jsonData = data
-            if let jsonObject = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                var mutableJSON = jsonObject
+            if var jsonObject = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
 
                 // If iconBasePath is nil or missing, auto-set to config directory
-                if mutableJSON["iconBasePath"] == nil {
+                if jsonObject["iconBasePath"] == nil {
                     let configDirectory = (path as NSString).deletingLastPathComponent
-                    mutableJSON["iconBasePath"] = configDirectory
-                    writeLog("ConfigurationService: Auto-set iconBasePath to: \(configDirectory)", logLevel: .debug)
+                    jsonObject["iconBasePath"] = configDirectory
+                    writeLog("ConfigurationService: Auto-set iconBasePath to: \(configDirectory)", logLevel: .info)
+                }
 
-                    // Re-serialize modified JSON
-                    if let modifiedData = try? JSONSerialization.data(withJSONObject: mutableJSON, options: []) {
-                        jsonData = modifiedData
-                    }
+                // Resolve brand palette tokens BEFORE decoding
+                if let brandPalette = jsonObject["brandPalette"] as? [String: Any] {
+                    print("🎨 CONFIG: Found brandPalette with \(brandPalette.count) keys: \(Array(brandPalette.keys))")
+                    jsonObject = resolveBrandTokens(in: jsonObject, palette: brandPalette)
+                    print("🎨 CONFIG: Token resolution completed")
+                    writeLog("ConfigurationService: Resolved brand palette tokens", logLevel: .info)
+                } else {
+                    print("🎨 CONFIG: No brandPalette found in config")
+                }
+
+                // Re-serialize modified JSON
+                if let modifiedData = try? JSONSerialization.data(withJSONObject: jsonObject, options: []) {
+                    jsonData = modifiedData
                 }
             }
 
@@ -381,7 +483,7 @@ class Config {
             let warnings = validateConfiguration(processedConfig)
             
             writeLog("ConfigurationService: Successfully loaded configuration from \(path)", logLevel: .info)
-            writeLog("ConfigurationService: Loaded \(config.items.count) items", logLevel: .debug)
+            writeLog("ConfigurationService: Loaded \(config.items.count) items", logLevel: .info)
             
             return .success(ConfigurationResult(
                 config: processedConfig,
@@ -402,52 +504,141 @@ class Config {
     func createTestConfiguration() -> Result<ConfigurationResult, ConfigurationError> {
         let testConfigJSON = """
         {
-            "title": "Software Installation Progress",
-            "message": "Your IT department is installing essential applications. This process may take several minutes.",
-            "preset": "preset1",
-            "icon": "default",
-            "button1text": "Continue",
-            "button2text": "Create Sample Config",
-            "button2visible": true,
-            "popupButton": "Installation Details",
-            "highlightColor": "#007AFF",
-            "cachePaths": ["/tmp"],
-            "uiLabels": {
-                "completedStatus": "Installed",
-                "downloadingStatus": "Installing...",
-                "pendingStatus": "Pending",
-                "progressFormat": "{completed} of {total} apps installed",
-                "completionMessage": "All Applications Installed!",
-                "completionSubtitle": "Your software is ready to use"
+            "preset": "11",
+            "windowTitle": "swiftDialog Inspect Mode",
+            "windowWidth": 950,
+            "windowHeight": 700,
+            "highlightColor": "#5856D6",
+            "footerText": "swiftDialog Demo",
+            "debugMode": true,
+            "brandPalette": {
+                "primary": "#5856D6",
+                "secondary": "#AF52DE",
+                "accent": "#FF9500",
+                "background": "#F2F2F7"
             },
-            "items": [
+            "introSteps": [
                 {
-                    "id": "word",
-                    "displayName": "Microsoft Word",
-                    "guiIndex": 0,
-                    "icon": "sf=doc.fill",
-                    "paths": ["/Applications/Microsoft Word.app"]
+                    "id": "welcome",
+                    "stepType": "intro",
+                    "heroImage": "SF=wand.and.stars",
+                    "heroImageShape": "circle",
+                    "heroImageSize": 100,
+                    "heroImageColor": "#5856D6",
+                    "title": "swiftDialog Inspect Mode",
+                    "subtitle": "Powerful dialogs for macOS management",
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": "You are running swiftDialog in Inspect Mode, a development environment for building and testing dialog configurations."
+                        },
+                        {
+                            "type": "bullets",
+                            "items": [
+                                "Guided onboarding experiences",
+                                "Interactive setup wizards",
+                                "Real-time installation monitoring",
+                                "Compliance check interfaces"
+                            ]
+                        }
+                    ],
+                    "continueButtonText": "Explore Features"
                 },
                 {
-                    "id": "excel",
-                    "displayName": "Microsoft Excel",
-                    "guiIndex": 1,
-                    "icon": "sf=tablecells.fill",
-                    "paths": ["/Applications/Microsoft Excel.app"]
+                    "id": "install-demo",
+                    "stepType": "info",
+                    "heroImage": "/System/Applications/App Store.app",
+                    "heroImageShape": "roundedSquare",
+                    "heroImageSize": 90,
+                    "title": "App Installation Monitoring",
+                    "subtitle": "Real-time file system detection",
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": "swiftDialog monitors your file system in real-time, detecting app installations as they happen. Here is a live view of common applications:"
+                        }
+                    ],
+                    "items": [
+                        {
+                            "id": "word",
+                            "displayName": "Microsoft Word",
+                            "icon": "/Applications/Microsoft Word.app",
+                            "paths": ["/Applications/Microsoft Word.app"]
+                        },
+                        {
+                            "id": "excel",
+                            "displayName": "Microsoft Excel",
+                            "icon": "/Applications/Microsoft Excel.app",
+                            "paths": ["/Applications/Microsoft Excel.app"]
+                        },
+                        {
+                            "id": "1password",
+                            "displayName": "1Password",
+                            "icon": "/Applications/1Password.app",
+                            "paths": ["/Applications/1Password.app"]
+                        },
+                        {
+                            "id": "slack",
+                            "displayName": "Slack",
+                            "icon": "/Applications/Slack.app",
+                            "paths": ["/Applications/Slack.app"]
+                        },
+                        {
+                            "id": "chrome",
+                            "displayName": "Google Chrome",
+                            "icon": "/Applications/Google Chrome.app",
+                            "paths": ["/Applications/Google Chrome.app"]
+                        }
+                    ],
+                    "continueButtonText": "Continue"
                 },
                 {
-                    "id": "teams",
-                    "displayName": "Microsoft Teams",
-                    "guiIndex": 2,
-                    "icon": "sf=person.2.fill",
-                    "paths": ["/Applications/Microsoft Teams.app"]
+                    "id": "presets",
+                    "stepType": "info",
+                    "heroImage": "SF=square.grid.3x3.fill",
+                    "heroImageShape": "roundedSquare",
+                    "heroImageSize": 80,
+                    "heroImageColor": "#AF52DE",
+                    "title": "Multiple Preset Layouts",
+                    "subtitle": "Choose the perfect style for your workflow",
+                    "content": [
+                        {
+                            "type": "bullets",
+                            "items": [
+                                "Preset 1-5: Classic list-based installation monitors",
+                                "Preset 6: Step-by-step wizard with side navigation",
+                                "Preset 7: Grid-based app launcher style",
+                                "Preset 8-9: Compliance and validation dashboards",
+                                "Preset 10-11: Modern guided onboarding flows"
+                            ]
+                        }
+                    ],
+                    "continueButtonText": "Continue"
                 },
                 {
-                    "id": "outlook",
-                    "displayName": "Microsoft Outlook",
-                    "guiIndex": 4,
-                    "icon": "sf=envelope.fill",
-                    "paths": ["/Applications/Microsoft Outlook.app"]
+                    "id": "complete",
+                    "stepType": "outro",
+                    "heroImage": "SF=checkmark.circle.fill",
+                    "heroImageShape": "circle",
+                    "heroImageSize": 100,
+                    "heroImageColor": "#34C759",
+                    "title": "Ready to Build",
+                    "subtitle": "Create your first configuration",
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": "Create a JSON config file and provide it via:"
+                        },
+                        {
+                            "type": "arrow",
+                            "content": "DIALOG_INSPECT_CONFIG=/path/to/config.json"
+                        },
+                        {
+                            "type": "arrow",
+                            "content": "Or place at /var/tmp/dialog-inspect-config.json"
+                        }
+                    ],
+                    "continueButtonText": "Close"
                 }
             ]
         }
@@ -461,7 +652,7 @@ class Config {
             let config = try JSONDecoder().decode(InspectConfig.self, from: jsonData)
             let processedConfig = applyConfigurationDefaults(to: config)
             
-            writeLog("ConfigurationService: Created test configuration with \(config.items.count) items", logLevel: .debug)
+            writeLog("ConfigurationService: Created test configuration with \(config.items.count) items", logLevel: .info)
             
             return .success(ConfigurationResult(
                 config: processedConfig,
@@ -575,17 +766,12 @@ class Config {
             // Get icon for category (uses config icons if provided, otherwise defaults)
             let icon = getIconForKey(key, category: category, sourceIcon: source.icon, categoryIcons: source.categoryIcons)
 
-            // Check if critical
-            let isCritical = source.criticalKeys?.contains(key) ?? false
-
             // Check keyMappings for overrides
             var finalDisplayName = displayName
             var finalCategory = category
-            var finalIsCritical = isCritical
             if let mapping = source.keyMappings?.first(where: { $0.key == key }) {
                 if let mappedName = mapping.displayName { finalDisplayName = mappedName }
                 if let mappedCategory = mapping.category { finalCategory = mappedCategory }
-                if let mappedCritical = mapping.isCritical { finalIsCritical = mappedCritical }
             }
 
             let item = InspectConfig.ItemConfig(
@@ -694,12 +880,13 @@ class Config {
         let validPresets = [
             // Full names
             "preset1", "preset2", "preset3", "preset4", "preset5",
-            "preset6", "preset7", "preset8", "preset9",
+            "preset6", "preset7", "preset8", "preset9", "preset11",
             // Numeric shorthand
-            "1", "2", "3", "4", "5", "6", "7", "8", "9",
+            "1", "2", "3", "4", "5", "6", "7", "8", "9", "11",
             // Marketing names
             "deployment", "cards", "compact", "compliance",
-            "dashboard", "guidance", "guide", "onboarding", "display"
+            "dashboard", "guidance", "guide", "onboarding", "display",
+            "portal", "self-service", "webview-portal"
         ]
         if !validPresets.contains(config.preset.lowercased()) {
             warnings.append("Unknown preset '\(config.preset)' - will default to preset1")
@@ -961,7 +1148,6 @@ class Config {
 
         // Summary if issues found
         if !warnings.isEmpty {
-            let expected = (0..<items.count).map { String($0) }.joined(separator: ", ")
             let actual = sortedByIndex.map { "\($0.index)" }.joined(separator: ", ")
             warnings.insert("⚠️ guiIndex: Expected sequential [0..\(items.count - 1)] but found [\(actual)]", at: 0)
         }
@@ -969,8 +1155,97 @@ class Config {
         return warnings
     }
 
+    // MARK: - Brand Token Resolution (Pre-Decode)
+
+    /// Resolve $token references in a JSON dictionary using the brandPalette
+    private func resolveBrandTokens(in dict: [String: Any], palette: [String: Any]) -> [String: Any] {
+        var result = dict
+
+        for (key, value) in dict {
+            if let stringValue = value as? String {
+                let resolved = resolveTokenString(stringValue, palette: palette)
+                if resolved != stringValue {
+                    writeLog("BrandToken: Dict key '\(key)' resolved: '\(stringValue)' → '\(resolved)'", logLevel: .info)
+                }
+                result[key] = resolved
+            } else if let arrayValue = value as? [Any] {
+                writeLog("BrandToken: Processing array for key '\(key)' with \(arrayValue.count) elements", logLevel: .info)
+                result[key] = resolveTokensInArray(arrayValue, palette: palette)
+            } else if let dictValue = value as? [String: Any], key != "brandPalette" {
+                // Skip brandPalette itself to avoid circular resolution
+                result[key] = resolveBrandTokens(in: dictValue, palette: palette)
+            }
+        }
+
+        return result
+    }
+
+    /// Resolve tokens in an array
+    private func resolveTokensInArray(_ array: [Any], palette: [String: Any]) -> [Any] {
+        return array.map { element in
+            if let stringValue = element as? String {
+                return resolveTokenString(stringValue, palette: palette)
+            } else if let arrayValue = element as? [Any] {
+                return resolveTokensInArray(arrayValue, palette: palette)
+            } else if let dictValue = element as? [String: Any] {
+                return resolveBrandTokens(in: dictValue, palette: palette)
+            }
+            return element
+        }
+    }
+
+    /// Resolve $tokenName references in a string using the palette dictionary
+    private func resolveTokenString(_ value: String, palette: [String: Any]) -> String {
+        guard value.contains("$") else { return value }
+
+        let pattern = #"\$([a-zA-Z_][a-zA-Z0-9_.]*)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return value }
+
+        var result = value
+        let matches = regex.matches(in: value, range: NSRange(value.startIndex..., in: value))
+
+        writeLog("BrandToken: Resolving '\(value)' - found \(matches.count) token(s)", logLevel: .info)
+
+        for match in matches.reversed() {
+            guard let tokenRange = Range(match.range(at: 1), in: value),
+                  let fullRange = Range(match.range, in: result) else { continue }
+
+            let token = String(value[tokenRange])
+            if let resolved = lookupPaletteToken(token, palette: palette) {
+                writeLog("BrandToken: Resolved $\(token) → \(resolved)", logLevel: .info)
+                result.replaceSubrange(fullRange, with: resolved)
+            } else {
+                writeLog("BrandToken: WARNING - Token '$\(token)' not found in palette", logLevel: .info)
+            }
+        }
+
+        return result
+    }
+
+    /// Look up a token in the palette dictionary
+    private func lookupPaletteToken(_ token: String, palette: [String: Any]) -> String? {
+        // Handle namespaced tokens like "logos.main" or "custom.brandTeal"
+        if token.contains(".") {
+            let parts = token.split(separator: ".", maxSplits: 1)
+            if parts.count == 2,
+               let namespace = palette[String(parts[0])] as? [String: Any],
+               let value = namespace[String(parts[1])] as? String {
+                // Recursively resolve in case the value contains tokens
+                return resolveTokenString(value, palette: palette)
+            }
+            return nil
+        }
+
+        // Direct token lookup
+        if let value = palette[token] as? String {
+            return value
+        }
+
+        return nil
+    }
+
     // MARK: - Configuration Transformation Helpers
-    
+
     func extractUIConfiguration(from config: InspectConfig) -> UIConfiguration {
         var uiConfig = UIConfiguration()
 
